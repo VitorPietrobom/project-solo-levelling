@@ -10,8 +10,9 @@ This is a greenfield project. The application will be built as a single-page app
 
 - **Frontend**: React with TypeScript — component-based architecture fits the tabbed UI, strong typing reduces bugs in complex state like XP calculations.
 - **Backend**: Node.js with Express and TypeScript — shared language with frontend, good ecosystem for REST APIs.
-- **Database**: PostgreSQL — relational model suits the structured data (users, quests, measurements, recipes), supports complex queries needed for weekly summaries.
+- **Database**: Supabase-hosted PostgreSQL — relational model suits the structured data (users, quests, measurements, recipes), supports complex queries needed for weekly summaries. Hosted on Supabase free tier so friends can access the app without local database setup. Prisma connects via the Supabase connection string.
 - **ORM**: Prisma — type-safe database access, schema-driven migrations, good TypeScript integration.
+- **File Storage**: Supabase Storage — document uploads (Learning Tab) are stored in Supabase Storage instead of local disk. The Document model's `filePath` field stores the Supabase Storage object path/URL. Free tier provides 1GB storage.
 - **Charting**: Recharts — React-native charting library for weight graphs and calorie breakdowns.
 - **Authentication**: JWT-based session tokens with bcrypt password hashing.
 - **Styling**: Tailwind CSS with a custom dark theme configuration using CSS custom properties for accent colors.
@@ -45,8 +46,8 @@ graph TB
     end
 
     subgraph Storage ["Data Layer"]
-        DB[(PostgreSQL)]
-        FileStore[File Storage - Local Disk]
+        DB[(Supabase PostgreSQL)]
+        FileStore[File Storage - Supabase Storage]
     end
 
     Router --> Auth
@@ -82,6 +83,46 @@ graph TB
 4. Controller processes the request, delegates to services for business logic (e.g., XP calculations)
 5. Prisma ORM handles database operations
 6. Response returns JSON to the frontend
+
+### Deployment Architecture
+
+The application is deployed across free-tier cloud services so friends can access it without local setup:
+
+```mermaid
+graph LR
+    subgraph Client ["Frontend"]
+        SPA[React SPA]
+    end
+
+    subgraph Hosting ["Hosting"]
+        Vercel[Vercel / Netlify<br/>Free Tier]
+        Render[Render<br/>Free Tier]
+    end
+
+    subgraph Supabase ["Supabase (Free Tier)"]
+        SupaDB[(PostgreSQL)]
+        SupaStorage[Storage<br/>1GB]
+    end
+
+    SPA --> Vercel
+    Vercel --> Render
+    Render --> SupaDB
+    Render --> SupaStorage
+```
+
+- **Frontend (React SPA)**: Deployed to Vercel or Netlify (free tier). Static build output served via CDN.
+- **Backend (Express API)**: Deployed to Render (free tier). Runs the Express server with Prisma client.
+- **Database**: Supabase PostgreSQL (free tier). Prisma connects via the Supabase connection string (`DATABASE_URL`).
+- **File Storage**: Supabase Storage (free tier, 1GB). Document uploads go here instead of local disk.
+
+#### Required Environment Variables
+
+| Variable | Service | Purpose |
+|----------|---------|---------|
+| `DATABASE_URL` | Render (backend) | Supabase PostgreSQL connection string |
+| `SUPABASE_URL` | Render (backend) | Supabase project URL for Storage API |
+| `SUPABASE_SERVICE_KEY` | Render (backend) | Supabase service role key for Storage operations |
+| `JWT_SECRET` | Render (backend) | Secret for signing JWT auth tokens |
 
 ## Components and Interfaces
 
@@ -192,7 +233,7 @@ graph TB
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/documents` | List/search documents |
-| POST | `/api/documents` | Upload document |
+| POST | `/api/documents` | Upload document (file stored in Supabase Storage) |
 | GET | `/api/documents/:id` | Get/download document |
 | GET | `/api/documents/categories` | List categories |
 
@@ -406,7 +447,7 @@ erDiagram
         string title
         string category
         enum format "pdf | markdown"
-        string filePath
+        string filePath "Supabase Storage object path"
         datetime uploadedAt
     }
 }
@@ -631,7 +672,7 @@ Heat map color scale (soreness 0–100):
 - **API errors**: All API calls go through a shared `apiClient` wrapper that catches HTTP errors. On 401 (unauthorized), redirect to login. On 4xx, display a user-friendly toast notification with the error message. On 5xx, display a generic "Something went wrong" message.
 - **Network errors**: Display an offline indicator and queue failed mutations for retry when connectivity returns.
 - **Form validation**: Validate inputs client-side before submission. Display inline error messages for invalid fields (e.g., empty quest title, negative calorie count, unsupported file format).
-- **File upload errors**: Display specific messages for unsupported formats, file too large, or upload failures.
+- **File upload errors**: Display specific messages for unsupported formats, file too large, Supabase Storage upload failures, or network errors during upload.
 
 ### Backend Error Handling
 
@@ -648,6 +689,7 @@ Heat map color scale (soreness 0–100):
 | Invalid login credentials | 401 response, "Invalid email or password" message |
 | Duplicate weight entry for same date | 409 response, "Weight entry already exists for this date" |
 | Upload non-PDF/non-Markdown file | 400 response, "Unsupported file format. Please upload PDF or Markdown files." |
+| Supabase Storage upload failure | 500 response, "File upload failed. Please try again." with retry |
 | Quest step already completed | 400 response, "This step is already completed" |
 | Calorie goal set to negative | Client-side validation prevents submission |
 | Database connection lost | 500 response with retry, error toast on frontend |

@@ -271,7 +271,7 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - POST `/api/documents` — upload document (multipart form, validate PDF/Markdown format, reject others with 400)
     - GET `/api/documents/:id` — get/download document file
     - GET `/api/documents/categories` — list distinct categories
-    - Store files on local disk, store metadata in DB
+    - Store files in Supabase Storage, store metadata in DB
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
   - [ ]* 18.2 Write property test for document round-trip
     - **Property 22: Document round-trip**
