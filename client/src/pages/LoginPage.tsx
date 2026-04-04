@@ -1,0 +1,78 @@
+import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+export default function LoginPage() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+
+    try {
+      await login(email, password);
+      navigate('/', { replace: true });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Login failed';
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-primary">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm p-8 rounded-lg bg-card border border-border"
+      >
+        <h1 className="text-2xl font-bold text-text-primary mb-6 text-center">
+          Level Up Portal
+        </h1>
+
+        {error && (
+          <p className="text-accent-warning text-sm mb-4" role="alert">
+            {error}
+          </p>
+        )}
+
+        <label className="block mb-4">
+          <span className="text-text-secondary text-sm">Email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="mt-1 block w-full px-3 py-2 rounded bg-secondary text-text-primary border border-border focus:outline-none focus:border-accent-primary"
+          />
+        </label>
+
+        <label className="block mb-6">
+          <span className="text-text-secondary text-sm">Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="mt-1 block w-full px-3 py-2 rounded bg-secondary text-text-primary border border-border focus:outline-none focus:border-accent-primary"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full py-2 rounded font-semibold bg-accent-primary text-primary hover:opacity-90 disabled:opacity-50"
+        >
+          {submitting ? 'Signing in...' : 'Sign In'}
+        </button>
+      </form>
+    </div>
+  );
+}

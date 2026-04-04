@@ -23,26 +23,26 @@ Build a personal growth web application with React+TypeScript frontend, Express+
   - [x] 1.4 Set up Vitest configuration for both client and server with fast-check integration
     - _Requirements: (testing infrastructure)_
 
-- [ ] 2. Authentication backend and frontend
-  - [ ] 2.1 Implement auth controller and JWT middleware on the server
+- [x] 2. Authentication backend and frontend
+  - [x] 2.1 Implement auth controller and JWT middleware on the server
     - POST `/api/auth/login` — validate credentials with bcrypt, return JWT
     - POST `/api/auth/logout` — invalidate session
     - GET `/api/auth/me` — return current user from token
     - Auth middleware: validate JWT on all protected routes, return 401/403 appropriately
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
-  - [ ] 2.2 Implement shared API client with retry logic on the frontend
+  - [x] 2.2 Implement shared API client with retry logic on the frontend
     - Wrap fetch with Authorization header injection, 401 redirect to login, toast notifications for 4xx/5xx
     - Implement single automatic retry on save failures (POST, PUT, PATCH, DELETE)
     - _Requirements: 17.2, 17.3_
   - [ ]* 2.3 Write property test for save retry on failure
     - **Property 28: Save retry on failure**
     - **Validates: Requirements 17.3**
-  - [ ] 2.4 Implement LoginPage and AuthContext on the frontend
+  - [x] 2.4 Implement LoginPage and AuthContext on the frontend
     - LoginPage with email/password form, error display, redirect on success
     - AuthContext providing auth state, login/logout functions, JWT storage
     - Protected route wrapper that redirects unauthenticated users to login
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 17.4_
-  - [ ] 2.5 Implement Dashboard layout with TabNavigation
+  - [x] 2.5 Implement Dashboard layout with TabNavigation
     - Horizontal tab bar: Gamification, Body, Diet, Learning
     - Active tab highlighted with accent color, route-based tab switching
     - _Requirements: 2.1, 2.2, 2.3_
