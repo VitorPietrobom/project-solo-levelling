@@ -1,7 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-do-not-use-in-production';
+import { supabase } from '../lib/supabase';
 
 export interface AuthPayload {
   id: string;
@@ -16,7 +14,7 @@ declare global {
   }
 }
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith('Bearer ')) {
@@ -27,16 +25,16 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   const token = header.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
-    req.user = { id: decoded.id, email: decoded.email };
-    next();
-  } catch (err: any) {
-    if (err.name === 'TokenExpiredError') {
-      res.status(403).json({ error: 'Token expired' });
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      res.status(401).json({ error: 'Invalid token' });
       return;
     }
+
+    req.user = { id: user.id, email: user.email || '' };
+    next();
+  } catch {
     res.status(401).json({ error: 'Invalid token' });
   }
 }
-
-export { JWT_SECRET };

@@ -16,20 +16,17 @@ vi.mock('../lib/prisma', () => ({
     },
     user: {
       update: vi.fn(),
+      upsert: vi.fn().mockResolvedValue({}),
     },
   },
 }));
 
-vi.mock('../middleware/auth', async () => {
-  const actual = await vi.importActual('../middleware/auth');
-  return {
-    ...actual,
-    authMiddleware: (req: any, _res: any, next: any) => {
-      req.user = { id: 'test-user-id', email: 'test@example.com' };
-      next();
-    },
-  };
-});
+vi.mock('../middleware/auth', async () => ({
+  authMiddleware: (req: any, _res: any, next: any) => {
+    req.user = { id: 'test-user-id', email: 'test@example.com' };
+    next();
+  },
+}));
 
 import prisma from '../lib/prisma';
 

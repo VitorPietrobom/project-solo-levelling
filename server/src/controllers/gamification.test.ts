@@ -2,26 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import app from '../index';
 
-// Mock prisma
 vi.mock('../lib/prisma', () => ({
   default: {
     user: {
       findUnique: vi.fn(),
+      upsert: vi.fn().mockResolvedValue({}),
     },
   },
 }));
 
-// Mock auth middleware to inject a test user
-vi.mock('../middleware/auth', async () => {
-  const actual = await vi.importActual('../middleware/auth');
-  return {
-    ...actual,
-    authMiddleware: (req: any, _res: any, next: any) => {
-      req.user = { id: 'test-user-id', email: 'test@example.com' };
-      next();
-    },
-  };
-});
+vi.mock('../middleware/auth', async () => ({
+  authMiddleware: (req: any, _res: any, next: any) => {
+    req.user = { id: 'test-user-id', email: 'test@example.com' };
+    next();
+  },
+}));
 
 import prisma from '../lib/prisma';
 

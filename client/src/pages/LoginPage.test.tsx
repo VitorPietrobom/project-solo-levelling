@@ -4,19 +4,23 @@ import { MemoryRouter } from 'react-router-dom';
 import LoginPage from './LoginPage';
 import { AuthProvider } from '../contexts/AuthContext';
 
-// Mock the apiClient module
-vi.mock('../lib/apiClient', () => ({
-  apiClient: {
-    get: vi.fn(),
-    post: vi.fn(),
-  },
-  ApiError: class ApiError extends Error {
-    status: number;
-    constructor(message: string, status: number) {
-      super(message);
-      this.name = 'ApiError';
-      this.status = status;
-    }
+const mockSignIn = vi.fn();
+const mockSignUp = vi.fn();
+const mockSignOut = vi.fn();
+const mockGetSession = vi.fn();
+const mockOnAuthStateChange = vi.fn(() => ({
+  data: { subscription: { unsubscribe: vi.fn() } },
+}));
+
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: () => mockGetSession(),
+      signInWithPassword: (args: any) => mockSignIn(args),
+      signUp: (args: any) => mockSignUp(args),
+      signOut: () => mockSignOut(),
+      onAuthStateChange: () => mockOnAuthStateChange(),
+    },
   },
 }));
 
@@ -25,20 +29,6 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
 });
-
-import { apiClient } from '../lib/apiClient';
-
-const storageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: vi.fn((key: string) => store[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-    removeItem: vi.fn((key: string) => { delete store[key]; }),
-    clear: vi.fn(() => { store = {}; }),
-    get length() { return Object.keys(store).length; },
-    key: vi.fn((i: number) => Object.keys(store)[i] ?? null),
-  };
-})();
 
 function renderLoginPage() {
   return render(
@@ -53,10 +43,7 @@ function renderLoginPage() {
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal('localStorage', storageMock);
-    storageMock.clear();
-    // AuthProvider calls GET /api/auth/me on mount — reject so it finishes loading
-    vi.mocked(apiClient.get).mockRejectedValue(new Error('no token'));
+    mockGetSession.mockResolvedValue({ data: { session: null } });
   });
 
   it('renders email and password fields and a submit button', async () => {
@@ -68,10 +55,7 @@ describe('LoginPage', () => {
 
   it('calls login and navigates on successful submit', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiClient.post).mockResolvedValueOnce({
-      token: 'jwt-123',
-      user: { id: '1', email: 'test@example.com' },
-    });
+    mockSignIn.mockResolvedValueOnce({ error: null });
 
     renderLoginPage();
 
@@ -83,8 +67,9 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith('/api/auth/login', {
-        body: { email: 'test@example.com', password: 'password123' },
+      expect(mockSignIn).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'password123',
       });
     });
 
@@ -95,9 +80,9 @@ describe('LoginPage', () => {
 
   it('displays an error message on failed login', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiClient.post).mockRejectedValueOnce(
-      new Error('Invalid email or password'),
-    );
+    mockSignIn.mockResolvedValueOnce({
+      error: { message: 'Invalid login credentials' },
+    });
 
     renderLoginPage();
 
@@ -105,11 +90,11 @@ describe('LoginPage', () => {
     const passwordInput = screen.getByLabelText(/password/i);
 
     await user.type(emailInput, 'bad@example.com');
-    await user.type(passwordInput, 'wrong');
+    await user.type(passwordInput, 'wrongpw');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Invalid email or password',
+      'Invalid login credentials',
     );
   });
 });

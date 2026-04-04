@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { login, logout, getMe } from '../controllers/auth';
 import { authMiddleware } from '../middleware/auth';
+import { ensureUser } from '../middleware/ensureUser';
 
 const router = Router();
 
-router.post('/login', login);
-router.post('/logout', logout);
-router.get('/me', authMiddleware, getMe);
+// Only endpoint needed: verify token and return user info
+router.get('/me', authMiddleware, ensureUser, (req, res) => {
+  res.json({ user: req.user });
+});
 
 export default router;

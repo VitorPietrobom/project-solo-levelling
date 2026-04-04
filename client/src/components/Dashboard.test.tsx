@@ -3,38 +3,25 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import { AuthProvider } from '../contexts/AuthContext';
 
-vi.mock('../lib/apiClient', () => ({
-  apiClient: {
-    get: vi.fn(),
-    post: vi.fn(),
-  },
-  ApiError: class ApiError extends Error {
-    status: number;
-    constructor(message: string, status: number) {
-      super(message);
-      this.name = 'ApiError';
-      this.status = status;
-    }
+const mockGetSession = vi.fn();
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: () => mockGetSession(),
+      onAuthStateChange: () => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      }),
+      signInWithPassword: vi.fn(),
+      signUp: vi.fn(),
+      signOut: vi.fn(),
+    },
   },
 }));
 
-import { apiClient } from '../lib/apiClient';
-
-const storageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: vi.fn((key: string) => store[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-    removeItem: vi.fn((key: string) => { delete store[key]; }),
-    clear: vi.fn(() => { store = {}; }),
-    get length() { return Object.keys(store).length; },
-    key: vi.fn((i: number) => Object.keys(store)[i] ?? null),
-  };
-})();
-
 function renderDashboard() {
-  storageMock.setItem('token', 'valid-jwt');
-  vi.mocked(apiClient.get).mockResolvedValue({ id: '1', email: 'user@test.com' });
+  mockGetSession.mockResolvedValue({
+    data: { session: { user: { id: '1', email: 'user@test.com' }, access_token: 'tok' } },
+  });
 
   return render(
     <MemoryRouter initialEntries={['/']}>
@@ -53,20 +40,16 @@ function renderDashboard() {
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal('localStorage', storageMock);
-    storageMock.clear();
   });
 
   it('renders the header with title and logout button', async () => {
     renderDashboard();
-
     expect(await screen.findByText('Level Up Portal')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument();
   });
 
   it('renders the tab navigation', async () => {
     renderDashboard();
-
     expect(await screen.findByRole('tab', { name: 'Gamification' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Body' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Diet' })).toBeInTheDocument();
@@ -75,7 +58,6 @@ describe('Dashboard', () => {
 
   it('renders child route content via Outlet', async () => {
     renderDashboard();
-
     expect(await screen.findByText('Gamification Content')).toBeInTheDocument();
   });
 });

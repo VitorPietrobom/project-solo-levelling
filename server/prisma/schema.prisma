@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -64,11 +65,10 @@ enum DocumentFormat {
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  totalXP      Int      @default(0)
-  createdAt    DateTime @default(now())
+  id        String   @id
+  email     String   @unique
+  totalXP   Int      @default(0)
+  createdAt DateTime @default(now())
 
   quests           Quest[]
   tasks            Task[]

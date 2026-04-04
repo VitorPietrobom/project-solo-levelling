@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'token';
+import { supabase } from './supabase';
 
 const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
@@ -23,7 +23,6 @@ async function handleResponse(response: Response): Promise<unknown> {
   }
 
   if (response.status === 401) {
-    localStorage.removeItem(TOKEN_KEY);
     window.location.href = '/login';
     throw new ApiError('Unauthorized', 401);
   }
@@ -54,9 +53,9 @@ async function request(
     ...(customHeaders as Record<string, string>),
   };
 
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`;
   }
 
   if (body !== undefined) {

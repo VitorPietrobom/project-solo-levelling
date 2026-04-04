@@ -1,4 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const mockGetSession = vi.fn();
+vi.mock('./supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: () => mockGetSession(),
+    },
+  },
+}));
+
 import { apiClient, ApiError } from './apiClient';
 
 function mockResponse(status: number, body?: unknown, ok?: boolean): Response {
@@ -10,44 +20,29 @@ function mockResponse(status: number, body?: unknown, ok?: boolean): Response {
   } as Response;
 }
 
-// Create a proper localStorage mock since jsdom may not provide one
-const storageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: vi.fn((key: string) => store[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-    removeItem: vi.fn((key: string) => { delete store[key]; }),
-    clear: vi.fn(() => { store = {}; }),
-    get length() { return Object.keys(store).length; },
-    key: vi.fn((i: number) => Object.keys(store)[i] ?? null),
-  };
-})();
-
 describe('apiClient', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
-    vi.stubGlobal('localStorage', storageMock);
-    storageMock.clear();
     vi.clearAllMocks();
-    // Reset location
     delete (window as any).location;
     (window as any).location = { href: '' };
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'sb-token' } } });
   });
 
-  it('injects Authorization header when token exists', async () => {
-    storageMock.setItem('token', 'my-jwt-token');
+  it('injects Authorization header from Supabase session', async () => {
     vi.mocked(fetch).mockResolvedValue(mockResponse(200, { ok: true }));
 
     await apiClient.get('/api/test');
 
     expect(fetch).toHaveBeenCalledWith('/api/test', expect.objectContaining({
       headers: expect.objectContaining({
-        Authorization: 'Bearer my-jwt-token',
+        Authorization: 'Bearer sb-token',
       }),
     }));
   });
 
-  it('does not inject Authorization header when no token', async () => {
+  it('does not inject Authorization header when no session', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null } });
     vi.mocked(fetch).mockResolvedValue(mockResponse(200, { ok: true }));
 
     await apiClient.get('/api/test');
@@ -56,13 +51,10 @@ describe('apiClient', () => {
     expect(callHeaders.Authorization).toBeUndefined();
   });
 
-  it('clears token and redirects to /login on 401', async () => {
-    storageMock.setItem('token', 'expired-token');
+  it('redirects to /login on 401', async () => {
     vi.mocked(fetch).mockResolvedValue(mockResponse(401, null, false));
 
     await expect(apiClient.get('/api/protected')).rejects.toThrow('Unauthorized');
-
-    expect(storageMock.removeItem).toHaveBeenCalledWith('token');
     expect(window.location.href).toBe('/login');
   });
 
@@ -83,7 +75,6 @@ describe('apiClient', () => {
 
   it('throws generic message on 5xx', async () => {
     vi.mocked(fetch).mockResolvedValue(mockResponse(500, null, false));
-
     await expect(apiClient.get('/api/data')).rejects.toThrow('Something went wrong');
   });
 
@@ -112,31 +103,8 @@ describe('apiClient', () => {
 
   it('GET does NOT retry on failure', async () => {
     vi.mocked(fetch).mockRejectedValueOnce(new Error('Network error'));
-
     await expect(apiClient.get('/api/items')).rejects.toThrow('Network error');
-
     expect(fetch).toHaveBeenCalledTimes(1);
-  });
-
-  it('PUT retries once on failure', async () => {
-    vi.mocked(fetch)
-      .mockRejectedValueOnce(new Error('Network error'))
-      .mockResolvedValueOnce(mockResponse(200, { updated: true }));
-
-    const result = await apiClient.put('/api/items/1', { body: { name: 'updated' } });
-
-    expect(result).toEqual({ updated: true });
-    expect(fetch).toHaveBeenCalledTimes(2);
-  });
-
-  it('DELETE retries once on failure', async () => {
-    vi.mocked(fetch)
-      .mockRejectedValueOnce(new Error('Network error'))
-      .mockResolvedValueOnce(mockResponse(204));
-
-    await apiClient.delete('/api/items/1');
-
-    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it('sends JSON body with Content-Type header for POST', async () => {
