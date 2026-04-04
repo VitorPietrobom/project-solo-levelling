@@ -18,25 +18,39 @@ const sampleQuests: Quest[] = [
   },
   {
     id: 'q2',
+    title: 'New Quest',
+    description: 'Fresh start',
+    xpReward: 75,
+    completed: false,
+    steps: [
+      { id: 's3', description: 'Step one', sortOrder: 0, completed: false },
+    ],
+  },
+  {
+    id: 'q3',
     title: 'Done Quest',
     description: 'Already finished',
     xpReward: 50,
     completed: true,
-    steps: [{ id: 's3', description: 'Only step', sortOrder: 0, completed: true }],
+    steps: [{ id: 's4', description: 'Only step', sortOrder: 0, completed: true }],
   },
 ];
 
 describe('QuestList', () => {
-  it('renders active quests with progress', () => {
+  it('renders kanban columns', () => {
     render(<QuestList quests={sampleQuests} onToggleStep={vi.fn()} />);
-    expect(screen.getByText('Learn TypeScript')).toBeInTheDocument();
-    expect(screen.getByText('1 / 2 steps')).toBeInTheDocument();
-    expect(screen.getByText('100 XP')).toBeInTheDocument();
+    expect(screen.getByText('To Do')).toBeInTheDocument();
+    expect(screen.getByText('In Progress')).toBeInTheDocument();
+    expect(screen.getByText('Done')).toBeInTheDocument();
   });
 
-  it('renders completed quests section', () => {
+  it('places quests in correct columns', () => {
     render(<QuestList quests={sampleQuests} onToggleStep={vi.fn()} />);
-    expect(screen.getByText('Completed')).toBeInTheDocument();
+    // "New Quest" has no completed steps -> To Do
+    expect(screen.getByText('New Quest')).toBeInTheDocument();
+    // "Learn TypeScript" has one completed step -> In Progress
+    expect(screen.getByText('Learn TypeScript')).toBeInTheDocument();
+    // "Done Quest" is completed -> Done
     expect(screen.getByText('Done Quest')).toBeInTheDocument();
   });
 

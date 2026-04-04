@@ -138,7 +138,7 @@ All remaining UI tasks MUST follow these patterns:
     - All create/toggle handlers follow optimistic pattern: update state → fire API → swap or rollback
     - _Requirements: 3.1, 4.4, 5.5, 6.4_
 
-- [ ] 8. Checkpoint — Gamification tab complete
+- [x] 8. Checkpoint — Gamification tab complete
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 9. Weight tracking
