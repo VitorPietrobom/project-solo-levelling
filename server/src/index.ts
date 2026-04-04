@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth';
@@ -19,8 +20,14 @@ app.use('/api/gamification', gamificationRoutes);
 app.use('/api/quests', questRoutes);
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  // Warm up the DB connection pool before accepting requests
+  import('./lib/prisma').then(({ default: prisma }) => {
+    prisma.$connect().then(() => {
+      console.log('Database connected');
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    });
   });
 }
 

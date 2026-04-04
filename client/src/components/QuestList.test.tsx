@@ -1,18 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import QuestList from './QuestList';
+import type { Quest } from './QuestList';
 
-const mockGet = vi.fn();
-const mockPatch = vi.fn();
-vi.mock('../lib/apiClient', () => ({
-  apiClient: {
-    get: (...args: any[]) => mockGet(...args),
-    patch: (...args: any[]) => mockPatch(...args),
-  },
-}));
-
-const sampleQuests = [
+const sampleQuests: Quest[] = [
   {
     id: 'q1',
     title: 'Learn TypeScript',
@@ -35,62 +27,35 @@ const sampleQuests = [
 ];
 
 describe('QuestList', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('renders active quests with progress', async () => {
-    mockGet.mockResolvedValue(sampleQuests);
-    render(<QuestList refreshKey={0} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Learn TypeScript')).toBeInTheDocument();
-    });
+  it('renders active quests with progress', () => {
+    render(<QuestList quests={sampleQuests} onToggleStep={vi.fn()} />);
+    expect(screen.getByText('Learn TypeScript')).toBeInTheDocument();
     expect(screen.getByText('1 / 2 steps')).toBeInTheDocument();
     expect(screen.getByText('100 XP')).toBeInTheDocument();
   });
 
-  it('renders completed quests section', async () => {
-    mockGet.mockResolvedValue(sampleQuests);
-    render(<QuestList refreshKey={0} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Completed')).toBeInTheDocument();
-    });
+  it('renders completed quests section', () => {
+    render(<QuestList quests={sampleQuests} onToggleStep={vi.fn()} />);
+    expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(screen.getByText('Done Quest')).toBeInTheDocument();
   });
 
-  it('shows empty state when no quests', async () => {
-    mockGet.mockResolvedValue([]);
-    render(<QuestList refreshKey={0} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('No quests yet. Create one to get started.')).toBeInTheDocument();
-    });
+  it('shows empty state when no quests', () => {
+    render(<QuestList quests={[]} onToggleStep={vi.fn()} />);
+    expect(screen.getByText('No quests yet. Create one to get started.')).toBeInTheDocument();
   });
 
-  it('calls patch endpoint when toggling a step', async () => {
-    mockGet.mockResolvedValue([sampleQuests[0]]);
-    mockPatch.mockResolvedValue({});
+  it('calls onToggleStep when clicking an incomplete step', async () => {
+    const onToggle = vi.fn();
+    render(<QuestList quests={sampleQuests} onToggleStep={onToggle} />);
 
-    render(<QuestList refreshKey={0} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Build project')).toBeInTheDocument();
-    });
-
-    const btn = screen.getByLabelText('Mark "Build project" as complete');
-    await userEvent.click(btn);
-
-    expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/steps/s2');
+    await userEvent.click(screen.getByLabelText('Mark "Build project" as complete'));
+    expect(onToggle).toHaveBeenCalledWith('q1', 's2');
   });
 
-  it('shows error on fetch failure', async () => {
-    mockGet.mockRejectedValue(new Error('Server error'));
-    render(<QuestList refreshKey={0} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Server error')).toBeInTheDocument();
-    });
+  it('disables completed steps', () => {
+    render(<QuestList quests={sampleQuests} onToggleStep={vi.fn()} />);
+    const btn = screen.getByLabelText('Mark "Read docs" as complete');
+    expect(btn).toBeDisabled();
   });
 });

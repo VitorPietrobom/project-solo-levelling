@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { apiClient } from '../lib/apiClient';
+import type { Quest } from './QuestList';
 
 interface QuestFormProps {
-  onCreated: () => void;
+  onCreated: (optimistic: Quest, validSteps: string[], xpReward: number) => void;
 }
 
 export default function QuestForm({ onCreated }: QuestFormProps) {
@@ -11,7 +11,6 @@ export default function QuestForm({ onCreated }: QuestFormProps) {
   const [xpReward, setXpReward] = useState(50);
   const [steps, setSteps] = useState<string[]>(['']);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   function addStep() {
     setSteps([...steps, '']);
@@ -27,7 +26,7 @@ export default function QuestForm({ onCreated }: QuestFormProps) {
     setSteps(updated);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -37,21 +36,25 @@ export default function QuestForm({ onCreated }: QuestFormProps) {
       return;
     }
 
-    setSubmitting(true);
-    try {
-      await apiClient.post('/api/quests', {
-        body: { title: title.trim(), description: description.trim(), xpReward, steps: validSteps },
-      });
-      setTitle('');
-      setDescription('');
-      setXpReward(50);
-      setSteps(['']);
-      onCreated();
-    } catch (err: any) {
-      setError(err.message || 'Failed to create quest');
-    } finally {
-      setSubmitting(false);
-    }
+    const optimistic: Quest = {
+      id: `temp-${Date.now()}`,
+      title: title.trim(),
+      description: description.trim(),
+      xpReward,
+      completed: false,
+      steps: validSteps.map((desc, i) => ({
+        id: `temp-step-${i}`,
+        description: desc,
+        sortOrder: i,
+        completed: false,
+      })),
+    };
+
+    onCreated(optimistic, validSteps, xpReward);
+    setTitle('');
+    setDescription('');
+    setXpReward(50);
+    setSteps(['']);
   }
 
   return (
@@ -119,10 +122,9 @@ export default function QuestForm({ onCreated }: QuestFormProps) {
       </div>
       <button
         type="submit"
-        disabled={submitting}
-        className="w-full bg-accent-primary text-primary font-semibold py-2 rounded hover:opacity-90 transition-opacity disabled:opacity-50"
+        className="w-full bg-accent-primary text-primary font-semibold py-2 rounded hover:opacity-90 transition-opacity"
       >
-        {submitting ? 'Creating...' : 'Create Quest'}
+        Create Quest
       </button>
     </form>
   );

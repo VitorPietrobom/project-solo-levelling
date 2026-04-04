@@ -7,7 +7,7 @@ export async function listQuests(req: Request, res: Response): Promise<void> {
     const userId = req.user!.id;
     const quests = await prisma.quest.findMany({
       where: { userId },
-      include: { steps: { orderBy: { sortOrder: 'asc' } } },
+      include: { steps: { orderBy: { sortOrder: 'asc' as const } } },
       orderBy: { createdAt: 'desc' },
     });
     res.json(quests);
@@ -44,7 +44,7 @@ export async function createQuest(req: Request, res: Response): Promise<void> {
           })),
         },
       },
-      include: { steps: { orderBy: { sortOrder: 'asc' } } },
+      include: { steps: { orderBy: { sortOrder: 'asc' as const } } },
     });
 
     res.status(201).json(quest);
@@ -56,11 +56,12 @@ export async function createQuest(req: Request, res: Response): Promise<void> {
 export async function completeStep(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
-    const { id: questId, stepId } = req.params;
+    const questId = req.params.id as string;
+    const stepId = req.params.stepId as string;
 
     const quest = await prisma.quest.findFirst({
       where: { id: questId, userId },
-      include: { steps: { orderBy: { sortOrder: 'asc' } } },
+      include: { steps: { orderBy: { sortOrder: 'asc' as const } } },
     });
 
     if (!quest) {
@@ -73,7 +74,7 @@ export async function completeStep(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const step = quest.steps.find((s) => s.id === stepId);
+    const step = quest.steps.find((s: { id: string }) => s.id === stepId);
     if (!step) {
       res.status(404).json({ error: 'Step not found' });
       return;
@@ -89,8 +90,7 @@ export async function completeStep(req: Request, res: Response): Promise<void> {
       data: { completed: true },
     });
 
-    // Check if all steps are now complete
-    const completedCount = quest.steps.filter((s) => s.completed).length + 1;
+    const completedCount = quest.steps.filter((s: { completed: boolean }) => s.completed).length + 1;
     const allDone = completedCount === quest.steps.length;
 
     if (allDone) {
@@ -103,7 +103,7 @@ export async function completeStep(req: Request, res: Response): Promise<void> {
 
     const updated = await prisma.quest.findUnique({
       where: { id: questId },
-      include: { steps: { orderBy: { sortOrder: 'asc' } } },
+      include: { steps: { orderBy: { sortOrder: 'asc' as const } } },
     });
 
     res.json(updated);

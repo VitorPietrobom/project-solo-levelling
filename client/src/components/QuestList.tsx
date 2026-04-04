@@ -1,14 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
-import { apiClient } from '../lib/apiClient';
-
-interface QuestStep {
+export interface QuestStep {
   id: string;
   description: string;
   sortOrder: number;
   completed: boolean;
 }
 
-interface Quest {
+export interface Quest {
   id: string;
   title: string;
   description: string;
@@ -18,43 +15,11 @@ interface Quest {
 }
 
 interface QuestListProps {
-  refreshKey: number;
+  quests: Quest[];
+  onToggleStep: (questId: string, stepId: string) => void;
 }
 
-export default function QuestList({ refreshKey }: QuestListProps) {
-  const [quests, setQuests] = useState<Quest[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [togglingStep, setTogglingStep] = useState<string | null>(null);
-
-  const fetchQuests = useCallback(async () => {
-    try {
-      const data = await apiClient.get('/api/quests');
-      setQuests(data as Quest[]);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchQuests();
-  }, [fetchQuests, refreshKey]);
-
-  async function toggleStep(questId: string, stepId: string) {
-    setTogglingStep(stepId);
-    try {
-      await apiClient.patch(`/api/quests/${questId}/steps/${stepId}`);
-      await fetchQuests();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setTogglingStep(null);
-    }
-  }
-
-  if (error) {
-    return <div className="text-accent-warning text-sm">{error}</div>;
-  }
-
+export default function QuestList({ quests = [], onToggleStep }: QuestListProps) {
   const active = quests.filter((q) => !q.completed);
   const completed = quests.filter((q) => q.completed);
 
@@ -91,8 +56,8 @@ export default function QuestList({ refreshKey }: QuestListProps) {
               {quest.steps.map((step) => (
                 <li key={step.id} className="flex items-center gap-2">
                   <button
-                    onClick={() => toggleStep(quest.id, step.id)}
-                    disabled={step.completed || togglingStep === step.id}
+                    onClick={() => onToggleStep(quest.id, step.id)}
+                    disabled={step.completed}
                     className="flex items-center gap-2 text-sm disabled:opacity-60"
                     aria-label={`Mark "${step.description}" as complete`}
                   >
