@@ -2,7 +2,19 @@
 
 ## Overview
 
-Build a personal growth web application with React+TypeScript frontend, Express+TypeScript backend, PostgreSQL with Prisma, Tailwind CSS dark theme, Recharts charts, JWT auth, and Vitest+fast-check testing. Tasks are ordered so each step builds on the previous, with no orphaned code.
+Build a personal growth web application with React+TypeScript frontend, Express+TypeScript backend, Supabase-hosted PostgreSQL with Prisma, Tailwind CSS dark theme, Recharts charts, Supabase Auth, and Vitest+fast-check testing. Tasks are ordered so each step builds on the previous, with no orphaned code.
+
+### Implementation Patterns (established in tasks 1–5)
+
+All remaining UI tasks MUST follow these patterns:
+
+- **Auth**: Supabase Auth handles signup/login. Server middleware verifies Supabase JWTs locally (fast path) with fallback to `supabase.auth.getUser()`. `ensureUser` middleware auto-creates the User row on first request. No bcrypt/custom JWT on the server.
+- **Optimistic UI**: Tab containers (e.g., GamificationTab) own the data state. Forms build an optimistic object with a `temp-${Date.now()}` ID, add it to state immediately, then POST in the background. On success, swap the temp object with the server response via `setItems(prev => prev.map(…))`. On failure, remove the temp object. No refetch — swap in place.
+- **Presentational components**: List/Form components receive data and callbacks as props. No internal fetch logic. The parent tab container fetches data in `useEffect` and passes it down.
+- **Step/toggle actions**: Update state optimistically first, then fire the API call. On error, refetch from server to rollback.
+- **Backend routes**: All protected routes use `authMiddleware` then `ensureUser` middleware chain.
+- **Prisma queries**: Use `'asc' as const` for orderBy to satisfy TypeScript strict mode.
+- **API client**: Uses Supabase session token from `supabase.auth.getSession()` for Authorization header. Retries mutations once on failure.
 
 ## Tasks
 
@@ -99,8 +111,9 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 5: Task reset by period**
     - **Validates: Requirements 5.2, 5.3**
   - [ ] 6.3 Implement TaskList and TaskForm UI components
-    - TaskList showing daily and weekly tasks with completion toggles
-    - TaskForm with title, recurrence type selector, XP reward input
+    - TaskList: presentational component receiving tasks and onToggle callback as props. Shows daily and weekly tasks with completion toggles
+    - TaskForm: builds optimistic task object, calls parent's onCreated callback. Parent handles API call and state swap
+    - Parent (GamificationTab) owns task state, fetches on mount, handles optimistic create/toggle
     - _Requirements: 5.1, 5.5_
 
 - [ ] 7. Skills
@@ -116,11 +129,13 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 7: Skill XP accumulation**
     - **Validates: Requirements 6.2**
   - [ ] 7.4 Implement SkillList and SkillForm UI components
-    - SkillList showing all skills with individual level bars
-    - SkillForm for creating skills and logging activity
+    - SkillList: presentational component receiving skills as props, shows all skills with individual level bars
+    - SkillForm: builds optimistic skill object, calls parent's onCreated callback. Logging activity uses optimistic XP update
     - _Requirements: 6.1, 6.4_
   - [ ] 7.5 Wire GamificationTab container with all gamification sub-components
-    - Compose LevelDisplay, QuestList, TaskList, SkillList into GamificationTab
+    - GamificationTab owns all state: quests, tasks, skills. Fetches each on mount
+    - Compose LevelDisplay, QuestList, TaskList, SkillList as presentational children
+    - All create/toggle handlers follow optimistic pattern: update state → fire API → swap or rollback
     - _Requirements: 3.1, 4.4, 5.5, 6.4_
 
 - [ ] 8. Checkpoint — Gamification tab complete
@@ -135,8 +150,8 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 8: Weight entry round-trip and date filtering**
     - **Validates: Requirements 7.1, 7.3**
   - [ ] 9.3 Implement WeightChart and WeightForm UI components
-    - WeightChart: Recharts line graph with time range selector
-    - WeightForm: log weight entry form
+    - WeightChart: presentational, receives entries as props. Recharts line graph with time range selector
+    - WeightForm: builds optimistic entry, calls parent's onCreated. Parent handles API + state swap
     - Display most recent entry and change from previous
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
   - [ ]* 9.4 Write property test for numeric entry change calculation
@@ -152,8 +167,8 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 10: Measurement round-trip and type filtering**
     - **Validates: Requirements 8.1, 8.3**
   - [ ] 10.3 Implement MeasurementList and MeasurementForm UI components
-    - MeasurementList showing latest per type with change indicators
-    - MeasurementForm with type dropdown and value input
+    - MeasurementList: presentational, receives measurements as props. Shows latest per type with change indicators
+    - MeasurementForm: builds optimistic measurement, calls parent's onCreated
     - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
 - [ ] 11. Gym sessions and soreness heat map
@@ -173,8 +188,9 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 12: Soreness calculation bounds and monotonicity**
     - **Validates: Requirements 9.4**
   - [ ] 11.5 Implement GymSessionLog, GymSessionForm, and MuscleHeatMap UI components
+    - All presentational, receiving data as props from BodyTab parent
     - GymSessionLog: list of recent sessions
-    - GymSessionForm: log session with dynamic exercise rows, muscle group multi-select
+    - GymSessionForm: log session with dynamic exercise rows, muscle group multi-select. Optimistic create pattern
     - MuscleHeatMap: SVG body diagram with color-coded soreness using heat map color scale
     - _Requirements: 9.1, 9.2, 9.3, 9.5_
 
@@ -191,11 +207,14 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 14: Active training program invariant**
     - **Validates: Requirements 10.4**
   - [ ] 12.4 Implement TrainingProgramView, TrainingProgramForm UI components
+    - All presentational, receiving data as props from BodyTab parent
     - TrainingProgramView: weekly display with day-by-day exercises
-    - TrainingProgramForm: create/edit program with day/exercise assignment
+    - TrainingProgramForm: create/edit program with day/exercise assignment. Optimistic create pattern
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
   - [ ] 12.5 Wire BodyTab container with all body sub-components
-    - Compose WeightChart, MeasurementList, GymSessionLog, MuscleHeatMap, TrainingProgramView into BodyTab
+    - BodyTab owns all state: weight entries, measurements, gym sessions, heatmap data, training programs. Fetches each on mount
+    - Compose WeightChart, MeasurementList, GymSessionLog, MuscleHeatMap, TrainingProgramView as presentational children
+    - All create handlers follow optimistic pattern
     - _Requirements: 7.2, 8.3, 9.3, 9.5, 10.2_
 
 - [ ] 13. Checkpoint — Body tab complete
@@ -215,8 +234,9 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 16: Calorie breakdown and remaining calculation**
     - **Validates: Requirements 11.2, 11.3, 11.4**
   - [ ] 14.4 Implement CalorieTracker and FoodEntryForm UI components
+    - All presentational, receiving data as props from DietTab parent
     - CalorieTracker: daily summary with goal progress, breakdown by meal type
-    - FoodEntryForm: log food with name, calories, meal type selector
+    - FoodEntryForm: builds optimistic food entry, calls parent's onCreated. Optimistic create pattern
     - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
 - [ ] 15. Recipes
@@ -232,9 +252,10 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 18: Recipe search correctness**
     - **Validates: Requirements 12.4**
   - [ ] 15.4 Implement RecipeList, RecipeDetail, and RecipeForm UI components
+    - All presentational, receiving data as props from DietTab parent
     - RecipeList: browsable/searchable recipe collection
     - RecipeDetail: full recipe view with ingredients, steps, nutrition
-    - RecipeForm: create/edit recipe
+    - RecipeForm: builds optimistic recipe, calls parent's onCreated. Optimistic create pattern
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
 - [ ] 16. Meal prep planning
@@ -254,12 +275,15 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 21: Grocery list aggregation**
     - **Validates: Requirements 13.4**
   - [ ] 16.5 Implement MealPrepPlan, MealPrepForm, and GroceryList UI components
+    - All presentational, receiving data as props from DietTab parent
     - MealPrepPlan: weekly grid (days × meal types) with assigned recipes
-    - MealPrepForm: assign recipes to day/meal slots
+    - MealPrepForm: assign recipes to day/meal slots. Optimistic create pattern
     - GroceryList: combined ingredient list for a selected day
     - _Requirements: 13.1, 13.2, 13.3, 13.4_
   - [ ] 16.6 Wire DietTab container with all diet sub-components
-    - Compose CalorieTracker, RecipeList, MealPrepPlan into DietTab
+    - DietTab owns all state: food entries, calorie goal, recipes, meal prep plan. Fetches each on mount
+    - Compose CalorieTracker, RecipeList, MealPrepPlan as presentational children
+    - All create handlers follow optimistic pattern
     - _Requirements: 11.2, 12.2, 13.2_
 
 - [ ] 17. Checkpoint — Diet tab complete
@@ -286,12 +310,15 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - **Property 25: Document search correctness**
     - **Validates: Requirements 14.5**
   - [ ] 18.6 Implement DocumentList, DocumentUpload, and DocumentViewer UI components
+    - All presentational, receiving data as props from LearningTab parent
     - DocumentList: documents organized by category with search
-    - DocumentUpload: upload form with title, category, file input (PDF/Markdown only)
+    - DocumentUpload: upload form with title, category, file input (PDF/Markdown only). Optimistic create pattern
     - DocumentViewer: inline Markdown rendering, download link for PDFs
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
   - [ ] 18.7 Wire LearningTab container
-    - Compose DocumentList, DocumentUpload, DocumentViewer into LearningTab
+    - LearningTab owns all state: documents, categories. Fetches on mount
+    - Compose DocumentList, DocumentUpload, DocumentViewer as presentational children
+    - Upload handler follows optimistic pattern
     - _Requirements: 14.3_
 
 - [ ] 19. Checkpoint — Learning tab complete
@@ -331,3 +358,8 @@ Build a personal growth web application with React+TypeScript frontend, Express+
 - Property tests validate universal correctness properties from the design document
 - Unit tests validate specific examples and edge cases
 - The tech stack is TypeScript throughout: React+Vite frontend, Express backend, Prisma ORM, Vitest+fast-check testing
+- Auth uses Supabase Auth (not custom JWT/bcrypt). Server verifies tokens locally with fallback to Supabase API
+- All UI components are presentational (props in, callbacks out). Tab containers own state and handle API calls
+- All create/update operations use optimistic UI: instant state update → background API call → swap temp with real on success, remove on failure
+- Database uses Supabase PostgreSQL via session pooler (port 5432) for queries and direct URL for migrations
+- `ensureUser` middleware caches known user IDs in memory to avoid DB upsert on every request
