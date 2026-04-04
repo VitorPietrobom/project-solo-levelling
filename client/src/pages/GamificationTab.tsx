@@ -3,11 +3,16 @@ import LevelDisplay from '../components/LevelDisplay';
 import QuestList from '../components/QuestList';
 import type { Quest } from '../components/QuestList';
 import QuestForm from '../components/QuestForm';
+import TaskList from '../components/TaskList';
+import type { Task } from '../components/TaskList';
+import TaskForm from '../components/TaskForm';
 import { apiClient } from '../lib/apiClient';
 
 export default function GamificationTab() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [showTaskForm, setShowTaskForm] = useState(false);
 
   const fetchQuests = useCallback(async () => {
     try {
@@ -18,9 +23,19 @@ export default function GamificationTab() {
     }
   }, []);
 
+  const fetchTasks = useCallback(async () => {
+    try {
+      const data = (await apiClient.get('/api/tasks')) as Task[];
+      setTasks(data);
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   useEffect(() => {
     fetchQuests();
-  }, [fetchQuests]);
+    fetchTasks();
+  }, [fetchQuests, fetchTasks]);
 
   function handleQuestCreated(
     optimistic: Quest,
@@ -53,6 +68,43 @@ export default function GamificationTab() {
       });
   }
 
+
+  function handleTaskCreated(
+    optimistic: Task,
+    body: { title: string; recurrence: string; xpReward: number },
+  ) {
+    setTasks((prev) => [optimistic, ...prev]);
+    setShowTaskForm(false);
+
+    apiClient
+      .post('/api/tasks', { body })
+      .then((data) => {
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === optimistic.id ? (data as Task) : t,
+          ),
+        );
+      })
+      .catch(() => {
+        setTasks((prev) =>
+          prev.filter((t) => t.id !== optimistic.id),
+        );
+      });
+  }
+
+  function handleTaskToggle(taskId: string) {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId ? { ...t, completedToday: true } : t,
+      ),
+    );
+
+    apiClient
+      .patch(`/api/tasks/${taskId}/complete`)
+      .catch(() => {
+        fetchTasks();
+      });
+  }
 
   function handleStepToggle(questId: string, stepId: string) {
     setQuests((prev) =>
@@ -92,6 +144,23 @@ export default function GamificationTab() {
           </div>
         )}
         <QuestList quests={quests} onToggleStep={handleStepToggle} />
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Tasks</h2>
+          <button
+            onClick={() => setShowTaskForm(!showTaskForm)}
+            className="text-accent-info text-sm hover:opacity-80"
+          >
+            {showTaskForm ? 'Cancel' : '+ New Task'}
+          </button>
+        </div>
+        {showTaskForm && (
+          <div className="mb-4">
+            <TaskForm onCreated={handleTaskCreated} />
+          </div>
+        )}
+        <TaskList tasks={tasks} onToggle={handleTaskToggle} />
       </div>
     </div>
   );

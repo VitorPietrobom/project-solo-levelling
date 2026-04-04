@@ -4,6 +4,7 @@ import cors from 'cors';
 import authRoutes from './routes/auth';
 import gamificationRoutes from './routes/gamification';
 import questRoutes from './routes/quests';
+import taskRoutes from './routes/tasks';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +19,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/gamification', gamificationRoutes);
 app.use('/api/quests', questRoutes);
+app.use('/api/tasks', taskRoutes);
 
 if (process.env.NODE_ENV !== 'test') {
   // Warm up the DB connection pool before accepting requests

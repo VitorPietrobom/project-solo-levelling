@@ -99,8 +99,8 @@ All remaining UI tasks MUST follow these patterns:
     - Step completion toggles that call the PATCH endpoint
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-- [ ] 6. Daily and weekly tasks
-  - [ ] 6.1 Implement task CRUD and completion endpoints
+- [x] 6. Daily and weekly tasks
+  - [x] 6.1 Implement task CRUD and completion endpoints
     - GET `/api/tasks` — list tasks with computed completedToday based on lastCompletedAt and recurrence
     - POST `/api/tasks` — create task with title, recurrence (daily/weekly), xpReward
     - PATCH `/api/tasks/:id/complete` — mark complete, set lastCompletedAt, award XP via XP service
@@ -110,7 +110,7 @@ All remaining UI tasks MUST follow these patterns:
   - [ ]* 6.2 Write property test for task reset by period
     - **Property 5: Task reset by period**
     - **Validates: Requirements 5.2, 5.3**
-  - [ ] 6.3 Implement TaskList and TaskForm UI components
+  - [x] 6.3 Implement TaskList and TaskForm UI components
     - TaskList: presentational component receiving tasks and onToggle callback as props. Shows daily and weekly tasks with completion toggles
     - TaskForm: builds optimistic task object, calls parent's onCreated callback. Parent handles API call and state swap
     - Parent (GamificationTab) owns task state, fetches on mount, handles optimistic create/toggle
