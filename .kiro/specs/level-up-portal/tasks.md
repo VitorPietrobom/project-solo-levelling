@@ -116,8 +116,8 @@ All remaining UI tasks MUST follow these patterns:
     - Parent (GamificationTab) owns task state, fetches on mount, handles optimistic create/toggle
     - _Requirements: 5.1, 5.5_
 
-- [ ] 7. Skills
-  - [ ] 7.1 Implement skill CRUD and activity logging endpoints
+- [x] 7. Skills
+  - [x] 7.1 Implement skill CRUD and activity logging endpoints
     - GET `/api/skills` — list skills with level and progress (using same level formula as global XP)
     - POST `/api/skills` — create skill with name, initial level 1, 0 XP
     - POST `/api/skills/:id/log` — log activity, add XP to skill totalXP
@@ -128,11 +128,11 @@ All remaining UI tasks MUST follow these patterns:
   - [ ]* 7.3 Write property test for skill XP accumulation
     - **Property 7: Skill XP accumulation**
     - **Validates: Requirements 6.2**
-  - [ ] 7.4 Implement SkillList and SkillForm UI components
+  - [x] 7.4 Implement SkillList and SkillForm UI components
     - SkillList: presentational component receiving skills as props, shows all skills with individual level bars
     - SkillForm: builds optimistic skill object, calls parent's onCreated callback. Logging activity uses optimistic XP update
     - _Requirements: 6.1, 6.4_
-  - [ ] 7.5 Wire GamificationTab container with all gamification sub-components
+  - [x] 7.5 Wire GamificationTab container with all gamification sub-components
     - GamificationTab owns all state: quests, tasks, skills. Fetches each on mount
     - Compose LevelDisplay, QuestList, TaskList, SkillList as presentational children
     - All create/toggle handlers follow optimistic pattern: update state → fire API → swap or rollback

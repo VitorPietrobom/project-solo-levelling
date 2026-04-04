@@ -6,6 +6,9 @@ import QuestForm from '../components/QuestForm';
 import TaskList from '../components/TaskList';
 import type { Task } from '../components/TaskList';
 import TaskForm from '../components/TaskForm';
+import SkillList from '../components/SkillList';
+import type { Skill } from '../components/SkillList';
+import SkillForm from '../components/SkillForm';
 import { apiClient } from '../lib/apiClient';
 
 export default function GamificationTab() {
@@ -13,6 +16,8 @@ export default function GamificationTab() {
   const [showForm, setShowForm] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [showSkillForm, setShowSkillForm] = useState(false);
 
   const fetchQuests = useCallback(async () => {
     try {
@@ -32,10 +37,20 @@ export default function GamificationTab() {
     }
   }, []);
 
+  const fetchSkills = useCallback(async () => {
+    try {
+      const data = (await apiClient.get('/api/skills')) as Skill[];
+      setSkills(data);
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   useEffect(() => {
     fetchQuests();
     fetchTasks();
-  }, [fetchQuests, fetchTasks]);
+    fetchSkills();
+  }, [fetchQuests, fetchTasks, fetchSkills]);
 
   function handleQuestCreated(
     optimistic: Quest,
@@ -125,42 +140,112 @@ export default function GamificationTab() {
       });
   }
 
+  function handleSkillCreated(
+    optimistic: Skill,
+    body: { name: string },
+  ) {
+    setSkills((prev) => [optimistic, ...prev]);
+    setShowSkillForm(false);
+
+    apiClient
+      .post('/api/skills', { body })
+      .then((data) => {
+        setSkills((prev) =>
+          prev.map((s) =>
+            s.id === optimistic.id ? (data as Skill) : s,
+          ),
+        );
+      })
+      .catch(() => {
+        setSkills((prev) =>
+          prev.filter((s) => s.id !== optimistic.id),
+        );
+      });
+  }
+
+  function handleSkillLog(skillId: string, xp: number) {
+    setSkills((prev) =>
+      prev.map((s) =>
+        s.id === skillId ? { ...s, totalXP: s.totalXP + xp } : s,
+      ),
+    );
+
+    apiClient
+      .post(`/api/skills/${skillId}/log`, { body: { xp } })
+      .then((data) => {
+        setSkills((prev) =>
+          prev.map((s) =>
+            s.id === skillId ? (data as Skill) : s,
+          ),
+        );
+      })
+      .catch(() => {
+        fetchSkills();
+      });
+  }
+
   return (
-    <div className="text-text-primary space-y-6 max-w-2xl">
+    <div className="text-text-primary">
       <LevelDisplay />
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Quests</h2>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="text-accent-info text-sm hover:opacity-80"
-          >
-            {showForm ? 'Cancel' : '+ New Quest'}
-          </button>
-        </div>
-        {showForm && (
-          <div className="mb-4">
-            <QuestForm onCreated={handleQuestCreated} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Left column — Quests */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Quests</h2>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="text-accent-info text-sm hover:opacity-80"
+            >
+              {showForm ? 'Cancel' : '+ New Quest'}
+            </button>
           </div>
-        )}
-        <QuestList quests={quests} onToggleStep={handleStepToggle} />
-      </div>
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Tasks</h2>
-          <button
-            onClick={() => setShowTaskForm(!showTaskForm)}
-            className="text-accent-info text-sm hover:opacity-80"
-          >
-            {showTaskForm ? 'Cancel' : '+ New Task'}
-          </button>
+          {showForm && (
+            <div className="mb-4">
+              <QuestForm onCreated={handleQuestCreated} />
+            </div>
+          )}
+          <QuestList quests={quests} onToggleStep={handleStepToggle} />
         </div>
-        {showTaskForm && (
-          <div className="mb-4">
-            <TaskForm onCreated={handleTaskCreated} />
+
+        {/* Right column — Tasks + Skills stacked */}
+        <div className="space-y-6">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">Tasks</h2>
+              <button
+                onClick={() => setShowTaskForm(!showTaskForm)}
+                className="text-accent-info text-sm hover:opacity-80"
+              >
+                {showTaskForm ? 'Cancel' : '+ New Task'}
+              </button>
+            </div>
+            {showTaskForm && (
+              <div className="mb-4">
+                <TaskForm onCreated={handleTaskCreated} />
+              </div>
+            )}
+            <TaskList tasks={tasks} onToggle={handleTaskToggle} />
           </div>
-        )}
-        <TaskList tasks={tasks} onToggle={handleTaskToggle} />
+
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">Skills</h2>
+              <button
+                onClick={() => setShowSkillForm(!showSkillForm)}
+                className="text-accent-info text-sm hover:opacity-80"
+              >
+                {showSkillForm ? 'Cancel' : '+ New Skill'}
+              </button>
+            </div>
+            {showSkillForm && (
+              <div className="mb-4">
+                <SkillForm onCreated={handleSkillCreated} />
+              </div>
+            )}
+            <SkillList skills={skills} onLog={handleSkillLog} />
+          </div>
+        </div>
       </div>
     </div>
   );
