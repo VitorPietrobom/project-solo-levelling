@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Background colors */
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-card: #16213e;
+
+  /* Text colors */
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0b0;
+
+  /* Accent colors */
+  --accent-primary: #00f5d4;    /* Neon teal — XP bars, active tabs */
+  --accent-secondary: #7b2ff7;  /* Vibrant purple — levels, skills */
+  --accent-warning: #ff6b6b;    /* Coral red — soreness heat map high */
+  --accent-success: #00e676;    /* Green — completed tasks */
+  --accent-info: #448aff;       /* Blue — charts, links */
+
+  /* Border */
+  --border-color: #2a2a4a;
+
+  /* Heat map color scale (soreness 0–100) */
+  --heatmap-0: #1a1a2e;     /* No soreness, blends with background */
+  --heatmap-25: #2d6a4f;    /* Mild, green tint */
+  --heatmap-50: #e9c46a;    /* Moderate, amber */
+  --heatmap-75: #e76f51;    /* High, orange-red */
+  --heatmap-100: #ff6b6b;   /* Intense, coral red */
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}

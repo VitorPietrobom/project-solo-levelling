@@ -6,21 +6,21 @@ Build a personal growth web application with React+TypeScript frontend, Express+
 
 ## Tasks
 
-- [ ] 1. Project scaffolding and shared configuration
-  - [ ] 1.1 Initialize monorepo with `client/` and `server/` directories, shared `tsconfig` base, and package.json scripts
+- [x] 1. Project scaffolding and shared configuration
+  - [x] 1.1 Initialize monorepo with `client/` and `server/` directories, shared `tsconfig` base, and package.json scripts
     - Set up Vite for the React client, ts-node/nodemon for the Express server
     - Install core dependencies: React, React Router, Express, Prisma, Tailwind CSS, Recharts, bcrypt, jsonwebtoken, vitest, fast-check, supertest, @testing-library/react
     - _Requirements: 16.1, 16.4_
-  - [ ] 1.2 Configure Tailwind CSS dark theme with CSS custom properties
+  - [x] 1.2 Configure Tailwind CSS dark theme with CSS custom properties
     - Define all theme tokens from the design (--bg-primary, --bg-secondary, --bg-card, --text-primary, --text-secondary, accent colors, --border-color)
     - Configure heat map color scale tokens
     - _Requirements: 16.1, 16.2, 16.5_
-  - [ ] 1.3 Set up Prisma schema with all data models and relations
+  - [x] 1.3 Set up Prisma schema with all data models and relations
     - Define User, Quest, QuestStep, Task, Skill, WeightEntry, Measurement, GymSession, Exercise, ExerciseMuscleGroup, TrainingProgram, ProgramDay, ProgramExercise, FoodEntry, Recipe, Ingredient, MealPrepPlan, MealPrepEntry, Document
     - Add unique constraints: User.email, WeightEntry(userId, date), MealPrepEntry(planId, dayOfWeek, mealType)
     - Generate Prisma client and run initial migration
     - _Requirements: 17.1_
-  - [ ] 1.4 Set up Vitest configuration for both client and server with fast-check integration
+  - [x] 1.4 Set up Vitest configuration for both client and server with fast-check integration
     - _Requirements: (testing infrastructure)_
 
 - [ ] 2. Authentication backend and frontend

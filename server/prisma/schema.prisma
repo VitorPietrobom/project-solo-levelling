@@ -1,0 +1,282 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Recurrence {
+  daily
+  weekly
+}
+
+enum MeasurementType {
+  chest
+  waist
+  hips
+  arms
+  thighs
+}
+
+enum MuscleGroup {
+  chest
+  back
+  shoulders
+  biceps
+  triceps
+  quads
+  hamstrings
+  glutes
+  calves
+  abs
+  forearms
+}
+
+enum DayOfWeek {
+  mon
+  tue
+  wed
+  thu
+  fri
+  sat
+  sun
+}
+
+enum MealType {
+  breakfast
+  lunch
+  dinner
+  snack
+}
+
+enum DocumentFormat {
+  pdf
+  markdown
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  totalXP      Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  quests           Quest[]
+  tasks            Task[]
+  skills           Skill[]
+  weightEntries    WeightEntry[]
+  measurements     Measurement[]
+  gymSessions      GymSession[]
+  trainingPrograms TrainingProgram[]
+  foodEntries      FoodEntry[]
+  recipes          Recipe[]
+  mealPrepPlans    MealPrepPlan[]
+  documents        Document[]
+}
+
+model Quest {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  description String
+  xpReward    Int
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps QuestStep[]
+}
+
+model QuestStep {
+  id          String  @id @default(uuid())
+  questId     String
+  description String
+  sortOrder   Int
+  completed   Boolean @default(false)
+
+  quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id              String      @id @default(uuid())
+  userId          String
+  title           String
+  recurrence      Recurrence
+  xpReward        Int
+  completedToday  Boolean     @default(false)
+  lastCompletedAt DateTime?
+  createdAt       DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Skill {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  totalXP   Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WeightEntry {
+  id     String   @id @default(uuid())
+  userId String
+  weight Float
+  date   DateTime @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model Measurement {
+  id     String          @id @default(uuid())
+  userId String
+  type   MeasurementType
+  value  Float
+  date   DateTime        @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GymSession {
+  id     String   @id @default(uuid())
+  userId String
+  date   DateTime @db.Date
+  notes  String?
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercises Exercise[]
+}
+
+model Exercise {
+  id        String @id @default(uuid())
+  sessionId String
+  name      String
+  sets      Int
+  reps      Int
+  weight    Float
+
+  session      GymSession           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  muscleGroups ExerciseMuscleGroup[]
+}
+
+model ExerciseMuscleGroup {
+  exerciseId  String
+  muscleGroup MuscleGroup
+
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@id([exerciseId, muscleGroup])
+}
+
+model TrainingProgram {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  days ProgramDay[]
+}
+
+model ProgramDay {
+  id        String    @id @default(uuid())
+  programId String
+  dayOfWeek DayOfWeek
+
+  program   TrainingProgram   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  exercises ProgramExercise[]
+}
+
+model ProgramExercise {
+  id           String @id @default(uuid())
+  programDayId String
+  name         String
+  sets         Int
+  reps         Int
+  targetWeight Float
+  sortOrder    Int
+
+  programDay ProgramDay @relation(fields: [programDayId], references: [id], onDelete: Cascade)
+}
+
+model FoodEntry {
+  id       String   @id @default(uuid())
+  userId   String
+  foodName String
+  calories Int
+  mealType MealType
+  date     DateTime @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Recipe {
+  id                String   @id @default(uuid())
+  userId            String
+  name              String
+  steps             String
+  caloriesPerServing Int
+  createdAt         DateTime @default(now())
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients    Ingredient[]
+  mealPrepEntries MealPrepEntry[]
+}
+
+model Ingredient {
+  id       String @id @default(uuid())
+  recipeId String
+  name     String
+  quantity String
+  unit     String
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+}
+
+model MealPrepPlan {
+  id            String   @id @default(uuid())
+  userId        String
+  weekStartDate DateTime @db.Date
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries MealPrepEntry[]
+}
+
+model MealPrepEntry {
+  id        String    @id @default(uuid())
+  planId    String
+  dayOfWeek DayOfWeek
+  mealType  MealType
+  recipeId  String
+
+  plan   MealPrepPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  recipe Recipe       @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, dayOfWeek, mealType])
+}
+
+model Document {
+  id         String         @id @default(uuid())
+  userId     String
+  title      String
+  category   String
+  format     DocumentFormat
+  filePath   String
+  uploadedAt DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,16 @@
+{
+  "name": "level-up-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal growth web application with gamification, body tracking, diet planning, and learning",
+  "scripts": {
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "build:client": "npm run build --prefix client",
+    "build:server": "npm run build --prefix server",
+    "test:client": "npm test --prefix client",
+    "test:server": "npm test --prefix server",
+    "test": "npm run test:client && npm run test:server",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix server"
+  }
+}
