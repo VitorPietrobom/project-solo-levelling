@@ -69,8 +69,8 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - LevelDisplay component with XP progress bar using accent color fill
     - _Requirements: 3.1, 3.4_
 
-- [ ] 5. Quests
-  - [ ] 5.1 Implement quest CRUD endpoints
+- [x] 5. Quests
+  - [x] 5.1 Implement quest CRUD endpoints
     - GET `/api/quests` — list all quests with steps
     - POST `/api/quests` — create quest with title, description, steps, xpReward
     - PATCH `/api/quests/:id/steps/:stepId` — mark step complete; auto-complete quest and award XP when all steps done
@@ -81,7 +81,7 @@ Build a personal growth web application with React+TypeScript frontend, Express+
   - [ ]* 5.3 Write property test for quest step completion updates progress
     - **Property 4: Quest step completion updates progress**
     - **Validates: Requirements 4.2, 4.3**
-  - [ ] 5.4 Implement QuestList, QuestForm, and quest step UI components
+  - [x] 5.4 Implement QuestList, QuestForm, and quest step UI components
     - QuestList showing active quests with progress indicators
     - QuestForm for creating quests with title, description, and dynamic step list
     - Step completion toggles that call the PATCH endpoint
