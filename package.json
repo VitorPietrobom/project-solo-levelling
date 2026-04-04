@@ -12,5 +12,8 @@
     "test:server": "npm test --prefix server",
     "test": "npm run test:client && npm run test:server",
     "install:all": "npm install && npm install --prefix client && npm install --prefix server"
+  },
+  "dependencies": {
+    "supabase": "^2.84.10"
   }
 }
