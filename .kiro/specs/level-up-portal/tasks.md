@@ -47,11 +47,11 @@ Build a personal growth web application with React+TypeScript frontend, Express+
     - Active tab highlighted with accent color, route-based tab switching
     - _Requirements: 2.1, 2.2, 2.3_
 
-- [ ] 3. Checkpoint — Auth and navigation
+- [x] 3. Checkpoint — Auth and navigation
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. XP service and gamification core
-  - [ ] 4.1 Implement XP service with level formula and progress calculation
+- [x] 4. XP service and gamification core
+  - [x] 4.1 Implement XP service with level formula and progress calculation
     - `awardXP(userId, amount, source)` — increment user totalXP, return new level/progress
     - `getCurrentLevel(totalXP)` — highest N where 50*N*(N+1) ≤ totalXP
     - `getXPForNextLevel(currentLevel)` — returns 100 * (currentLevel + 1)
@@ -64,7 +64,7 @@ Build a personal growth web application with React+TypeScript frontend, Express+
   - [ ]* 4.3 Write property test for XP award on completion
     - **Property 2: XP award on completion**
     - **Validates: Requirements 3.2, 4.3, 5.4**
-  - [ ] 4.4 Implement gamification status endpoint and LevelDisplay component
+  - [x] 4.4 Implement gamification status endpoint and LevelDisplay component
     - GET `/api/gamification/status` — return level, totalXP, progress
     - LevelDisplay component with XP progress bar using accent color fill
     - _Requirements: 3.1, 3.4_
