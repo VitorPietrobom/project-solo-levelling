@@ -90,7 +90,7 @@ function KanbanColumn({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex-1 min-w-[250px]">
+    <div className="flex-1 min-w-0">
       <div className="flex items-center gap-2 mb-3">
         <span className={`w-2 h-2 rounded-full ${accent}`} />
         <h4 className="text-text-secondary text-sm font-semibold">{title}</h4>
@@ -114,7 +114,7 @@ export default function QuestList({ quests = [], onToggleStep }: QuestListProps)
   const todo = active.filter((q) => !q.steps.some((s) => s.completed));
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-2">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <KanbanColumn title="To Do" count={todo.length} accent="bg-accent-info">
         {todo.map((q) => (
           <QuestCard key={q.id} quest={q} onToggleStep={onToggleStep} />
