@@ -141,15 +141,15 @@ All remaining UI tasks MUST follow these patterns:
 - [x] 8. Checkpoint — Gamification tab complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Weight tracking
-  - [ ] 9.1 Implement weight entry endpoints
+- [x] 9. Weight tracking
+  - [x] 9.1 Implement weight entry endpoints
     - GET `/api/weight?start=&end=` — list weight entries with date range filtering
     - POST `/api/weight` — log weight entry (enforce unique userId+date, return 409 on duplicate)
     - _Requirements: 7.1, 7.3_
   - [ ]* 9.2 Write property test for weight entry round-trip and date filtering
     - **Property 8: Weight entry round-trip and date filtering**
     - **Validates: Requirements 7.1, 7.3**
-  - [ ] 9.3 Implement WeightChart and WeightForm UI components
+  - [x] 9.3 Implement WeightChart and WeightForm UI components
     - WeightChart: presentational, receives entries as props. Recharts line graph with time range selector
     - WeightForm: builds optimistic entry, calls parent's onCreated. Parent handles API + state swap
     - Display most recent entry and change from previous
@@ -158,26 +158,26 @@ All remaining UI tasks MUST follow these patterns:
     - **Property 9: Numeric entry change calculation**
     - **Validates: Requirements 7.4, 8.4**
 
-- [ ] 10. Body measurements
-  - [ ] 10.1 Implement measurement endpoints
+- [x] 10. Body measurements
+  - [x] 10.1 Implement measurement endpoints
     - GET `/api/measurements?type=` — list measurements, filterable by type
     - POST `/api/measurements` — log measurement with type, value, date
     - _Requirements: 8.1, 8.2, 8.3_
   - [ ]* 10.2 Write property test for measurement round-trip and type filtering
     - **Property 10: Measurement round-trip and type filtering**
     - **Validates: Requirements 8.1, 8.3**
-  - [ ] 10.3 Implement MeasurementList and MeasurementForm UI components
+  - [x] 10.3 Implement MeasurementList and MeasurementForm UI components
     - MeasurementList: presentational, receives measurements as props. Shows latest per type with change indicators
     - MeasurementForm: builds optimistic measurement, calls parent's onCreated
     - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [ ] 11. Gym sessions and soreness heat map
-  - [ ] 11.1 Implement gym session endpoints
+- [x] 11. Gym sessions and soreness heat map
+  - [x] 11.1 Implement gym session endpoints
     - GET `/api/gym-sessions` — list recent sessions with exercises and muscle groups
     - POST `/api/gym-sessions` — log session with date, notes, exercises (name, sets, reps, weight, muscle groups)
     - GET `/api/gym-sessions/heatmap` — return soreness data per muscle group
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
-  - [ ] 11.2 Implement soreness calculator service
+  - [x] 11.2 Implement soreness calculator service
     - For each muscle group, sum volume (sets × reps × weight) from last 7 days, weighted by recency
     - Normalize to 0–100 scale
     - _Requirements: 9.4_
@@ -187,7 +187,7 @@ All remaining UI tasks MUST follow these patterns:
   - [ ]* 11.4 Write property test for soreness calculation bounds and monotonicity
     - **Property 12: Soreness calculation bounds and monotonicity**
     - **Validates: Requirements 9.4**
-  - [ ] 11.5 Implement GymSessionLog, GymSessionForm, and MuscleHeatMap UI components
+  - [x] 11.5 Implement GymSessionLog, GymSessionForm, and MuscleHeatMap UI components
     - All presentational, receiving data as props from BodyTab parent
     - GymSessionLog: list of recent sessions
     - GymSessionForm: log session with dynamic exercise rows, muscle group multi-select. Optimistic create pattern
@@ -349,6 +349,19 @@ All remaining UI tasks MUST follow these patterns:
 
 - [ ] 22. Final checkpoint — Full integration
   - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 23. Replace body SVG diagrams with proper artwork
+  - User to provide a body SVG file
+  - Replace the measurement diagram silhouette with the provided SVG, wire measurement lines to correct body positions
+  - Replace the soreness diagram with the provided SVG, color muscle group regions based on heatmap data
+  - Both diagrams should use the same base SVG for consistency
+
+- [ ] 24. Add activity tracking for cardio and sports (volleyball, running, etc.)
+  - Add an Activity model (type: cardio/sport, name, duration in minutes, calories burned, date)
+  - Log activities like volleyball, running, cycling, swimming alongside gym sessions
+  - Show activities in the Body tab with a weekly summary (total minutes, calories)
+  - Factor activities into the soreness/recovery view (e.g., volleyball → legs, shoulders)
+  - Consider Hevy JSON import support for cardio sessions too
 
 ## Notes
 
