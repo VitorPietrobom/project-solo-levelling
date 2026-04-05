@@ -217,11 +217,11 @@ All remaining UI tasks MUST follow these patterns:
     - All create handlers follow optimistic pattern
     - _Requirements: 7.2, 8.3, 9.3, 9.5, 10.2_
 
-- [ ] 13. Checkpoint — Body tab complete
+- [x] 13. Checkpoint — Body tab complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Calorie tracking
-  - [ ] 14.1 Implement food entry and calorie goal endpoints
+- [x] 14. Calorie tracking
+  - [x] 14.1 Implement food entry and calorie goal endpoints
     - GET `/api/food-entries?date=` — list food entries for a date
     - POST `/api/food-entries` — log food entry with name, calories, mealType, date
     - GET `/api/calorie-goal` — get daily calorie goal
@@ -233,7 +233,7 @@ All remaining UI tasks MUST follow these patterns:
   - [ ]* 14.3 Write property test for calorie breakdown and remaining calculation
     - **Property 16: Calorie breakdown and remaining calculation**
     - **Validates: Requirements 11.2, 11.3, 11.4**
-  - [ ] 14.4 Implement CalorieTracker and FoodEntryForm UI components
+  - [x] 14.4 Implement CalorieTracker and FoodEntryForm UI components
     - All presentational, receiving data as props from DietTab parent
     - CalorieTracker: daily summary with goal progress, breakdown by meal type
     - FoodEntryForm: builds optimistic food entry, calls parent's onCreated. Optimistic create pattern
