@@ -65,10 +65,11 @@ enum DocumentFormat {
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
-  id        String   @id
-  email     String   @unique
-  totalXP   Int      @default(0)
-  createdAt DateTime @default(now())
+  id           String   @id
+  email        String   @unique
+  totalXP      Int      @default(0)
+  calorieGoal  Int      @default(2000)
+  createdAt    DateTime @default(now())
 
   quests           Quest[]
   tasks            Task[]
@@ -218,6 +219,9 @@ model FoodEntry {
   userId   String
   foodName String
   calories Int
+  protein  Float    @default(0)
+  carbs    Float    @default(0)
+  fat      Float    @default(0)
   mealType MealType
   date     DateTime @db.Date
 

@@ -10,6 +10,8 @@ import weightRoutes from './routes/weight';
 import measurementRoutes from './routes/measurements';
 import gymSessionRoutes from './routes/gym-sessions';
 import trainingProgramRoutes from './routes/training-programs';
+import foodEntryRoutes from './routes/food-entries';
+import calorieGoalRoutes from './routes/calorie-goal';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,6 +32,8 @@ app.use('/api/weight', weightRoutes);
 app.use('/api/measurements', measurementRoutes);
 app.use('/api/gym-sessions', gymSessionRoutes);
 app.use('/api/training-programs', trainingProgramRoutes);
+app.use('/api/food-entries', foodEntryRoutes);
+app.use('/api/calorie-goal', calorieGoalRoutes);
 
 if (process.env.NODE_ENV !== 'test') {
   // Warm up the DB connection pool before accepting requests
