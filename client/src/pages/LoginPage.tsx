@@ -42,7 +42,7 @@ export default function LoginPage() {
         className="w-full max-w-sm p-8 rounded-lg bg-card border border-border"
       >
         <h1 className="text-2xl font-bold text-text-primary mb-6 text-center">
-          Level Up Portal
+          Project Arise
         </h1>
 
         {error && (

@@ -8,7 +8,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-primary">
       <header className="flex items-center justify-between px-6 py-4">
-        <h1 className="text-2xl font-bold text-text-primary">Level Up Portal</h1>
+        <h1 className="text-2xl font-bold text-text-primary">Project Arise</h1>
         <button
           onClick={logout}
           className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"

@@ -1,4 +1,4 @@
-# Level Up Portal
+# Project Arise
 
 A personal growth web application that centralizes self-improvement tracking across multiple life domains with RPG-style gamification mechanics.
 
