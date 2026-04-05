@@ -13,6 +13,7 @@ import trainingProgramRoutes from './routes/training-programs';
 import foodEntryRoutes from './routes/food-entries';
 import calorieGoalRoutes from './routes/calorie-goal';
 import recipeRoutes from './routes/recipes';
+import mealPrepRoutes from './routes/meal-prep';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -36,6 +37,7 @@ app.use('/api/training-programs', trainingProgramRoutes);
 app.use('/api/food-entries', foodEntryRoutes);
 app.use('/api/calorie-goal', calorieGoalRoutes);
 app.use('/api/recipes', recipeRoutes);
+app.use('/api/meal-prep', mealPrepRoutes);
 
 if (process.env.NODE_ENV !== 'test') {
   // Warm up the DB connection pool before accepting requests

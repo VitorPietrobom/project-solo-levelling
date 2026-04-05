@@ -8,6 +8,11 @@ import type { Recipe } from '../components/RecipeList';
 import RecipeDetail from '../components/RecipeDetail';
 import RecipeForm from '../components/RecipeForm';
 import RecipeImport from '../components/RecipeImport';
+import MealPrepPlan from '../components/MealPrepPlan';
+import type { MealPrepPlanData } from '../components/MealPrepPlan';
+import MealPrepForm from '../components/MealPrepForm';
+import GroceryList from '../components/GroceryList';
+import type { GroceryListData } from '../components/GroceryList';
 import { apiClient } from '../lib/apiClient';
 
 export default function DietTab() {
@@ -23,6 +28,12 @@ export default function DietTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showRecipeForm, setShowRecipeForm] = useState(false);
   const [showRecipeImport, setShowRecipeImport] = useState(false);
+
+  // Meal prep state
+  const [mealPrepPlan, setMealPrepPlan] = useState<MealPrepPlanData | null>(null);
+  const [selectedMealPrepDay, setSelectedMealPrepDay] = useState<string | null>(null);
+  const [groceryList, setGroceryList] = useState<GroceryListData | null>(null);
+  const [showMealPrepForm, setShowMealPrepForm] = useState(false);
 
   const fetchFoodEntries = useCallback(async (date: string) => {
     try {
@@ -46,14 +57,37 @@ export default function DietTab() {
     } catch { /* silently fail */ }
   }, []);
 
+  const fetchMealPrepPlan = useCallback(async () => {
+    try {
+      const data = (await apiClient.get('/api/meal-prep')) as MealPrepPlanData;
+      setMealPrepPlan(data);
+    } catch { /* silently fail */ }
+  }, []);
+
+  const fetchGroceryList = useCallback(async (day: string) => {
+    try {
+      const data = (await apiClient.get(`/api/meal-prep/${day}/grocery-list`)) as GroceryListData;
+      setGroceryList(data);
+    } catch { /* silently fail */ }
+  }, []);
+
   useEffect(() => {
     fetchFoodEntries(selectedDate);
     fetchCalorieGoal();
-  }, [fetchFoodEntries, fetchCalorieGoal, selectedDate]);
+    fetchMealPrepPlan();
+  }, [fetchFoodEntries, fetchCalorieGoal, fetchMealPrepPlan, selectedDate]);
 
   useEffect(() => {
     fetchRecipes(searchTerm);
   }, [fetchRecipes, searchTerm]);
+
+  useEffect(() => {
+    if (selectedMealPrepDay) {
+      fetchGroceryList(selectedMealPrepDay);
+    } else {
+      setGroceryList(null);
+    }
+  }, [selectedMealPrepDay, fetchGroceryList]);
 
   function handleFoodEntryCreated(
     optimistic: FoodEntry,
@@ -82,6 +116,11 @@ export default function DietTab() {
         .then((data) => setFoodEntries((prev) => prev.map((e) => (e.id === optimistic.id ? (data as FoodEntry) : e))))
         .catch(() => setFoodEntries((prev) => prev.filter((e) => e.id !== optimistic.id)));
     });
+  }
+
+  function handleFoodEntryDeleted(entryId: string) {
+    setFoodEntries((prev) => prev.filter((e) => e.id !== entryId));
+    apiClient.delete(`/api/food-entries/${entryId}`).catch(() => fetchFoodEntries(selectedDate));
   }
 
   function handleGoalChange(goal: number) {
@@ -123,6 +162,26 @@ export default function DietTab() {
     setRecipes((r) => r.filter((recipe) => recipe.id !== id));
     if (selectedRecipeId === id) setSelectedRecipeId(null);
     apiClient.delete(`/api/recipes/${id}`).catch(() => setRecipes(prev));
+  }
+
+  function handleMealPrepCreated(body: {
+    weekStartDate: string;
+    entries: { dayOfWeek: string; mealType: string; recipeId: string }[];
+  }) {
+    setShowMealPrepForm(false);
+    apiClient
+      .post('/api/meal-prep', { body })
+      .then((data) => setMealPrepPlan(data as MealPrepPlanData))
+      .catch(() => { /* silently fail */ });
+  }
+
+  function handleMealPrepDeleted() {
+    setMealPrepPlan(null);
+    setSelectedMealPrepDay(null);
+    setGroceryList(null);
+    if (mealPrepPlan) {
+      apiClient.delete(`/api/meal-prep/${mealPrepPlan.id}`).catch(() => fetchMealPrepPlan());
+    }
   }
 
   const selectedRecipe = recipes.find((r) => r.id === selectedRecipeId) ?? null;
@@ -188,13 +247,22 @@ export default function DietTab() {
                     <span className="text-text-primary text-sm">{entry.foodName}</span>
                     <span className="text-text-secondary text-xs ml-2 capitalize">{entry.mealType}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-text-primary text-sm font-semibold">{entry.calories} kcal</span>
-                    {(entry.protein > 0 || entry.carbs > 0 || entry.fat > 0) && (
-                      <p className="text-text-secondary text-xs">
-                        P:{entry.protein}g C:{entry.carbs}g F:{entry.fat}g
-                      </p>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-text-primary text-sm font-semibold">{entry.calories} kcal</span>
+                      {(entry.protein > 0 || entry.carbs > 0 || entry.fat > 0) && (
+                        <p className="text-text-secondary text-xs">
+                          P:{entry.protein}g C:{entry.carbs}g F:{entry.fat}g
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleFoodEntryDeleted(entry.id)}
+                      className="text-accent-warning text-xs hover:opacity-80"
+                      aria-label={`Delete ${entry.foodName}`}
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
               ))
@@ -240,6 +308,43 @@ export default function DietTab() {
             onSearchChange={setSearchTerm}
           />
         )}
+      </div>
+
+      {/* Meal Prep section */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Meal Prep</h2>
+          <div className="flex items-center gap-2">
+            {mealPrepPlan && (
+              <button onClick={handleMealPrepDeleted} className="text-accent-warning text-sm hover:opacity-80">
+                Delete Plan
+              </button>
+            )}
+            <button
+              onClick={() => setShowMealPrepForm(!showMealPrepForm)}
+              className="text-accent-info text-sm hover:opacity-80"
+            >
+              {showMealPrepForm ? 'Cancel' : '+ New Plan'}
+            </button>
+          </div>
+        </div>
+
+        {showMealPrepForm && (
+          <div className="mb-4">
+            <MealPrepForm recipes={recipes} onCreated={handleMealPrepCreated} />
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <MealPrepPlan
+            plan={mealPrepPlan}
+            onSelectDay={setSelectedMealPrepDay}
+            selectedDay={selectedMealPrepDay}
+          />
+          {selectedMealPrepDay && (
+            <GroceryList data={groceryList} day={selectedMealPrepDay} />
+          )}
+        </div>
       </div>
     </div>
   );

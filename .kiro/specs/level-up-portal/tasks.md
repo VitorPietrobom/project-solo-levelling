@@ -258,8 +258,8 @@ All remaining UI tasks MUST follow these patterns:
     - RecipeForm: builds optimistic recipe, calls parent's onCreated. Optimistic create pattern
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
-- [ ] 16. Meal prep planning
-  - [ ] 16.1 Implement meal prep endpoints
+- [x] 16. Meal prep planning
+  - [x] 16.1 Implement meal prep endpoints
     - GET `/api/meal-prep` — get current week's plan with entries
     - POST `/api/meal-prep` — create/update meal prep plan (weekStartDate must be Monday)
     - GET `/api/meal-prep/:day/grocery-list` — aggregate ingredients from assigned recipes for a day
@@ -274,19 +274,19 @@ All remaining UI tasks MUST follow these patterns:
   - [ ]* 16.4 Write property test for grocery list aggregation
     - **Property 21: Grocery list aggregation**
     - **Validates: Requirements 13.4**
-  - [ ] 16.5 Implement MealPrepPlan, MealPrepForm, and GroceryList UI components
+  - [x] 16.5 Implement MealPrepPlan, MealPrepForm, and GroceryList UI components
     - All presentational, receiving data as props from DietTab parent
     - MealPrepPlan: weekly grid (days × meal types) with assigned recipes
     - MealPrepForm: assign recipes to day/meal slots. Optimistic create pattern
     - GroceryList: combined ingredient list for a selected day
     - _Requirements: 13.1, 13.2, 13.3, 13.4_
-  - [ ] 16.6 Wire DietTab container with all diet sub-components
+  - [x] 16.6 Wire DietTab container with all diet sub-components
     - DietTab owns all state: food entries, calorie goal, recipes, meal prep plan. Fetches each on mount
     - Compose CalorieTracker, RecipeList, MealPrepPlan as presentational children
     - All create handlers follow optimistic pattern
     - _Requirements: 11.2, 12.2, 13.2_
 
-- [ ] 17. Checkpoint — Diet tab complete
+- [x] 17. Checkpoint — Diet tab complete
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 18. Learning document hub

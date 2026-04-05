@@ -70,3 +70,21 @@ export async function createFoodEntry(req: Request, res: Response): Promise<void
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function deleteFoodEntry(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const entryId = req.params.id as string;
+
+    const entry = await prisma.foodEntry.findFirst({ where: { id: entryId, userId } });
+    if (!entry) {
+      res.status(404).json({ error: 'Food entry not found' });
+      return;
+    }
+
+    await prisma.foodEntry.delete({ where: { id: entryId } });
+    res.json({ message: 'Food entry deleted' });
+  } catch {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
