@@ -194,8 +194,8 @@ All remaining UI tasks MUST follow these patterns:
     - MuscleHeatMap: SVG body diagram with color-coded soreness using heat map color scale
     - _Requirements: 9.1, 9.2, 9.3, 9.5_
 
-- [ ] 12. Training programs
-  - [ ] 12.1 Implement training program endpoints
+- [x] 12. Training programs
+  - [x] 12.1 Implement training program endpoints
     - GET `/api/training-programs` — list programs
     - POST `/api/training-programs` — create program with name, days, exercises per day
     - PATCH `/api/training-programs/:id/activate` — set active (deactivate all others for user)
@@ -206,12 +206,12 @@ All remaining UI tasks MUST follow these patterns:
   - [ ]* 12.3 Write property test for active training program invariant
     - **Property 14: Active training program invariant**
     - **Validates: Requirements 10.4**
-  - [ ] 12.4 Implement TrainingProgramView, TrainingProgramForm UI components
+  - [x] 12.4 Implement TrainingProgramView, TrainingProgramForm UI components
     - All presentational, receiving data as props from BodyTab parent
     - TrainingProgramView: weekly display with day-by-day exercises
     - TrainingProgramForm: create/edit program with day/exercise assignment. Optimistic create pattern
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
-  - [ ] 12.5 Wire BodyTab container with all body sub-components
+  - [x] 12.5 Wire BodyTab container with all body sub-components
     - BodyTab owns all state: weight entries, measurements, gym sessions, heatmap data, training programs. Fetches each on mount
     - Compose WeightChart, MeasurementList, GymSessionLog, MuscleHeatMap, TrainingProgramView as presentational children
     - All create handlers follow optimistic pattern

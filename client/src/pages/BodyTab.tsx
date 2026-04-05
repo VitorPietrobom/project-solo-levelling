@@ -9,6 +9,9 @@ import GymSessionLog from '../components/GymSessionLog';
 import type { GymSession } from '../components/GymSessionLog';
 import GymSessionImport from '../components/GymSessionImport';
 import SorenessBodyDiagram from '../components/SorenessBodyDiagram';
+import TrainingProgramView from '../components/TrainingProgramView';
+import type { TrainingProgram } from '../components/TrainingProgramView';
+import TrainingProgramForm from '../components/TrainingProgramForm';
 import { apiClient } from '../lib/apiClient';
 
 export default function BodyTab() {
@@ -19,6 +22,8 @@ export default function BodyTab() {
   const [gymSessions, setGymSessions] = useState<GymSession[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [heatmap, setHeatmap] = useState<Record<string, number>>({});
+  const [programs, setPrograms] = useState<TrainingProgram[]>([]);
+  const [showProgramForm, setShowProgramForm] = useState(false);
 
   const fetchWeight = useCallback(async () => {
     try {
@@ -48,12 +53,20 @@ export default function BodyTab() {
     } catch { /* silently fail */ }
   }, []);
 
+  const fetchPrograms = useCallback(async () => {
+    try {
+      const data = (await apiClient.get('/api/training-programs')) as TrainingProgram[];
+      setPrograms(data);
+    } catch { /* silently fail */ }
+  }, []);
+
   useEffect(() => {
     fetchWeight();
     fetchMeasurements();
     fetchGymSessions();
     fetchHeatmap();
-  }, [fetchWeight, fetchMeasurements, fetchGymSessions, fetchHeatmap]);
+    fetchPrograms();
+  }, [fetchWeight, fetchMeasurements, fetchGymSessions, fetchHeatmap, fetchPrograms]);
 
   function handleWeightCreated(optimistic: WeightEntry, body: { weight: number; date: string }) {
     setWeightEntries((prev) => [...prev, optimistic].sort((a, b) => a.date.localeCompare(b.date)));
@@ -92,6 +105,37 @@ export default function BodyTab() {
       .catch(() => fetchGymSessions());
   }
 
+  function handleProgramCreated(
+    optimistic: TrainingProgram,
+    body: {
+      name: string;
+      days: {
+        dayOfWeek: string;
+        exercises: { name: string; sets: number; reps: number; targetWeight: number }[];
+      }[];
+    },
+  ) {
+    setPrograms((prev) => [optimistic, ...prev]);
+    setShowProgramForm(false);
+    apiClient.post('/api/training-programs', { body })
+      .then((data) => setPrograms((prev) => prev.map((p) => (p.id === optimistic.id ? (data as TrainingProgram) : p))))
+      .catch(() => setPrograms((prev) => prev.filter((p) => p.id !== optimistic.id)));
+  }
+
+  function handleProgramActivate(programId: string) {
+    setPrograms((prev) =>
+      prev.map((p) => ({ ...p, active: p.id === programId })),
+    );
+    apiClient.patch(`/api/training-programs/${programId}/activate`)
+      .catch(() => fetchPrograms());
+  }
+
+  function handleProgramDelete(programId: string) {
+    setPrograms((prev) => prev.filter((p) => p.id !== programId));
+    apiClient.delete(`/api/training-programs/${programId}`)
+      .catch(() => fetchPrograms());
+  }
+
   return (
     <div className="text-text-primary">
       {/* Top row: Weight chart full width */}
@@ -106,7 +150,7 @@ export default function BodyTab() {
         <WeightChart entries={weightEntries} />
       </div>
 
-      {/* Middle row: Body diagrams side by side */}
+      {/* Row 2: Measurements + Soreness side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -124,16 +168,28 @@ export default function BodyTab() {
         </div>
       </div>
 
-      {/* Bottom row: Gym sessions */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Gym Sessions</h2>
-          <button onClick={() => setShowImport(!showImport)} className="text-accent-info text-sm hover:opacity-80">
-            {showImport ? 'Cancel' : '+ Import from Hevy'}
-          </button>
+      {/* Row 3: Gym Sessions + Training Programs side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Gym Sessions</h2>
+            <button onClick={() => setShowImport(!showImport)} className="text-accent-info text-sm hover:opacity-80">
+              {showImport ? 'Cancel' : '+ Import from Hevy'}
+            </button>
+          </div>
+          {showImport && <div className="mb-4"><GymSessionImport onImport={handleGymSessionImported} /></div>}
+          <GymSessionLog sessions={gymSessions} onDelete={handleGymSessionDeleted} />
         </div>
-        {showImport && <div className="mb-4"><GymSessionImport onImport={handleGymSessionImported} /></div>}
-        <GymSessionLog sessions={gymSessions} onDelete={handleGymSessionDeleted} />
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Training Programs</h2>
+            <button onClick={() => setShowProgramForm(!showProgramForm)} className="text-accent-info text-sm hover:opacity-80">
+              {showProgramForm ? 'Cancel' : '+ New Program'}
+            </button>
+          </div>
+          {showProgramForm && <div className="mb-4"><TrainingProgramForm onCreated={handleProgramCreated} /></div>}
+          <TrainingProgramView programs={programs} onActivate={handleProgramActivate} onDelete={handleProgramDelete} />
+        </div>
       </div>
     </div>
   );

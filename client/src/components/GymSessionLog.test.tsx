@@ -48,7 +48,7 @@ describe('GymSessionLog', () => {
   it('shows empty state when no sessions', () => {
     render(<GymSessionLog sessions={[]} />);
     expect(
-      screen.getByText('No gym sessions yet. Log your first session to start tracking.'),
+      screen.getByText('No gym sessions yet. Import your first session from Hevy to start tracking.'),
     ).toBeInTheDocument();
   });
 
