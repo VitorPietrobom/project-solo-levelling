@@ -9,7 +9,7 @@
     "outDir": "./dist",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "vite/client"]
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

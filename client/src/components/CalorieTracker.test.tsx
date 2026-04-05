@@ -5,10 +5,10 @@ import CalorieTracker from './CalorieTracker';
 import type { FoodEntry } from './CalorieTracker';
 
 const entries: FoodEntry[] = [
-  { id: '1', foodName: 'Oatmeal', calories: 300, mealType: 'breakfast', date: '2024-01-15' },
-  { id: '2', foodName: 'Chicken Salad', calories: 500, mealType: 'lunch', date: '2024-01-15' },
-  { id: '3', foodName: 'Steak', calories: 700, mealType: 'dinner', date: '2024-01-15' },
-  { id: '4', foodName: 'Apple', calories: 100, mealType: 'snack', date: '2024-01-15' },
+  { id: '1', foodName: 'Oatmeal', calories: 300, protein: 10, carbs: 50, fat: 5, mealType: 'breakfast', date: '2024-01-15' },
+  { id: '2', foodName: 'Chicken Salad', calories: 500, protein: 40, carbs: 20, fat: 15, mealType: 'lunch', date: '2024-01-15' },
+  { id: '3', foodName: 'Steak', calories: 700, protein: 50, carbs: 0, fat: 30, mealType: 'dinner', date: '2024-01-15' },
+  { id: '4', foodName: 'Apple', calories: 100, protein: 0, carbs: 25, fat: 0, mealType: 'snack', date: '2024-01-15' },
 ];
 
 describe('CalorieTracker', () => {
