@@ -62,6 +62,12 @@ enum DocumentFormat {
   markdown
 }
 
+enum BookStatus {
+  want_to_read
+  reading
+  finished
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
@@ -82,6 +88,10 @@ model User {
   recipes          Recipe[]
   mealPrepPlans    MealPrepPlan[]
   documents        Document[]
+  books            Book[]
+  journalEntries   JournalEntry[]
+  lessonsLearned   LessonLearned[]
+  notes            Note[]
 }
 
 model Quest {
@@ -280,7 +290,65 @@ model Document {
   category   String
   format     DocumentFormat
   filePath   String
+  content    String?
   uploadedAt DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model Book {
+  id            String     @id @default(uuid())
+  userId        String
+  title         String
+  author        String
+  status        BookStatus @default(want_to_read)
+  totalPages    Int
+  currentPage   Int        @default(0)
+  notes         String?
+  linkedSkillId String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model JournalEntry {
+  id            String   @id @default(uuid())
+  userId        String
+  content       String
+  tags          String[] @default([])
+  linkedSkillId String?
+  date          DateTime @db.Date
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model LessonLearned {
+  id            String   @id @default(uuid())
+  userId        String
+  content       String
+  tags          String[] @default([])
+  linkedSkillId String?
+  date          DateTime @db.Date
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model Note {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  content   String
+  tags      String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

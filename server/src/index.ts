@@ -14,12 +14,17 @@ import foodEntryRoutes from './routes/food-entries';
 import calorieGoalRoutes from './routes/calorie-goal';
 import recipeRoutes from './routes/recipes';
 import mealPrepRoutes from './routes/meal-prep';
+import documentRoutes from './routes/documents';
+import bookRoutes from './routes/books';
+import journalRoutes from './routes/journal';
+import lessonRoutes from './routes/lessons';
+import noteRoutes from './routes/notes';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -38,6 +43,11 @@ app.use('/api/food-entries', foodEntryRoutes);
 app.use('/api/calorie-goal', calorieGoalRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/meal-prep', mealPrepRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/books', bookRoutes);
+app.use('/api/journal', journalRoutes);
+app.use('/api/lessons', lessonRoutes);
+app.use('/api/notes', noteRoutes);
 
 if (process.env.NODE_ENV !== 'test') {
   // Warm up the DB connection pool before accepting requests

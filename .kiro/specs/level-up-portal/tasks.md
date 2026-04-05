@@ -289,8 +289,8 @@ All remaining UI tasks MUST follow these patterns:
 - [x] 17. Checkpoint — Diet tab complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 18. Learning document hub
-  - [ ] 18.1 Implement document upload and retrieval endpoints
+- [x] 18. Learning document hub
+  - [x] 18.1 Implement document upload and retrieval endpoints
     - GET `/api/documents?search=` — list/search documents by title or category (case-insensitive)
     - POST `/api/documents` — upload document (multipart form, validate PDF/Markdown format, reject others with 400)
     - GET `/api/documents/:id` — get/download document file
@@ -309,20 +309,52 @@ All remaining UI tasks MUST follow these patterns:
   - [ ]* 18.5 Write property test for document search correctness
     - **Property 25: Document search correctness**
     - **Validates: Requirements 14.5**
-  - [ ] 18.6 Implement DocumentList, DocumentUpload, and DocumentViewer UI components
+  - [x] 18.6 Implement DocumentList, DocumentUpload, and DocumentViewer UI components
     - All presentational, receiving data as props from LearningTab parent
     - DocumentList: documents organized by category with search
     - DocumentUpload: upload form with title, category, file input (PDF/Markdown only). Optimistic create pattern
     - DocumentViewer: inline Markdown rendering, download link for PDFs
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
-  - [ ] 18.7 Wire LearningTab container
+  - [x] 18.7 Wire LearningTab container
     - LearningTab owns all state: documents, categories. Fetches on mount
     - Compose DocumentList, DocumentUpload, DocumentViewer as presentational children
     - Upload handler follows optimistic pattern
     - _Requirements: 14.3_
 
-- [ ] 19. Checkpoint — Learning tab complete
+- [x] 19. Checkpoint — Learning tab complete
   - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 19.1 Revamp Learning Tab — Book Tracker
+  - [x] 19.1.1 Add Book model to Prisma schema (title, author, status: reading/finished/want-to-read, totalPages, currentPage, notes, linkedSkillId?, startedAt, finishedAt)
+  - [x] 19.1.2 Implement book CRUD endpoints (GET list with status filter, POST create, PATCH update progress/status, DELETE)
+  - [x] 19.1.3 Implement BookList component — kanban-style columns (Want to Read / Reading / Finished), book cards with progress bar, page count
+  - [x] 19.1.4 Implement BookForm component — title, author, total pages, optional skill link (dropdown of user's skills)
+  - [x] 19.1.5 When finishing a book, award XP to the linked skill (if any) — ties reading into the gamification system
+
+- [x] 19.2 Revamp Learning Tab — Learning Journal
+  - [x] 19.2.1 Add JournalEntry model to Prisma schema (content: text, tags: string[], date, linkedSkillId?)
+  - [x] 19.2.2 Implement journal CRUD endpoints (GET list with date range, POST create, DELETE)
+  - [x] 19.2.3 Implement JournalList component — timeline view of entries, grouped by date, with tag badges
+  - [x] 19.2.4 Implement JournalForm component — markdown textarea, tag input, optional skill link, date
+
+- [x] 19.3 Revamp Learning Tab — Lessons Learned Log
+  - [x] 19.3.1 Add LessonLearned model to Prisma schema (content: text, category/tag, linkedSkillId?, date)
+  - [x] 19.3.2 Implement lessons CRUD endpoints (GET list with search/tag filter, POST create, DELETE)
+  - [x] 19.3.3 Implement LessonsList component — searchable, filterable cards with tag badges and skill links
+  - [x] 19.3.4 Implement LessonForm component — quick entry with content, tags, optional skill link
+
+- [x] 19.4 Revamp Learning Tab — Knowledge Base (Notes Wiki)
+  - [x] 19.4.1 Add Note model to Prisma schema (title, content: text/markdown, tags: string[], linkedNoteIds: for linking notes together)
+  - [x] 19.4.2 Implement notes CRUD endpoints (GET list with search, POST create, PATCH update, DELETE)
+  - [x] 19.4.3 Implement NoteList component — searchable grid of note cards with tags
+  - [x] 19.4.4 Implement NoteEditor component — title, markdown content editor, tag input, link to other notes
+  - [x] 19.4.5 Implement NoteViewer component — rendered markdown with clickable links to other notes
+
+- [x] 19.5 Wire revamped LearningTab container
+  - [x] 19.5.1 Replace current LearningTab with sub-sections: Books, Journal, Lessons, Notes
+  - [x] 19.5.2 Use grid layout like other tabs — Books + Journal side by side on top, Lessons + Notes below
+  - [x] 19.5.3 All components follow optimistic UI pattern
+  - [x] 19.5.4 Keep existing document storage as a collapsible "Documents" section at the bottom (don't delete it)
 
 - [ ] 20. Weekly summary
   - [ ] 20.1 Implement weekly summary endpoint
