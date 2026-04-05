@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import CalorieTracker from '../components/CalorieTracker';
 import type { FoodEntry } from '../components/CalorieTracker';
 import FoodEntryForm from '../components/FoodEntryForm';
+import FoodEntryImport from '../components/FoodEntryImport';
+import RecipeList from '../components/RecipeList';
+import type { Recipe } from '../components/RecipeList';
+import RecipeDetail from '../components/RecipeDetail';
+import RecipeForm from '../components/RecipeForm';
+import RecipeImport from '../components/RecipeImport';
 import { apiClient } from '../lib/apiClient';
 
 export default function DietTab() {
@@ -9,6 +15,14 @@ export default function DietTab() {
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
   const [calorieGoal, setCalorieGoal] = useState(2000);
   const [showFoodForm, setShowFoodForm] = useState(false);
+  const [showFoodImport, setShowFoodImport] = useState(false);
+
+  // Recipe state
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showRecipeForm, setShowRecipeForm] = useState(false);
+  const [showRecipeImport, setShowRecipeImport] = useState(false);
 
   const fetchFoodEntries = useCallback(async (date: string) => {
     try {
@@ -24,10 +38,22 @@ export default function DietTab() {
     } catch { /* silently fail */ }
   }, []);
 
+  const fetchRecipes = useCallback(async (search: string) => {
+    try {
+      const url = search ? `/api/recipes?search=${encodeURIComponent(search)}` : '/api/recipes';
+      const data = (await apiClient.get(url)) as Recipe[];
+      setRecipes(data);
+    } catch { /* silently fail */ }
+  }, []);
+
   useEffect(() => {
     fetchFoodEntries(selectedDate);
     fetchCalorieGoal();
   }, [fetchFoodEntries, fetchCalorieGoal, selectedDate]);
+
+  useEffect(() => {
+    fetchRecipes(searchTerm);
+  }, [fetchRecipes, searchTerm]);
 
   function handleFoodEntryCreated(
     optimistic: FoodEntry,
@@ -47,6 +73,17 @@ export default function DietTab() {
       );
   }
 
+  function handleFoodImport(entries: { optimistic: FoodEntry; body: any }[]) {
+    setFoodEntries((prev) => [...prev, ...entries.map((e) => e.optimistic)]);
+    setShowFoodImport(false);
+    // Fire all POSTs in parallel
+    entries.forEach(({ optimistic, body }) => {
+      apiClient.post('/api/food-entries', { body })
+        .then((data) => setFoodEntries((prev) => prev.map((e) => (e.id === optimistic.id ? (data as FoodEntry) : e))))
+        .catch(() => setFoodEntries((prev) => prev.filter((e) => e.id !== optimistic.id)));
+    });
+  }
+
   function handleGoalChange(goal: number) {
     const prev = calorieGoal;
     setCalorieGoal(goal);
@@ -54,6 +91,41 @@ export default function DietTab() {
       .put('/api/calorie-goal', { body: { calorieGoal: goal } })
       .catch(() => setCalorieGoal(prev));
   }
+
+  function handleRecipeCreated(
+    optimistic: Recipe,
+    body: { name: string; steps: string; caloriesPerServing: number; ingredients: { name: string; quantity: string; unit: string }[] },
+  ) {
+    setRecipes((prev) => [optimistic, ...prev]);
+    setShowRecipeForm(false);
+    apiClient
+      .post('/api/recipes', { body })
+      .then((data) =>
+        setRecipes((prev) =>
+          prev.map((r) => (r.id === optimistic.id ? (data as Recipe) : r)),
+        ),
+      )
+      .catch(() =>
+        setRecipes((prev) => prev.filter((r) => r.id !== optimistic.id)),
+      );
+  }
+
+  function handleRecipeImported(optimistic: Recipe, body: any) {
+    setRecipes((prev) => [optimistic, ...prev]);
+    setShowRecipeImport(false);
+    apiClient.post('/api/recipes', { body })
+      .then((data) => setRecipes((prev) => prev.map((r) => (r.id === optimistic.id ? (data as Recipe) : r))))
+      .catch(() => setRecipes((prev) => prev.filter((r) => r.id !== optimistic.id)));
+  }
+
+  function handleRecipeDelete(id: string) {
+    const prev = recipes;
+    setRecipes((r) => r.filter((recipe) => recipe.id !== id));
+    if (selectedRecipeId === id) setSelectedRecipeId(null);
+    apiClient.delete(`/api/recipes/${id}`).catch(() => setRecipes(prev));
+  }
+
+  const selectedRecipe = recipes.find((r) => r.id === selectedRecipeId) ?? null;
 
   return (
     <div className="text-text-primary">
@@ -83,16 +155,23 @@ export default function DietTab() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">Food Log</h2>
-            <button
-              onClick={() => setShowFoodForm(!showFoodForm)}
-              className="text-accent-info text-sm hover:opacity-80"
-            >
-              {showFoodForm ? 'Cancel' : '+ Log Food'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setShowFoodImport(!showFoodImport); setShowFoodForm(false); }} className="text-accent-info text-sm hover:opacity-80">
+                {showFoodImport ? 'Cancel' : '📋 Import'}
+              </button>
+              <button onClick={() => { setShowFoodForm(!showFoodForm); setShowFoodImport(false); }} className="text-accent-info text-sm hover:opacity-80">
+                {showFoodForm ? 'Cancel' : '+ Log Food'}
+              </button>
+            </div>
           </div>
           {showFoodForm && (
             <div className="mb-4">
               <FoodEntryForm onCreated={handleFoodEntryCreated} />
+            </div>
+          )}
+          {showFoodImport && (
+            <div className="mb-4">
+              <FoodEntryImport onImport={handleFoodImport} />
             </div>
           )}
 
@@ -122,6 +201,45 @@ export default function DietTab() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Recipes section */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Recipes</h2>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setShowRecipeImport(!showRecipeImport); setShowRecipeForm(false); setSelectedRecipeId(null); }} className="text-accent-info text-sm hover:opacity-80">
+              {showRecipeImport ? 'Cancel' : '📋 Import'}
+            </button>
+            <button onClick={() => { setShowRecipeForm(!showRecipeForm); setShowRecipeImport(false); setSelectedRecipeId(null); }} className="text-accent-info text-sm hover:opacity-80">
+              {showRecipeForm ? 'Cancel' : '+ New Recipe'}
+            </button>
+          </div>
+        </div>
+
+        {showRecipeForm && (
+          <div className="mb-4">
+            <RecipeForm onCreated={handleRecipeCreated} />
+          </div>
+        )}
+
+        {showRecipeImport && (
+          <div className="mb-4">
+            <RecipeImport onImport={handleRecipeImported} />
+          </div>
+        )}
+
+        {selectedRecipeId ? (
+          <RecipeDetail recipe={selectedRecipe} onClose={() => setSelectedRecipeId(null)} />
+        ) : (
+          <RecipeList
+            recipes={recipes}
+            onSelect={(id) => { setSelectedRecipeId(id); setShowRecipeForm(false); }}
+            onDelete={handleRecipeDelete}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+          />
+        )}
       </div>
     </div>
   );

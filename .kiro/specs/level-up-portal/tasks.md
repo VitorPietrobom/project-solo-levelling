@@ -239,8 +239,8 @@ All remaining UI tasks MUST follow these patterns:
     - FoodEntryForm: builds optimistic food entry, calls parent's onCreated. Optimistic create pattern
     - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
-- [ ] 15. Recipes
-  - [ ] 15.1 Implement recipe CRUD and search endpoints
+- [x] 15. Recipes
+  - [x] 15.1 Implement recipe CRUD and search endpoints
     - GET `/api/recipes?search=` — list/search recipes by name or ingredient (case-insensitive)
     - POST `/api/recipes` — create recipe with name, ingredients, steps, caloriesPerServing
     - GET `/api/recipes/:id` — get full recipe detail
@@ -251,7 +251,7 @@ All remaining UI tasks MUST follow these patterns:
   - [ ]* 15.3 Write property test for recipe search correctness
     - **Property 18: Recipe search correctness**
     - **Validates: Requirements 12.4**
-  - [ ] 15.4 Implement RecipeList, RecipeDetail, and RecipeForm UI components
+  - [x] 15.4 Implement RecipeList, RecipeDetail, and RecipeForm UI components
     - All presentational, receiving data as props from DietTab parent
     - RecipeList: browsable/searchable recipe collection
     - RecipeDetail: full recipe view with ingredients, steps, nutrition
