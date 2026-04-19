@@ -26,7 +26,7 @@ export default function NoteList({ notes = [], onSelect, onDelete, searchTerm, o
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Search notes..."
-        className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+        className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
         aria-label="Search notes"
       />
       {notes.length === 0 ? (

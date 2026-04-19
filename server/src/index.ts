@@ -19,6 +19,7 @@ import bookRoutes from './routes/books';
 import journalRoutes from './routes/journal';
 import lessonRoutes from './routes/lessons';
 import noteRoutes from './routes/notes';
+import weeklySummaryRoutes from './routes/weekly-summary';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -48,6 +49,7 @@ app.use('/api/books', bookRoutes);
 app.use('/api/journal', journalRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/notes', noteRoutes);
+app.use('/api/weekly-summary', weeklySummaryRoutes);
 
 if (process.env.NODE_ENV !== 'test') {
   // Warm up the DB connection pool before accepting requests

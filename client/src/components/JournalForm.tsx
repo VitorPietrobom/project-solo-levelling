@@ -51,7 +51,7 @@ export default function JournalForm({ skills, onCreated }: JournalFormProps) {
           id="journal-content"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary min-h-[80px] resize-y"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary min-h-[80px] resize-y focus:outline-none focus:border-accent-primary"
           required
         />
       </div>
@@ -63,7 +63,7 @@ export default function JournalForm({ skills, onCreated }: JournalFormProps) {
           value={tagsInput}
           onChange={(e) => setTagsInput(e.target.value)}
           placeholder="react, hooks, state"
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
         />
       </div>
       <div>
@@ -73,7 +73,7 @@ export default function JournalForm({ skills, onCreated }: JournalFormProps) {
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           required
         />
       </div>
@@ -84,7 +84,7 @@ export default function JournalForm({ skills, onCreated }: JournalFormProps) {
             id="journal-skill"
             value={linkedSkillId}
             onChange={(e) => setLinkedSkillId(e.target.value)}
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           >
             <option value="">None</option>
             {skills.map((s) => (

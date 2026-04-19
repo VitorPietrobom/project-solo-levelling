@@ -54,7 +54,7 @@ export default function BookForm({ skills, onCreated }: BookFormProps) {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           required
         />
       </div>
@@ -65,7 +65,7 @@ export default function BookForm({ skills, onCreated }: BookFormProps) {
           type="text"
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           required
         />
       </div>
@@ -77,7 +77,7 @@ export default function BookForm({ skills, onCreated }: BookFormProps) {
           min={1}
           value={totalPages}
           onChange={(e) => setTotalPages(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           required
         />
       </div>
@@ -88,7 +88,7 @@ export default function BookForm({ skills, onCreated }: BookFormProps) {
             id="book-skill"
             value={linkedSkillId}
             onChange={(e) => setLinkedSkillId(e.target.value)}
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           >
             <option value="">None</option>
             {skills.map((s) => (

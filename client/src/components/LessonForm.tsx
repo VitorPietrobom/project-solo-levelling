@@ -53,7 +53,7 @@ export default function LessonForm({ skills, onCreated }: LessonFormProps) {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="What did you learn?"
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           required
         />
       </div>
@@ -65,7 +65,7 @@ export default function LessonForm({ skills, onCreated }: LessonFormProps) {
           value={tagsInput}
           onChange={(e) => setTagsInput(e.target.value)}
           placeholder="debugging, testing, architecture"
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
         />
       </div>
       <div>
@@ -75,7 +75,7 @@ export default function LessonForm({ skills, onCreated }: LessonFormProps) {
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           required
         />
       </div>
@@ -86,7 +86,7 @@ export default function LessonForm({ skills, onCreated }: LessonFormProps) {
             id="lesson-skill"
             value={linkedSkillId}
             onChange={(e) => setLinkedSkillId(e.target.value)}
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           >
             <option value="">None</option>
             {skills.map((s) => (

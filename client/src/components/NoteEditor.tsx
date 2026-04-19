@@ -56,7 +56,7 @@ export default function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           required
         />
       </div>
@@ -66,7 +66,7 @@ export default function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
           id="note-content"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary min-h-[160px] resize-y font-mono"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary min-h-[160px] resize-y font-mono focus:outline-none focus:border-accent-primary"
         />
       </div>
       <div>
@@ -77,7 +77,7 @@ export default function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
           value={tagsInput}
           onChange={(e) => setTagsInput(e.target.value)}
           placeholder="react, hooks, patterns"
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
         />
       </div>
       <div className="flex gap-2">

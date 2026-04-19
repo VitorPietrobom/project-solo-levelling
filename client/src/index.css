@@ -16,6 +16,7 @@
   --accent-primary: #00f5d4;    /* Neon teal — XP bars, active tabs */
   --accent-secondary: #7b2ff7;  /* Vibrant purple — levels, skills */
   --accent-warning: #ff6b6b;    /* Coral red — soreness heat map high */
+  --accent-danger: #ff6b6b;     /* Alias for warning — error states */
   --accent-success: #00e676;    /* Green — completed tasks */
   --accent-info: #448aff;       /* Blue — charts, links */
 
@@ -33,4 +34,10 @@
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  color-scheme: dark;
+}
+
+/* Native form controls (date pickers, selects, number inputs) inherit dark scheme */
+input, select, textarea {
+  color-scheme: dark;
 }

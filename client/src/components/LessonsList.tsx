@@ -26,7 +26,7 @@ export default function LessonsList({ lessons = [], onDelete, searchTerm, onSear
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Search lessons..."
-        className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary"
+        className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
         aria-label="Search lessons"
       />
       {lessons.length === 0 ? (

@@ -12,6 +12,7 @@ export default {
         'accent-primary': 'var(--accent-primary)',
         'accent-secondary': 'var(--accent-secondary)',
         'accent-warning': 'var(--accent-warning)',
+        'accent-danger': 'var(--accent-danger)',
         'accent-success': 'var(--accent-success)',
         'accent-info': 'var(--accent-info)',
         border: 'var(--border-color)',

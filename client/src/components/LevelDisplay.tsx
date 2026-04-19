@@ -27,7 +27,7 @@ export default function LevelDisplay() {
   }
 
   return (
-    <div className="bg-bg-card rounded-lg p-4 border border-border">
+    <div className="bg-card rounded-lg p-4 border border-border">
       <div className="flex items-center justify-between mb-2">
         <span className="text-accent-secondary font-bold text-lg">
           Level {status.level}
@@ -36,7 +36,7 @@ export default function LevelDisplay() {
           {status.totalXP} XP total
         </span>
       </div>
-      <div className="w-full bg-bg-secondary rounded-full h-3 overflow-hidden">
+      <div className="w-full bg-secondary rounded-full h-3 overflow-hidden">
         <div
           className="bg-accent-primary h-3 rounded-full transition-all duration-300"
           style={{ width: `${status.progress.percentage}%` }}

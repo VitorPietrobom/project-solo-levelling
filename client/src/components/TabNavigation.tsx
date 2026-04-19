@@ -5,6 +5,7 @@ const tabs = [
   { label: 'Body', to: '/body' },
   { label: 'Diet', to: '/diet' },
   { label: 'Learning', to: '/learning' },
+  { label: 'Weekly Summary', to: '/summary' },
 ] as const;
 
 export default function TabNavigation() {

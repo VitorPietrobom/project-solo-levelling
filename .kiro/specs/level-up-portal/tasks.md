@@ -356,8 +356,8 @@ All remaining UI tasks MUST follow these patterns:
   - [x] 19.5.3 All components follow optimistic UI pattern
   - [x] 19.5.4 Keep existing document storage as a collapsible "Documents" section at the bottom (don't delete it)
 
-- [ ] 20. Weekly summary
-  - [ ] 20.1 Implement weekly summary endpoint
+- [x] 20. Weekly summary
+  - [x] 20.1 Implement weekly summary endpoint
     - GET `/api/weekly-summary?weekOf=` — generate Markdown summary for the past 7 days
     - Query all tabs' data: XP earned, levels gained, quests completed, tasks completed, skill progress, weight changes, measurements, gym sessions, muscle groups, average daily calories, meal prep adherence, new recipes, documents uploaded, categories updated
     - Format as structured Markdown with section headers for Gamification, Body, Diet, Learning
@@ -365,13 +365,13 @@ All remaining UI tasks MUST follow these patterns:
   - [ ]* 20.2 Write property test for weekly summary content and format
     - **Property 26: Weekly summary content and format**
     - **Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5, 15.6**
-  - [ ] 20.3 Implement WeeklySummary UI component
+  - [x] 20.3 Implement WeeklySummary UI component
     - Display generated Markdown summary
     - Copy-to-clipboard button
     - _Requirements: 15.6, 15.7_
 
-- [ ] 21. Dark theme polish and contrast validation
-  - [ ] 21.1 Apply consistent dark theme styling across all tabs, modals, forms, and navigation
+- [x] 21. Dark theme polish and contrast validation
+  - [x] 21.1 Apply consistent dark theme styling across all tabs, modals, forms, and navigation
     - Ensure charts and heat map use legible color palettes on dark backgrounds
     - Verify accent colors on interactive elements, progress bars, XP indicators, active tabs
     - _Requirements: 16.1, 16.2, 16.3, 16.4_
