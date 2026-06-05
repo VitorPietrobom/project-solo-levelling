@@ -6,8 +6,8 @@ A personal growth web application that centralizes self-improvement tracking acr
 
 - **Frontend**: React + TypeScript, Vite, Tailwind CSS (dark theme), Recharts
 - **Backend**: Express + TypeScript, Prisma ORM
-- **Database**: Supabase-hosted PostgreSQL
-- **Auth**: Supabase Auth (JWT verified locally on the server)
+- **Database**: Neon-hosted PostgreSQL (Prisma)
+- **Auth**: Neon Auth (Better Auth; EdDSA JWTs verified on the server via JWKS)
 - **Testing**: Vitest + fast-check, React Testing Library, Supertest
 
 ## Features
@@ -41,25 +41,22 @@ A personal growth web application that centralizes self-improvement tracking acr
 
 ### Prerequisites
 - Node.js 18+
-- A Supabase project (free tier works)
+- A Neon project with Neon Auth enabled (Email/Password). See `MIGRATION.md` for where to find the values.
 
 ### Environment Variables
 
 **server/.env:**
 ```env
-DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres"
-DIRECT_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres"
-SUPABASE_URL="https://[ref].supabase.co"
-SUPABASE_SERVICE_KEY="your-service-role-key"
-SUPABASE_JWT_SECRET="your-supabase-jwt-secret"
-JWT_SECRET="any-random-string"
+DATABASE_URL="postgresql://[user]:[password]@[host].neon.tech/neondb?sslmode=require"
+DIRECT_URL="postgresql://[user]:[password]@[host].neon.tech/neondb?sslmode=require"
+NEON_AUTH_JWKS_URL="https://...neon.tech/.well-known/jwks.json"
+PORT=3000
 ```
 
 **client/.env:**
 ```env
-VITE_SUPABASE_URL=https://[ref].supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_API_URL=http://localhost:3001
+VITE_NEON_AUTH_URL=https://...   # Neon Console → Auth tab
+VITE_API_URL=http://localhost:3000
 ```
 
 ### Install & Run
@@ -93,8 +90,8 @@ cd client && npx vitest run
 
 - **Optimistic UI** — All create/update/delete operations update the UI instantly, sync with the server in the background, and rollback on failure
 - **Presentational Components** — List/Form components receive data and callbacks as props. Tab containers own state and handle API calls
-- **Auth Middleware** — Local JWT verification (fast) with Supabase API fallback. `ensureUser` middleware auto-creates the User row on first request
-- **Session Pooler** — Database queries go through Supabase's session pooler (port 5432) for persistent connections. Migrations use the direct URL
+- **Auth Middleware** — Verifies Neon Auth EdDSA JWTs against the JWKS endpoint (`jose`), with an in-memory token cache. `ensureUser` middleware auto-creates the User row on first request
+- **Database** — Neon Postgres accessed via Prisma (`DATABASE_URL` for queries, `DIRECT_URL` for migrations)
 
 ## AI Integration
 

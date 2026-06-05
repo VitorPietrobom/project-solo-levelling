@@ -10,5 +10,6 @@ router.get('/grocery-list/:day', authMiddleware, ensureUser, getGroceryList);
 router.get('/', authMiddleware, ensureUser, getMealPrepPlan);
 router.post('/', authMiddleware, ensureUser, createOrUpdateMealPrepPlan);
 
-export default router;
 router.delete('/:id', authMiddleware, ensureUser, deleteMealPrepPlan);
+
+export default router;

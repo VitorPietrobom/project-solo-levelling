@@ -7,21 +7,17 @@ import { AuthProvider } from '../contexts/AuthContext';
 const mockSignIn = vi.fn();
 const mockSignUp = vi.fn();
 const mockSignOut = vi.fn();
-const mockGetSession = vi.fn();
-const mockOnAuthStateChange = vi.fn(() => ({
-  data: { subscription: { unsubscribe: vi.fn() } },
-}));
+let sessionState: { data: unknown; isPending: boolean } = { data: null, isPending: false };
 
-vi.mock('../lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: () => mockGetSession(),
-      signInWithPassword: (args: any) => mockSignIn(args),
-      signUp: (args: any) => mockSignUp(args),
-      signOut: () => mockSignOut(),
-      onAuthStateChange: () => mockOnAuthStateChange(),
-    },
+vi.mock('../lib/neonAuth', () => ({
+  authClient: {
+    useSession: () => sessionState,
+    signIn: { email: (args: any) => mockSignIn(args) },
+    signUp: { email: (args: any) => mockSignUp(args) },
+    signOut: () => mockSignOut(),
+    getSession: vi.fn(),
   },
+  getAuthToken: vi.fn(),
 }));
 
 const mockNavigate = vi.fn();
@@ -43,7 +39,7 @@ function renderLoginPage() {
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+    sessionState = { data: null, isPending: false };
   });
 
   it('renders email and password fields and a submit button', async () => {

@@ -21,7 +21,8 @@ export async function listWeightEntries(req: Request, res: Response): Promise<vo
     });
 
     res.json(entries);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -58,7 +59,8 @@ export async function createWeightEntry(req: Request, res: Response): Promise<vo
     });
 
     res.status(201).json(entry);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

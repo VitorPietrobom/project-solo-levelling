@@ -23,9 +23,6 @@ server/prisma/migrations/
 .DS_Store
 Thumbs.db
 
-# Supabase
-supabase/.temp/
-
 # Logs
 *.log
 npm-debug.log*
@@ -35,3 +32,7 @@ coverage/
 
 # Vite
 client/.vite/
+client/vite.config.d.ts
+
+# TypeScript incremental build cache
+*.tsbuildinfo

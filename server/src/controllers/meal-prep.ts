@@ -33,7 +33,8 @@ export async function getMealPrepPlan(req: Request, res: Response): Promise<void
     });
 
     res.json(plan);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -132,7 +133,8 @@ export async function createOrUpdateMealPrepPlan(req: Request, res: Response): P
     }
 
     res.status(201).json(plan);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -183,7 +185,8 @@ export async function getGroceryList(req: Request, res: Response): Promise<void>
     }
 
     res.json({ ingredients, totalCalories });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -201,7 +204,8 @@ export async function deleteMealPrepPlan(req: Request, res: Response): Promise<v
 
     await prisma.mealPrepPlan.delete({ where: { id: planId } });
     res.json({ message: 'Meal prep plan deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

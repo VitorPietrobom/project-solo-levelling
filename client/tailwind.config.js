@@ -4,6 +4,27 @@ export default {
   theme: {
     extend: {
       colors: {
+        // New design system tokens
+        'bg-0': 'var(--bg-0)',
+        'bg-1': 'var(--bg-1)',
+        surface: 'var(--surface)',
+        'surface-hi': 'var(--surface-hi)',
+        'surface-inset': 'var(--surface-inset)',
+        line: 'var(--line)',
+        'line-soft': 'var(--line-soft)',
+        text: 'var(--text)',
+        'text-2': 'var(--text-2)',
+        'text-3': 'var(--text-3)',
+        'text-faint': 'var(--text-faint)',
+        accent: 'var(--accent)',
+        'accent-2': 'var(--accent-2)',
+        'accent-soft': 'var(--accent-soft)',
+        'accent-2-soft': 'var(--accent-2-soft)',
+        good: 'var(--good)',
+        warn: 'var(--warn)',
+        bad: 'var(--bad)',
+        info: 'var(--info)',
+        // Legacy aliases (keep for existing components)
         primary: 'var(--bg-primary)',
         secondary: 'var(--bg-secondary)',
         card: 'var(--bg-card)',
@@ -21,6 +42,17 @@ export default {
         'heatmap-50': 'var(--heatmap-50)',
         'heatmap-75': 'var(--heatmap-75)',
         'heatmap-100': 'var(--heatmap-100)',
+      },
+      fontFamily: {
+        display: 'var(--font-display)',
+        body: 'var(--font-body)',
+        mono: 'var(--font-mono)',
+      },
+      borderRadius: {
+        sm: 'var(--r-sm)',
+        DEFAULT: 'var(--r)',
+        lg: 'var(--r-lg)',
+        xl: 'var(--r-xl)',
       },
     },
   },

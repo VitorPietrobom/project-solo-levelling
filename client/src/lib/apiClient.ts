@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { getAuthToken } from './neonAuth';
 
 const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
@@ -53,9 +53,9 @@ async function request(
     ...(customHeaders as Record<string, string>),
   };
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
+  const token = await getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   if (body !== undefined) {

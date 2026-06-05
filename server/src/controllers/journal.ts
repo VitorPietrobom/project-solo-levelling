@@ -20,7 +20,8 @@ export async function listJournalEntries(req: Request, res: Response): Promise<v
     });
 
     res.json(entries);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -52,7 +53,8 @@ export async function createJournalEntry(req: Request, res: Response): Promise<v
     });
 
     res.status(201).json(entry);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -70,7 +72,8 @@ export async function deleteJournalEntry(req: Request, res: Response): Promise<v
 
     await prisma.journalEntry.delete({ where: { id: entryId } });
     res.json({ message: 'Journal entry deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

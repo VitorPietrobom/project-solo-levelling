@@ -2,9 +2,11 @@ import WeeklySummary from '../components/WeeklySummary';
 
 export default function SummaryTab() {
   return (
-    <div className="text-text-primary">
-      <h2 className="text-lg font-semibold mb-6">Weekly Summary</h2>
-      <WeeklySummary />
+    <div style={{ display: 'grid', gap: 'var(--gap)' }}>
+      <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+        <h3 style={{ fontSize: 17, marginBottom: 16 }}>Weekly Summary</h3>
+        <WeeklySummary />
+      </section>
     </div>
   );
 }

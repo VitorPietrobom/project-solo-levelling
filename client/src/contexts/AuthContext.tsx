@@ -1,10 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { createContext, useContext, useCallback, type ReactNode } from 'react';
+import { authClient, type AuthUser } from '../lib/neonAuth';
 
 interface AuthContextValue {
-  user: SupabaseUser | null;
-  session: Session | null;
+  user: AuthUser | null;
+  session: unknown | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
@@ -13,38 +12,41 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function messageOf(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = (error as { message?: unknown }).message;
+    if (typeof msg === 'string' && msg) return msg;
+  }
+  return fallback;
+}
+
+// better-auth's React client types `useSession` as an intersection that
+// confuses TS about its callability; at runtime it is a hook returning
+// `{ data, isPending }`. Narrow it here.
+const useSession = authClient.useSession as unknown as () => {
+  data: { user: AuthUser; session: unknown } | null;
+  isPending: boolean;
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isPending } = useSession();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const user = (data?.user ?? null) as AuthUser | null;
+  const session = data?.session ?? null;
+  const isLoading = isPending;
 
   const login = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
+    const { error } = await authClient.signIn.email({ email, password });
+    if (error) throw new Error(messageOf(error, 'Failed to sign in'));
   }, []);
 
   const signup = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) throw new Error(error.message);
+    const { error } = await authClient.signUp.email({ email, password, name: email });
+    if (error) throw new Error(messageOf(error, 'Failed to sign up'));
   }, []);
 
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
+    await authClient.signOut();
     window.location.href = '/login';
   }, []);
 

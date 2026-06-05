@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Plus, Dumbbell, Clock } from 'lucide-react';
 import WeightChart from '../components/WeightChart';
 import type { WeightEntry } from '../components/WeightChart';
 import WeightForm from '../components/WeightForm';
@@ -26,38 +27,23 @@ export default function BodyTab() {
   const [showProgramForm, setShowProgramForm] = useState(false);
 
   const fetchWeight = useCallback(async () => {
-    try {
-      const data = (await apiClient.get('/api/weight')) as WeightEntry[];
-      setWeightEntries(data);
-    } catch { /* silently fail */ }
+    try { setWeightEntries((await apiClient.get('/api/weight')) as WeightEntry[]); } catch { /* silently fail */ }
   }, []);
 
   const fetchMeasurements = useCallback(async () => {
-    try {
-      const data = (await apiClient.get('/api/measurements')) as Measurement[];
-      setMeasurements(data);
-    } catch { /* silently fail */ }
+    try { setMeasurements((await apiClient.get('/api/measurements')) as Measurement[]); } catch { /* silently fail */ }
   }, []);
 
   const fetchGymSessions = useCallback(async () => {
-    try {
-      const data = (await apiClient.get('/api/gym-sessions')) as GymSession[];
-      setGymSessions(data);
-    } catch { /* silently fail */ }
+    try { setGymSessions((await apiClient.get('/api/gym-sessions')) as GymSession[]); } catch { /* silently fail */ }
   }, []);
 
   const fetchHeatmap = useCallback(async () => {
-    try {
-      const data = (await apiClient.get('/api/gym-sessions/heatmap')) as Record<string, number>;
-      setHeatmap(data);
-    } catch { /* silently fail */ }
+    try { setHeatmap((await apiClient.get('/api/gym-sessions/heatmap')) as Record<string, number>); } catch { /* silently fail */ }
   }, []);
 
   const fetchPrograms = useCallback(async () => {
-    try {
-      const data = (await apiClient.get('/api/training-programs')) as TrainingProgram[];
-      setPrograms(data);
-    } catch { /* silently fail */ }
+    try { setPrograms((await apiClient.get('/api/training-programs')) as TrainingProgram[]); } catch { /* silently fail */ }
   }, []);
 
   useEffect(() => {
@@ -91,29 +77,18 @@ export default function BodyTab() {
     setGymSessions((prev) => [optimistic, ...prev]);
     setShowImport(false);
     apiClient.post('/api/gym-sessions', { body })
-      .then((data) => {
-        setGymSessions((prev) => prev.map((s) => (s.id === optimistic.id ? (data as GymSession) : s)));
-        fetchHeatmap();
-      })
+      .then((data) => { setGymSessions((prev) => prev.map((s) => (s.id === optimistic.id ? (data as GymSession) : s))); fetchHeatmap(); })
       .catch(() => setGymSessions((prev) => prev.filter((s) => s.id !== optimistic.id)));
   }
 
   function handleGymSessionDeleted(sessionId: string) {
     setGymSessions((prev) => prev.filter((s) => s.id !== sessionId));
-    apiClient.delete(`/api/gym-sessions/${sessionId}`)
-      .then(() => fetchHeatmap())
-      .catch(() => fetchGymSessions());
+    apiClient.delete(`/api/gym-sessions/${sessionId}`).then(() => fetchHeatmap()).catch(() => fetchGymSessions());
   }
 
   function handleProgramCreated(
     optimistic: TrainingProgram,
-    body: {
-      name: string;
-      days: {
-        dayOfWeek: string;
-        exercises: { name: string; sets: number; reps: number; targetWeight: number }[];
-      }[];
-    },
+    body: { name: string; days: { dayOfWeek: string; exercises: { name: string; sets: number; reps: number; targetWeight: number }[] }[] },
   ) {
     setPrograms((prev) => [optimistic, ...prev]);
     setShowProgramForm(false);
@@ -123,73 +98,116 @@ export default function BodyTab() {
   }
 
   function handleProgramActivate(programId: string) {
-    setPrograms((prev) =>
-      prev.map((p) => ({ ...p, active: p.id === programId })),
-    );
-    apiClient.patch(`/api/training-programs/${programId}/activate`)
-      .catch(() => fetchPrograms());
+    setPrograms((prev) => prev.map((p) => ({ ...p, active: p.id === programId })));
+    apiClient.patch(`/api/training-programs/${programId}/activate`).catch(() => fetchPrograms());
   }
 
   function handleProgramDelete(programId: string) {
     setPrograms((prev) => prev.filter((p) => p.id !== programId));
-    apiClient.delete(`/api/training-programs/${programId}`)
-      .catch(() => fetchPrograms());
+    apiClient.delete(`/api/training-programs/${programId}`).catch(() => fetchPrograms());
   }
 
+  const latest = weightEntries.length ? weightEntries[weightEntries.length - 1] : null;
+  const first = weightEntries.length ? weightEntries[0] : null;
+  const weightChange = latest && first ? (latest.weight - first.weight).toFixed(1) : null;
+
   return (
-    <div className="text-text-primary">
-      {/* Top row: Weight chart full width */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Weight</h2>
-          <button onClick={() => setShowWeightForm(!showWeightForm)} className="text-accent-info text-sm hover:opacity-80">
-            {showWeightForm ? 'Cancel' : '+ Log Weight'}
+    <div style={{ display: 'grid', gap: 'var(--gap)' }}>
+      {/* Weight chart */}
+      <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 14 }}>
+          <div>
+            <h3 style={{ fontSize: 17, marginBottom: 6 }}>Weight</h3>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+              {latest && (
+                <>
+                  <span className="mono" style={{ fontSize: 34, fontWeight: 700 }}>
+                    {latest.weight}<span style={{ fontSize: 16, color: 'var(--text-3)' }}>kg</span>
+                  </span>
+                  {weightChange !== null && (
+                    <span className="chip" style={{ color: parseFloat(weightChange) < 0 ? 'var(--good)' : 'var(--warn)', borderColor: 'transparent', background: 'var(--surface-inset)' }}>
+                      {parseFloat(weightChange) > 0 ? '▲' : '▼'} {Math.abs(parseFloat(weightChange))} kg
+                    </span>
+                  )}
+                  {first && <span style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>since {first.date}</span>}
+                </>
+              )}
+            </div>
+          </div>
+          <button className="btn btn-ghost" onClick={() => setShowWeightForm(!showWeightForm)}>
+            <Plus size={15} strokeWidth={2.4} />{showWeightForm ? 'Cancel' : 'Log Weight'}
           </button>
         </div>
-        {showWeightForm && <div className="mb-4"><WeightForm onCreated={handleWeightCreated} /></div>}
+        {showWeightForm && <div style={{ marginBottom: 16 }}><WeightForm onCreated={handleWeightCreated} /></div>}
         <WeightChart entries={weightEntries} />
-      </div>
+      </section>
 
-      {/* Row 2: Measurements + Soreness side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Measurements</h2>
-            <button onClick={() => setShowMeasurementForm(!showMeasurementForm)} className="text-accent-info text-sm hover:opacity-80">
-              {showMeasurementForm ? 'Cancel' : '+ Log All'}
+      {/* Measurements + Soreness */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'var(--gap)' }}>
+        <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 17 }}>Measurements</h3>
+            <button className="btn btn-ghost" onClick={() => setShowMeasurementForm(!showMeasurementForm)}>
+              <Plus size={15} strokeWidth={2.4} />{showMeasurementForm ? 'Cancel' : 'Log All'}
             </button>
           </div>
-          {showMeasurementForm && <div className="mb-4"><MeasurementForm onCreated={handleMeasurementCreated} /></div>}
+          {showMeasurementForm && <div style={{ marginBottom: 16 }}><MeasurementForm onCreated={handleMeasurementCreated} /></div>}
           <BodyMeasurementDiagram measurements={measurements} />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold mb-3">Soreness</h2>
+        </section>
+
+        <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 17 }}>Soreness</h3>
+            <span className="eyebrow">last 7 days</span>
+          </div>
           <SorenessBodyDiagram heatmap={heatmap} />
-        </div>
+        </section>
       </div>
 
-      {/* Row 3: Gym Sessions + Training Programs side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Gym Sessions</h2>
-            <button onClick={() => setShowImport(!showImport)} className="text-accent-info text-sm hover:opacity-80">
-              {showImport ? 'Cancel' : '+ Import from Hevy'}
+      {/* Gym sessions + Training Programs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'var(--gap)' }}>
+        <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 17 }}>Recent Sessions</h3>
+            <button className="btn btn-ghost" onClick={() => setShowImport(!showImport)}>
+              <Plus size={15} strokeWidth={2.4} />{showImport ? 'Cancel' : 'Import from Hevy'}
             </button>
           </div>
-          {showImport && <div className="mb-4"><GymSessionImport onImport={handleGymSessionImported} /></div>}
-          <GymSessionLog sessions={gymSessions} onDelete={handleGymSessionDeleted} />
-        </div>
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Training Programs</h2>
-            <button onClick={() => setShowProgramForm(!showProgramForm)} className="text-accent-info text-sm hover:opacity-80">
-              {showProgramForm ? 'Cancel' : '+ New Program'}
+          {showImport && <div style={{ marginBottom: 16 }}><GymSessionImport onImport={handleGymSessionImported} /></div>}
+          {gymSessions.length > 0 ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {gymSessions.slice(0, 5).map((g) => (
+                <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', background: 'var(--surface-inset)', borderRadius: 'var(--r)' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Dumbbell size={22} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15 }}>{g.notes || 'Workout'}</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>{g.date} · {g.exercises.length} exercises</div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
+                      <Clock size={12} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <GymSessionLog sessions={gymSessions} onDelete={handleGymSessionDeleted} />
+          )}
+        </section>
+
+        <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 17 }}>Training Programs</h3>
+            <button className="btn btn-ghost" onClick={() => setShowProgramForm(!showProgramForm)}>
+              <Plus size={15} strokeWidth={2.4} />{showProgramForm ? 'Cancel' : 'New Program'}
             </button>
           </div>
-          {showProgramForm && <div className="mb-4"><TrainingProgramForm onCreated={handleProgramCreated} /></div>}
+          {showProgramForm && <div style={{ marginBottom: 16 }}><TrainingProgramForm onCreated={handleProgramCreated} /></div>}
           <TrainingProgramView programs={programs} onActivate={handleProgramActivate} onDelete={handleProgramDelete} />
-        </div>
+        </section>
       </div>
     </div>
   );

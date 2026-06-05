@@ -212,22 +212,18 @@ export default function LearningTab() {
   }
 
   return (
-    <div className="text-text-primary space-y-6">
-      <h2 className="text-lg font-semibold">Learning</h2>
+    <div style={{ display: 'grid', gap: 'var(--gap)' }}>
 
-      {/* ── Top row: Books (full width, kanban) ── */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-text-primary font-semibold">📚 Books</h3>
-          <button
-            onClick={() => setShowBookForm(!showBookForm)}
-            className="text-accent-info text-sm hover:opacity-80"
-          >
-            {showBookForm ? 'Cancel' : '+ New Book'}
+      {/* Books (full width, kanban) */}
+      <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h3 style={{ fontSize: 17 }}>Bookshelf</h3>
+          <button className="btn btn-ghost" onClick={() => setShowBookForm(!showBookForm)}>
+            {showBookForm ? 'Cancel' : '+ Add Book'}
           </button>
         </div>
         {showBookForm && (
-          <div className="mb-4">
+          <div style={{ marginBottom: 16 }}>
             <BookForm skills={skills} onCreated={handleBookCreated} />
           </div>
         )}
@@ -239,38 +235,32 @@ export default function LearningTab() {
         />
       </section>
 
-      {/* ── Middle row: Journal (left) + Lessons (right) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-text-primary font-semibold">📓 Journal</h3>
-            <button
-              onClick={() => setShowJournalForm(!showJournalForm)}
-              className="text-accent-info text-sm hover:opacity-80"
-            >
+      {/* Journal + Lessons */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'var(--gap)' }}>
+        <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 17 }}>Learning Journal</h3>
+            <button className="btn btn-ghost" onClick={() => setShowJournalForm(!showJournalForm)}>
               {showJournalForm ? 'Cancel' : '+ New Entry'}
             </button>
           </div>
           {showJournalForm && (
-            <div className="mb-4">
+            <div style={{ marginBottom: 16 }}>
               <JournalForm skills={skills} onCreated={handleJournalCreated} />
             </div>
           )}
           <JournalList entries={journalEntries} onDelete={handleJournalDelete} />
         </section>
 
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-text-primary font-semibold">💡 Lessons Learned</h3>
-            <button
-              onClick={() => setShowLessonForm(!showLessonForm)}
-              className="text-accent-info text-sm hover:opacity-80"
-            >
+        <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 17 }}>Lessons Learned</h3>
+            <button className="btn btn-ghost" onClick={() => setShowLessonForm(!showLessonForm)}>
               {showLessonForm ? 'Cancel' : '+ New Lesson'}
             </button>
           </div>
           {showLessonForm && (
-            <div className="mb-4">
+            <div style={{ marginBottom: 16 }}>
               <LessonForm skills={skills} onCreated={handleLessonCreated} />
             </div>
           )}
@@ -283,25 +273,25 @@ export default function LearningTab() {
         </section>
       </div>
 
-      {/* ── Bottom row: Notes (full width) ── */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-text-primary font-semibold">📝 Notes</h3>
+      {/* Notes (full width) */}
+      <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h3 style={{ fontSize: 17 }}>Notes</h3>
           <button
+            className="btn btn-ghost"
             onClick={() => {
               setShowNoteEditor(!showNoteEditor);
               setSelectedNoteId(null);
               setSelectedNote(null);
               setNoteViewMode(showNoteEditor ? 'list' : 'edit');
             }}
-            className="text-accent-info text-sm hover:opacity-80"
           >
             {showNoteEditor && noteViewMode === 'edit' && !selectedNote ? 'Cancel' : '+ New Note'}
           </button>
         </div>
 
         {noteViewMode === 'edit' && (
-          <div className="mb-4">
+          <div style={{ marginBottom: 16 }}>
             <NoteEditor
               note={selectedNote}
               onSave={handleNoteSave}
@@ -314,7 +304,7 @@ export default function LearningTab() {
         )}
 
         {noteViewMode === 'view' && selectedNote && (
-          <div className="mb-4">
+          <div style={{ marginBottom: 16 }}>
             <NoteViewer
               note={selectedNote}
               onEdit={() => setNoteViewMode('edit')}

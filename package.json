@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "description": "Personal growth web application with gamification, body tracking, diet planning, and learning",
+  "workspaces": ["client", "server"],
+  "engines": { "node": ">=18" },
   "scripts": {
     "dev:client": "npm run dev --prefix client",
     "dev:server": "npm run dev --prefix server",
@@ -11,9 +13,8 @@
     "test:client": "npm test --prefix client",
     "test:server": "npm test --prefix server",
     "test": "npm run test:client && npm run test:server",
-    "install:all": "npm install && npm install --prefix client && npm install --prefix server"
-  },
-  "dependencies": {
-    "supabase": "^2.84.10"
+    "install:all": "npm install && npm install --prefix client && npm install --prefix server",
+    "postinstall": "prisma generate --schema=server/prisma/schema.prisma",
+    "vercel-build": "prisma db push --schema=server/prisma/schema.prisma --accept-data-loss && npm run build --workspace client"
   }
 }

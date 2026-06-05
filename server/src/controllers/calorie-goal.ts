@@ -16,7 +16,8 @@ export async function getCalorieGoal(req: Request, res: Response): Promise<void>
     }
 
     res.json({ calorieGoal: user.calorieGoal });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -38,7 +39,8 @@ export async function setCalorieGoal(req: Request, res: Response): Promise<void>
     });
 
     res.json({ calorieGoal: user.calorieGoal });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

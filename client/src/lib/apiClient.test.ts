@@ -1,12 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockGetSession = vi.fn();
-vi.mock('./supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: () => mockGetSession(),
-    },
-  },
+const mockGetAuthToken = vi.fn();
+vi.mock('./neonAuth', () => ({
+  getAuthToken: () => mockGetAuthToken(),
 }));
 
 import { apiClient, ApiError } from './apiClient';
@@ -26,23 +22,23 @@ describe('apiClient', () => {
     vi.clearAllMocks();
     delete (window as any).location;
     (window as any).location = { href: '' };
-    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'sb-token' } } });
+    mockGetAuthToken.mockResolvedValue('neon-token');
   });
 
-  it('injects Authorization header from Supabase session', async () => {
+  it('injects Authorization header from Neon Auth token', async () => {
     vi.mocked(fetch).mockResolvedValue(mockResponse(200, { ok: true }));
 
     await apiClient.get('/api/test');
 
     expect(fetch).toHaveBeenCalledWith('/api/test', expect.objectContaining({
       headers: expect.objectContaining({
-        Authorization: 'Bearer sb-token',
+        Authorization: 'Bearer neon-token',
       }),
     }));
   });
 
   it('does not inject Authorization header when no session', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockGetAuthToken.mockResolvedValue(null);
     vi.mocked(fetch).mockResolvedValue(mockResponse(200, { ok: true }));
 
     await apiClient.get('/api/test');

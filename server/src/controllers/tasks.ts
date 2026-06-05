@@ -50,7 +50,8 @@ export async function listTasks(req: Request, res: Response): Promise<void> {
     }));
 
     res.json(result);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -80,7 +81,8 @@ export async function createTask(req: Request, res: Response): Promise<void> {
     });
 
     res.status(201).json(task);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -117,7 +119,8 @@ export async function completeTask(req: Request, res: Response): Promise<void> {
       ...updated,
       completedToday: true,
     });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

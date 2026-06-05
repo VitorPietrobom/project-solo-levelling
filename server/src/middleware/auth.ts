@@ -1,8 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { supabase } from '../lib/supabase';
-
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 export interface AuthPayload {
   id: string;
@@ -17,13 +14,35 @@ declare global {
   }
 }
 
-// Simple in-memory cache: token -> { payload, expiresAt }
+// Lazily build the JWKS so a missing env var results in a 401 rather than a
+// crash at import time. Neon Auth signs JWTs with EdDSA (Ed25519); we verify
+// the Bearer token against the JWKS endpoint from the Neon Console (Auth tab).
+let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+function getJWKS(): ReturnType<typeof createRemoteJWKSet> | null {
+  if (jwks) return jwks;
+  const base = process.env.NEON_AUTH_BASE_URL ?? process.env.NEON_AUTH_JWKS_URL;
+  if (!base) return null;
+  // If base looks like a full JWKS URL use it directly, otherwise append the well-known path
+  const url = base.endsWith('jwks.json') ? base : `${base.replace(/\/$/, '')}/.well-known/jwks.json`;
+  jwks = createRemoteJWKSet(new URL(url));
+  return jwks;
+}
+
+// In-memory cache: token -> { payload, expiresAt }. Evict expired entries every 10 min.
 const tokenCache = new Map<string, { payload: AuthPayload; expiresAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of tokenCache) {
+    if (entry.expiresAt <= now) tokenCache.delete(token);
+  }
+}, 10 * 60 * 1000).unref();
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith('Bearer ')) {
+    console.error('[auth] 401: missing/invalid authorization header. Header value:', header ?? '(none)');
     res.status(401).json({ error: 'Missing or invalid authorization header' });
     return;
   }
@@ -38,35 +57,25 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     return;
   }
 
-  // Try local JWT verification first (fast path)
-  if (SUPABASE_JWT_SECRET) {
-    try {
-      const decoded = jwt.verify(token, SUPABASE_JWT_SECRET) as { sub: string; email?: string; exp?: number };
-      const payload: AuthPayload = { id: decoded.sub, email: decoded.email || '' };
-      const expiresAt = decoded.exp ? decoded.exp * 1000 : Date.now() + 3600_000;
-      tokenCache.set(token, { payload, expiresAt });
-      req.user = payload;
-      next();
-      return;
-    } catch {
-      // Local verify failed, fall through to Supabase call
-    }
+  const JWKS = getJWKS();
+  if (!JWKS) {
+    console.error('[auth] 401: NEON_AUTH_BASE_URL (or NEON_AUTH_JWKS_URL) env var is not set');
+    res.status(401).json({ error: 'Auth not configured' });
+    return;
   }
 
-  // Fallback: verify via Supabase API (slower but always works)
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      res.status(401).json({ error: 'Invalid token' });
-      return;
-    }
-
-    const payload: AuthPayload = { id: user.id, email: user.email || '' };
-    // Cache for 5 minutes
-    tokenCache.set(token, { payload, expiresAt: Date.now() + 300_000 });
-    req.user = payload;
+    const { payload } = await jwtVerify(token, JWKS);
+    const authPayload: AuthPayload = {
+      id: payload.sub as string,
+      email: (payload.email as string) || '',
+    };
+    const expiresAt = payload.exp ? payload.exp * 1000 : Date.now() + 3600_000;
+    tokenCache.set(token, { payload: authPayload, expiresAt });
+    req.user = authPayload;
     next();
-  } catch {
+  } catch (err) {
+    console.error('[auth] JWT verification failed:', err instanceof Error ? err.message : err);
     res.status(401).json({ error: 'Invalid token' });
   }
 }

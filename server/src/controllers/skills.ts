@@ -17,7 +17,8 @@ export async function listSkills(req: Request, res: Response): Promise<void> {
     }));
 
     res.json(result);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -41,7 +42,8 @@ export async function createSkill(req: Request, res: Response): Promise<void> {
       level: getCurrentLevel(skill.totalXP),
       progress: getProgressToNextLevel(skill.totalXP),
     });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -76,7 +78,8 @@ export async function logActivity(req: Request, res: Response): Promise<void> {
       level: getCurrentLevel(updated.totalXP),
       progress: getProgressToNextLevel(updated.totalXP),
     });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
