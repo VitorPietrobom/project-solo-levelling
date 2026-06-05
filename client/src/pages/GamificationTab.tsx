@@ -94,7 +94,9 @@ export default function GamificationTab() {
     fetchStatus();
   }, [fetchQuests, fetchTasks, fetchSkills, fetchStatus]);
 
-  const currentStatus = status ?? localStatus;
+  // Prefer localStatus (fetched directly from DB) over the Dashboard context
+  // value which is only loaded once on mount and doesn't reflect level changes.
+  const currentStatus = localStatus ?? status;
 
   // Quests categorized
   const activeQuests = quests.filter((q) => !q.completed);
