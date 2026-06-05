@@ -15,6 +15,6 @@
     "test": "npm run test:client && npm run test:server",
     "install:all": "npm install && npm install --prefix client && npm install --prefix server",
     "postinstall": "prisma generate --schema=server/prisma/schema.prisma",
-    "vercel-build": "npm run build --workspace client"
+    "vercel-build": "prisma db push --schema=server/prisma/schema.prisma --accept-data-loss && npm run build --workspace client"
   }
 }
