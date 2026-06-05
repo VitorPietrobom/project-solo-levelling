@@ -21,7 +21,8 @@ export async function listTrainingPrograms(req: Request, res: Response): Promise
     });
 
     res.json(programs);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -73,7 +74,8 @@ export async function createTrainingProgram(req: Request, res: Response): Promis
     });
 
     res.status(201).json(program);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -115,7 +117,8 @@ export async function activateTrainingProgram(req: Request, res: Response): Prom
     });
 
     res.json(updated);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -136,7 +139,8 @@ export async function deleteTrainingProgram(req: Request, res: Response): Promis
 
     await prisma.trainingProgram.delete({ where: { id: programId } });
     res.json({ message: 'Training program deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

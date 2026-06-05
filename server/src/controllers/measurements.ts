@@ -24,7 +24,8 @@ export async function listMeasurements(req: Request, res: Response): Promise<voi
     });
 
     res.json(measurements);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -54,7 +55,8 @@ export async function createMeasurement(req: Request, res: Response): Promise<vo
     });
 
     res.status(201).json(measurement);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

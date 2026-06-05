@@ -25,7 +25,8 @@ export async function listLessons(req: Request, res: Response): Promise<void> {
     });
 
     res.json(lessons);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -57,7 +58,8 @@ export async function createLesson(req: Request, res: Response): Promise<void> {
     });
 
     res.status(201).json(lesson);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -75,7 +77,8 @@ export async function deleteLesson(req: Request, res: Response): Promise<void> {
 
     await prisma.lessonLearned.delete({ where: { id: lessonId } });
     res.json({ message: 'Lesson deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

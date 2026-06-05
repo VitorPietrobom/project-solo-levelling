@@ -11,7 +11,8 @@ export async function listQuests(req: Request, res: Response): Promise<void> {
       orderBy: { createdAt: 'desc' },
     });
     res.json(quests);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -48,7 +49,8 @@ export async function createQuest(req: Request, res: Response): Promise<void> {
     });
 
     res.status(201).json(quest);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -107,7 +109,8 @@ export async function completeStep(req: Request, res: Response): Promise<void> {
     });
 
     res.json(updated);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

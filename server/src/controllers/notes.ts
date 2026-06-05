@@ -28,7 +28,8 @@ export async function listNotes(req: Request, res: Response): Promise<void> {
     });
 
     res.json(notes);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -45,7 +46,8 @@ export async function getNote(req: Request, res: Response): Promise<void> {
     }
 
     res.json(note);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -72,7 +74,8 @@ export async function createNote(req: Request, res: Response): Promise<void> {
     });
 
     res.status(201).json(note);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -113,7 +116,8 @@ export async function updateNote(req: Request, res: Response): Promise<void> {
     });
 
     res.json(updated);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -131,7 +135,8 @@ export async function deleteNote(req: Request, res: Response): Promise<void> {
 
     await prisma.note.delete({ where: { id: noteId } });
     res.json({ message: 'Note deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

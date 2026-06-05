@@ -27,8 +27,14 @@ function getJWKS(): ReturnType<typeof createRemoteJWKSet> | null {
   return jwks;
 }
 
-// Simple in-memory cache: token -> { payload, expiresAt }
+// In-memory cache: token -> { payload, expiresAt }. Evict expired entries every 10 min.
 const tokenCache = new Map<string, { payload: AuthPayload; expiresAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of tokenCache) {
+    if (entry.expiresAt <= now) tokenCache.delete(token);
+  }
+}, 10 * 60 * 1000).unref();
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
@@ -64,7 +70,8 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     tokenCache.set(token, { payload: authPayload, expiresAt });
     req.user = authPayload;
     next();
-  } catch {
+  } catch (err) {
+    console.error('[auth] JWT verification failed:', err instanceof Error ? err.message : err);
     res.status(401).json({ error: 'Invalid token' });
   }
 }

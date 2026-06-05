@@ -20,7 +20,8 @@ export async function listGymSessions(req: Request, res: Response): Promise<void
     });
 
     res.json(sessions);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -69,7 +70,8 @@ export async function createGymSession(req: Request, res: Response): Promise<voi
     });
 
     res.status(201).json(session);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -103,7 +105,8 @@ export async function getHeatmap(req: Request, res: Response): Promise<void> {
     }
 
     res.json(result);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -124,7 +127,8 @@ export async function deleteGymSession(req: Request, res: Response): Promise<voi
 
     await prisma.gymSession.delete({ where: { id: sessionId } });
     res.json({ message: 'Session deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

@@ -22,7 +22,8 @@ export async function listFoodEntries(req: Request, res: Response): Promise<void
     });
 
     res.json(entries);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -66,7 +67,8 @@ export async function createFoodEntry(req: Request, res: Response): Promise<void
     });
 
     res.status(201).json(entry);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -84,7 +86,8 @@ export async function deleteFoodEntry(req: Request, res: Response): Promise<void
 
     await prisma.foodEntry.delete({ where: { id: entryId } });
     res.json({ message: 'Food entry deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

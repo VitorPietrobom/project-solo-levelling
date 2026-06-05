@@ -22,7 +22,8 @@ export async function listRecipes(req: Request, res: Response): Promise<void> {
     });
 
     res.json(recipes);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -70,7 +71,8 @@ export async function createRecipe(req: Request, res: Response): Promise<void> {
     });
 
     res.status(201).json(recipe);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -91,7 +93,8 @@ export async function getRecipe(req: Request, res: Response): Promise<void> {
     }
 
     res.json(recipe);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -113,7 +116,8 @@ export async function deleteRecipe(req: Request, res: Response): Promise<void> {
     await prisma.recipe.delete({ where: { id: recipeId } });
 
     res.json({ message: 'Recipe deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

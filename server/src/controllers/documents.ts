@@ -30,7 +30,8 @@ export async function listDocuments(req: Request, res: Response): Promise<void> 
     });
 
     res.json(documents);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -67,7 +68,8 @@ export async function createDocument(req: Request, res: Response): Promise<void>
     });
 
     res.status(201).json(document);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -87,7 +89,8 @@ export async function getDocument(req: Request, res: Response): Promise<void> {
     }
 
     res.json(document);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -105,7 +108,8 @@ export async function listCategories(req: Request, res: Response): Promise<void>
 
     const categories = results.map((r) => r.category);
     res.json(categories);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -127,7 +131,8 @@ export async function deleteDocument(req: Request, res: Response): Promise<void>
     await prisma.document.delete({ where: { id: documentId } });
 
     res.json({ message: 'Document deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

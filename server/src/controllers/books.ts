@@ -17,7 +17,8 @@ export async function listBooks(req: Request, res: Response): Promise<void> {
     });
 
     res.json(books);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -56,7 +57,8 @@ export async function createBook(req: Request, res: Response): Promise<void> {
     });
 
     res.status(201).json(book);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -119,7 +121,8 @@ export async function updateBook(req: Request, res: Response): Promise<void> {
     }
 
     res.json(updated);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -137,7 +140,8 @@ export async function deleteBook(req: Request, res: Response): Promise<void> {
 
     await prisma.book.delete({ where: { id: bookId } });
     res.json({ message: 'Book deleted' });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
