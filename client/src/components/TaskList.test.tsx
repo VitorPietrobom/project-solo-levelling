@@ -33,13 +33,13 @@ const sampleTasks: Task[] = [
 
 describe('TaskList', () => {
   it('renders daily and weekly sections', () => {
-    render(<TaskList tasks={sampleTasks} onToggle={vi.fn()} />);
+    render(<TaskList tasks={sampleTasks} onToggle={vi.fn()} onUncomplete={vi.fn()} />);
     expect(screen.getByText('Daily')).toBeInTheDocument();
     expect(screen.getByText('Weekly')).toBeInTheDocument();
   });
 
   it('renders task titles and XP rewards', () => {
-    render(<TaskList tasks={sampleTasks} onToggle={vi.fn()} />);
+    render(<TaskList tasks={sampleTasks} onToggle={vi.fn()} onUncomplete={vi.fn()} />);
     expect(screen.getByText('Morning meditation')).toBeInTheDocument();
     expect(screen.getByText('25 XP')).toBeInTheDocument();
     expect(screen.getByText('Weekly review')).toBeInTheDocument();
@@ -47,26 +47,26 @@ describe('TaskList', () => {
   });
 
   it('shows empty state when no tasks', () => {
-    render(<TaskList tasks={[]} onToggle={vi.fn()} />);
+    render(<TaskList tasks={[]} onToggle={vi.fn()} onUncomplete={vi.fn()} />);
     expect(screen.getByText('No tasks yet. Create one to get started.')).toBeInTheDocument();
   });
 
   it('calls onToggle when clicking an incomplete task', async () => {
     const onToggle = vi.fn();
-    render(<TaskList tasks={sampleTasks} onToggle={onToggle} />);
-
+    render(<TaskList tasks={sampleTasks} onToggle={onToggle} onUncomplete={vi.fn()} />);
     await userEvent.click(screen.getByLabelText('Mark "Morning meditation" as complete'));
     expect(onToggle).toHaveBeenCalledWith('t1');
   });
 
-  it('disables completed tasks', () => {
-    render(<TaskList tasks={sampleTasks} onToggle={vi.fn()} />);
-    const btn = screen.getByLabelText('"Read 30 minutes" already completed');
-    expect(btn).toBeDisabled();
+  it('calls onUncomplete when clicking a completed task', async () => {
+    const onUncomplete = vi.fn();
+    render(<TaskList tasks={sampleTasks} onToggle={vi.fn()} onUncomplete={onUncomplete} />);
+    await userEvent.click(screen.getByLabelText('Undo "Read 30 minutes"'));
+    expect(onUncomplete).toHaveBeenCalledWith('t2');
   });
 
   it('applies line-through style to completed tasks', () => {
-    render(<TaskList tasks={sampleTasks} onToggle={vi.fn()} />);
+    render(<TaskList tasks={sampleTasks} onToggle={vi.fn()} onUncomplete={vi.fn()} />);
     const completedText = screen.getByText('Read 30 minutes');
     expect(completedText.className).toContain('line-through');
   });

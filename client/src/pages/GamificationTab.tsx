@@ -113,7 +113,7 @@ export default function GamificationTab() {
       .catch(() => setQuests((prev) => prev.filter((q) => q.id !== optimistic.id)));
   }
 
-  function handleTaskCreated(optimistic: Task, body: { title: string; recurrence: string; xpReward: number }) {
+  function handleTaskCreated(optimistic: Task, body: { title: string; recurrence: string; xpReward: number; linkedSkillId?: string }) {
     setTasks((prev) => [optimistic, ...prev]);
     setShowTaskForm(false);
     apiClient
@@ -127,7 +127,14 @@ export default function GamificationTab() {
     if (task && !task.completedToday && addXP) addXP(task.xpReward, task.title);
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completedToday: true } : t)));
     apiClient.patch(`/api/tasks/${taskId}/complete`)
-      .then(() => fetchStatus())
+      .then(() => { fetchStatus(); fetchSkills(); })
+      .catch(() => fetchTasks());
+  }
+
+  function handleTaskUncomplete(taskId: string) {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completedToday: false } : t)));
+    apiClient.patch(`/api/tasks/${taskId}/uncomplete`)
+      .then(() => { fetchStatus(); fetchSkills(); })
       .catch(() => fetchTasks());
   }
 
@@ -304,7 +311,7 @@ export default function GamificationTab() {
           </div>
           {showTaskForm && (
             <div style={{ marginBottom: 16 }}>
-              <TaskForm onCreated={handleTaskCreated} />
+              <TaskForm onCreated={handleTaskCreated} skills={skills} />
             </div>
           )}
           <div style={{ display: 'grid', gap: 18 }}>
@@ -312,56 +319,53 @@ export default function GamificationTab() {
               <div key={label as string}>
                 <div className="eyebrow" style={{ marginBottom: 9 }}>{label as string}</div>
                 <div style={{ display: 'grid', gap: 8 }}>
-                  {(items as Task[]).map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => handleTaskToggle(t.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        padding: '11px 14px',
-                        borderRadius: 'var(--r-sm)',
-                        border: '1px solid var(--line-soft)',
-                        background: t.completedToday ? 'var(--accent-soft)' : 'var(--surface-inset)',
-                        textAlign: 'left',
-                        transition: 'all .16s',
-                        cursor: 'pointer',
-                        width: '100%',
-                      }}
-                    >
-                      <span
+                  {(items as Task[]).map((t) => {
+                    const linkedSkill = t.linkedSkillId ? skills.find((s) => s.id === t.linkedSkillId) : null;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => t.completedToday ? handleTaskUncomplete(t.id) : handleTaskToggle(t.id)}
+                        title={t.completedToday ? 'Click to undo' : 'Mark complete'}
                         style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: 7,
-                          border: `2px solid ${t.completedToday ? 'var(--accent)' : 'var(--line)'}`,
-                          background: t.completedToday ? 'var(--accent)' : 'transparent',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--bg-0)',
-                          flexShrink: 0,
+                          gap: 12,
+                          padding: '11px 14px',
+                          borderRadius: 'var(--r-sm)',
+                          border: '1px solid var(--line-soft)',
+                          background: t.completedToday ? 'var(--accent-soft)' : 'var(--surface-inset)',
+                          textAlign: 'left',
+                          transition: 'all .16s',
+                          cursor: 'pointer',
+                          width: '100%',
                         }}
                       >
-                        {t.completedToday && <Check size={13} strokeWidth={3} />}
-                      </span>
-                      <span
-                        style={{
-                          flex: 1,
-                          fontSize: 14,
-                          fontWeight: 500,
-                          color: t.completedToday ? 'var(--text-3)' : 'var(--text)',
-                          textDecoration: t.completedToday ? 'line-through' : 'none',
-                        }}
-                      >
-                        {t.title}
-                      </span>
-                      <span className="mono" style={{ fontSize: 12, color: t.completedToday ? 'var(--text-faint)' : 'var(--accent)' }}>
-                        +{t.xpReward}
-                      </span>
-                    </button>
-                  ))}
+                        <span
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 7,
+                            border: `2px solid ${t.completedToday ? 'var(--accent)' : 'var(--line)'}`,
+                            background: t.completedToday ? 'var(--accent)' : 'transparent',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--bg-0)',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {t.completedToday && <Check size={13} strokeWidth={3} />}
+                        </span>
+                        <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: t.completedToday ? 'var(--text-3)' : 'var(--text)', textDecoration: t.completedToday ? 'line-through' : 'none' }}>
+                          {t.title}
+                          {linkedSkill && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--accent-2)', opacity: 0.8 }}>· {linkedSkill.name}</span>}
+                        </span>
+                        <span className="mono" style={{ fontSize: 12, color: t.completedToday ? 'var(--text-faint)' : 'var(--accent)' }}>
+                          +{t.xpReward}
+                        </span>
+                      </button>
+                    );
+                  })}
                   {(items as Task[]).length === 0 && (
                     <p style={{ fontSize: 13, color: 'var(--text-faint)', textAlign: 'center', padding: '12px 0' }}>
                       No {label as string} tasks yet
