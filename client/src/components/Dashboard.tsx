@@ -74,34 +74,10 @@ export default function Dashboard() {
     setToasts((prev) => [...prev, { id, amount, label }]);
     setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), 2600);
 
+    // Optimistically bump totalXP for immediate feedback; the tab re-fetches
+    // the real value from the server after the action completes.
     if (status) {
-      let current = status.progress.current + amount;
-      let level = status.level;
-      let required = status.progress.required;
-      let leveled = false;
-
-      while (current >= required) {
-        current -= required;
-        level += 1;
-        required = Math.round(required * 1.12);
-        leveled = true;
-      }
-
-      if (leveled) {
-        setLevelUp(true);
-        setTimeout(() => setLevelUp(false), 2400);
-      }
-
-      setStatus({
-        ...status,
-        level,
-        totalXP: status.totalXP + amount,
-        progress: {
-          current,
-          required,
-          percentage: Math.round((current / required) * 100),
-        },
-      });
+      setStatus({ ...status, totalXP: status.totalXP + amount });
     }
   };
 

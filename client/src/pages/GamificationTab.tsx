@@ -124,7 +124,9 @@ export default function GamificationTab() {
     const task = tasks.find((t) => t.id === taskId);
     if (task && !task.completedToday && addXP) addXP(task.xpReward, task.title);
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completedToday: true } : t)));
-    apiClient.patch(`/api/tasks/${taskId}/complete`).catch(() => fetchTasks());
+    apiClient.patch(`/api/tasks/${taskId}/complete`)
+      .then(() => fetchStatus())
+      .catch(() => fetchTasks());
   }
 
   function handleStepToggle(questId: string, stepId: string) {
@@ -153,7 +155,10 @@ export default function GamificationTab() {
     if (addXP) addXP(xp, 'Skill XP');
     apiClient
       .post(`/api/skills/${skillId}/log`, { body: { xp } })
-      .then((data) => setSkills((prev) => prev.map((s) => (s.id === skillId ? (data as Skill) : s))))
+      .then((data) => {
+        setSkills((prev) => prev.map((s) => (s.id === skillId ? (data as Skill) : s)));
+        fetchStatus();
+      })
       .catch(() => fetchSkills());
   }
 
@@ -161,10 +166,10 @@ export default function GamificationTab() {
   const weekly = tasks.filter((t) => t.recurrence === 'weekly');
   const dailyDone = daily.filter((t) => t.completedToday).length;
 
-  // Map skills to radar format (use XP-based axis, max 10000 or similar)
+  // Map skills to radar — use actual level so chart reflects mastery, not next-level progress
   const radarData = skills.slice(0, 6).map((s) => ({
     name: s.name.slice(0, 6),
-    axis: Math.min(100, s.progress.percentage),
+    axis: s.level,
   }));
 
   const questCols: [string, string, Quest[]][] = [
