@@ -8,6 +8,7 @@ import BodyTab from './pages/BodyTab';
 import DietTab from './pages/DietTab';
 import LearningTab from './pages/LearningTab';
 import SummaryTab from './pages/SummaryTab';
+import RecipesTab from './pages/RecipesTab';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
             <Route path="diet" element={<DietTab />} />
             <Route path="learning" element={<LearningTab />} />
             <Route path="summary" element={<SummaryTab />} />
+            <Route path="recipes" element={<RecipesTab />} />
           </Route>
         </Routes>
       </AuthProvider>

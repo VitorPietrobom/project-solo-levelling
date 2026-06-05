@@ -187,112 +187,107 @@ export default function DietTab() {
   const selectedRecipe = recipes.find((r) => r.id === selectedRecipeId) ?? null;
 
   return (
-    <div className="text-text-primary">
+    <div style={{ display: 'grid', gap: 'var(--gap)' }}>
       {/* Date selector */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold">Diet</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span className="eyebrow">Select date</span>
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="bg-secondary text-text-primary border border-border rounded px-3 py-1.5 text-sm focus:outline-none focus:border-accent-primary"
+          style={{ background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '6px 12px', fontSize: 13, outline: 'none' }}
           aria-label="Select date"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left column — Calorie Tracker */}
-        <div>
+        <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+          <h3 style={{ fontSize: 17, marginBottom: 16 }}>Calories</h3>
           <CalorieTracker
             entries={foodEntries}
             calorieGoal={calorieGoal}
             onGoalChange={handleGoalChange}
           />
-        </div>
+        </section>
 
         {/* Right column — Food Entry Form + Entry List */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Food Log</h2>
-            <div className="flex items-center gap-2">
-              <button onClick={() => { setShowFoodImport(!showFoodImport); setShowFoodForm(false); }} className="text-accent-info text-sm hover:opacity-80">
-                {showFoodImport ? 'Cancel' : '📋 Import'}
+        <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 17 }}>Food Log</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={() => { setShowFoodImport(!showFoodImport); setShowFoodForm(false); }} className="btn btn-ghost">
+                {showFoodImport ? 'Cancel' : 'Import'}
               </button>
-              <button onClick={() => { setShowFoodForm(!showFoodForm); setShowFoodImport(false); }} className="text-accent-info text-sm hover:opacity-80">
+              <button onClick={() => { setShowFoodForm(!showFoodForm); setShowFoodImport(false); }} className="btn btn-ghost">
                 {showFoodForm ? 'Cancel' : '+ Log Food'}
               </button>
             </div>
           </div>
           {showFoodForm && (
-            <div className="mb-4">
+            <div style={{ marginBottom: 16 }}>
               <FoodEntryForm onCreated={handleFoodEntryCreated} />
             </div>
           )}
           {showFoodImport && (
-            <div className="mb-4">
+            <div style={{ marginBottom: 16 }}>
               <FoodEntryImport onImport={handleFoodImport} />
             </div>
           )}
 
           {/* Food entries list */}
-          <div className="bg-card rounded-lg border border-border divide-y divide-border">
+          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
             {foodEntries.length === 0 ? (
-              <p className="text-text-secondary text-sm text-center py-6">
+              <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
                 No food entries for this day. Log your first meal!
               </p>
             ) : (
               foodEntries.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <span className="text-text-primary text-sm">{entry.foodName}</span>
-                    <span className="text-text-secondary text-xs ml-2 capitalize">{entry.mealType}</span>
+                <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 14px', background: 'var(--surface-inset)', borderRadius: 'var(--r-sm)' }}>
+                  <span className="chip" style={{ width: 80, justifyContent: 'center', fontSize: 11 }}>{entry.mealType}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{entry.foodName}</div>
+                    {(entry.protein > 0 || entry.carbs > 0 || entry.fat > 0) && (
+                      <div className="mono" style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>P {entry.protein}g · C {entry.carbs}g · F {entry.fat}g</div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <span className="text-text-primary text-sm font-semibold">{entry.calories} kcal</span>
-                      {(entry.protein > 0 || entry.carbs > 0 || entry.fat > 0) && (
-                        <p className="text-text-secondary text-xs">
-                          P:{entry.protein}g C:{entry.carbs}g F:{entry.fat}g
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleFoodEntryDeleted(entry.id)}
-                      className="text-accent-warning text-xs hover:opacity-80"
-                      aria-label={`Delete ${entry.foodName}`}
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{entry.calories}<span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 3 }}>kcal</span></span>
+                  <button
+                    onClick={() => handleFoodEntryDeleted(entry.id)}
+                    style={{ color: 'var(--bad)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+                    aria-label={`Delete ${entry.foodName}`}
+                  >
+                    ✕
+                  </button>
                 </div>
               ))
             )}
           </div>
-        </div>
+        </section>
       </div>
 
       {/* Recipes section */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Recipes</h2>
-          <div className="flex items-center gap-2">
-            <button onClick={() => { setShowRecipeImport(!showRecipeImport); setShowRecipeForm(false); setSelectedRecipeId(null); }} className="text-accent-info text-sm hover:opacity-80">
-              {showRecipeImport ? 'Cancel' : '📋 Import'}
+      <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h3 style={{ fontSize: 17 }}>Recipes</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => { setShowRecipeImport(!showRecipeImport); setShowRecipeForm(false); setSelectedRecipeId(null); }} className="btn btn-ghost">
+              {showRecipeImport ? 'Cancel' : 'Import'}
             </button>
-            <button onClick={() => { setShowRecipeForm(!showRecipeForm); setShowRecipeImport(false); setSelectedRecipeId(null); }} className="text-accent-info text-sm hover:opacity-80">
+            <button onClick={() => { setShowRecipeForm(!showRecipeForm); setShowRecipeImport(false); setSelectedRecipeId(null); }} className="btn btn-ghost">
               {showRecipeForm ? 'Cancel' : '+ New Recipe'}
             </button>
           </div>
         </div>
 
         {showRecipeForm && (
-          <div className="mb-4">
+          <div style={{ marginBottom: 16 }}>
             <RecipeForm onCreated={handleRecipeCreated} />
           </div>
         )}
 
         {showRecipeImport && (
-          <div className="mb-4">
+          <div style={{ marginBottom: 16 }}>
             <RecipeImport onImport={handleRecipeImported} />
           </div>
         )}
@@ -308,34 +303,31 @@ export default function DietTab() {
             onSearchChange={setSearchTerm}
           />
         )}
-      </div>
+      </section>
 
       {/* Meal Prep section */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Meal Prep</h2>
-          <div className="flex items-center gap-2">
+      <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h3 style={{ fontSize: 17 }}>Meal Prep — This Week</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {mealPrepPlan && (
-              <button onClick={handleMealPrepDeleted} className="text-accent-warning text-sm hover:opacity-80">
+              <button onClick={handleMealPrepDeleted} className="btn btn-ghost" style={{ color: 'var(--bad)' }}>
                 Delete Plan
               </button>
             )}
-            <button
-              onClick={() => setShowMealPrepForm(!showMealPrepForm)}
-              className="text-accent-info text-sm hover:opacity-80"
-            >
+            <button className="btn btn-ghost" onClick={() => setShowMealPrepForm(!showMealPrepForm)}>
               {showMealPrepForm ? 'Cancel' : '+ New Plan'}
             </button>
           </div>
         </div>
 
         {showMealPrepForm && (
-          <div className="mb-4">
+          <div style={{ marginBottom: 16 }}>
             <MealPrepForm recipes={recipes} onCreated={handleMealPrepCreated} />
           </div>
         )}
 
-        <div className="space-y-4">
+        <div style={{ display: 'grid', gap: 16 }}>
           <MealPrepPlan
             plan={mealPrepPlan}
             onSelectDay={setSelectedMealPrepDay}
@@ -345,7 +337,7 @@ export default function DietTab() {
             <GroceryList data={groceryList} day={selectedMealPrepDay} />
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
