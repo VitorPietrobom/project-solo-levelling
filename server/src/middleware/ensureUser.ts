@@ -20,7 +20,8 @@ export async function ensureUser(req: Request, res: Response, next: NextFunction
     });
     knownUsers.add(id);
     next();
-  } catch {
+  } catch (err) {
+    console.error('[ensureUser] failed to upsert user:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
