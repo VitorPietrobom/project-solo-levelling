@@ -3,21 +3,17 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import { AuthProvider } from '../contexts/AuthContext';
 
-const mockGetSession = vi.fn();
-const mockOnAuthStateChange = vi.fn(() => ({
-  data: { subscription: { unsubscribe: vi.fn() } },
-}));
+let sessionState: { data: unknown; isPending: boolean } = { data: null, isPending: false };
 
-vi.mock('../lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: () => mockGetSession(),
-      onAuthStateChange: () => mockOnAuthStateChange(),
-      signInWithPassword: vi.fn(),
-      signUp: vi.fn(),
-      signOut: vi.fn(),
-    },
+vi.mock('../lib/neonAuth', () => ({
+  authClient: {
+    useSession: () => sessionState,
+    signIn: { email: vi.fn() },
+    signUp: { email: vi.fn() },
+    signOut: vi.fn(),
+    getSession: vi.fn(),
   },
+  getAuthToken: vi.fn(),
 }));
 
 function renderWithAuth(initialEntries: string[] = ['/']) {
@@ -46,21 +42,22 @@ describe('ProtectedRoute', () => {
   });
 
   it('redirects to /login when not authenticated', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+    sessionState = { data: null, isPending: false };
     renderWithAuth();
     expect(await screen.findByText('Login Page')).toBeInTheDocument();
   });
 
   it('renders children when authenticated', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: '1', email: 'user@example.com' }, access_token: 'tok' } },
-    });
+    sessionState = {
+      data: { user: { id: '1', email: 'user@example.com' }, session: { id: 's1' } },
+      isPending: false,
+    };
     renderWithAuth();
     expect(await screen.findByText('Protected Content')).toBeInTheDocument();
   });
 
   it('shows loading state while checking auth', () => {
-    mockGetSession.mockReturnValue(new Promise(() => {}));
+    sessionState = { data: null, isPending: true };
     renderWithAuth();
     expect(screen.getByText('Loading...')).toBeInTheDocument();
   });

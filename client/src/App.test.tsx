@@ -1,19 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-const mockGetSession = vi.fn();
-vi.mock('./lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: () => mockGetSession(),
-      onAuthStateChange: () => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      }),
-      signInWithPassword: vi.fn(),
-      signUp: vi.fn(),
-      signOut: vi.fn(),
-    },
+let sessionState: { data: unknown; isPending: boolean } = { data: null, isPending: false };
+vi.mock('./lib/neonAuth', () => ({
+  authClient: {
+    useSession: () => sessionState,
+    signIn: { email: vi.fn() },
+    signUp: { email: vi.fn() },
+    signOut: vi.fn(),
+    getSession: vi.fn(),
   },
+  getAuthToken: vi.fn(),
 }));
 
 describe('App', () => {
@@ -22,7 +19,7 @@ describe('App', () => {
   });
 
   it('renders the login page when not authenticated', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+    sessionState = { data: null, isPending: false };
     render(<App />);
     expect(await screen.findByText('Project Arise')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();

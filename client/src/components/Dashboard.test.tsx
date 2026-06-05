@@ -3,25 +3,23 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import { AuthProvider } from '../contexts/AuthContext';
 
-const mockGetSession = vi.fn();
-vi.mock('../lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: () => mockGetSession(),
-      onAuthStateChange: () => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      }),
-      signInWithPassword: vi.fn(),
-      signUp: vi.fn(),
-      signOut: vi.fn(),
-    },
+let sessionState: { data: unknown; isPending: boolean } = { data: null, isPending: false };
+vi.mock('../lib/neonAuth', () => ({
+  authClient: {
+    useSession: () => sessionState,
+    signIn: { email: vi.fn() },
+    signUp: { email: vi.fn() },
+    signOut: vi.fn(),
+    getSession: vi.fn(),
   },
+  getAuthToken: vi.fn(),
 }));
 
 function renderDashboard() {
-  mockGetSession.mockResolvedValue({
-    data: { session: { user: { id: '1', email: 'user@test.com' }, access_token: 'tok' } },
-  });
+  sessionState = {
+    data: { user: { id: '1', email: 'user@test.com' }, session: { id: 's1' } },
+    isPending: false,
+  };
 
   return render(
     <MemoryRouter initialEntries={['/']}>

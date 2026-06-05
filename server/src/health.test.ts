@@ -1,9 +1,4 @@
-import { vi } from 'vitest';
 import request from 'supertest';
-
-vi.mock('./lib/supabase', () => ({
-  supabase: { auth: { getUser: vi.fn() } },
-}));
 
 import app from './index';
 
