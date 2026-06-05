@@ -35,3 +35,7 @@ coverage/
 
 # Vite
 client/.vite/
+client/vite.config.d.ts
+
+# TypeScript incremental build cache
+*.tsbuildinfo
