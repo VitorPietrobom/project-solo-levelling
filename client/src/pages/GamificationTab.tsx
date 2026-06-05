@@ -191,7 +191,7 @@ export default function GamificationTab() {
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>
       {/* Hero row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.15fr) minmax(0,1fr)', gap: 'var(--gap)' }}>
+      <div className="grid-2-col-skewed">
         {/* Level card */}
         <div
           className="card"
@@ -223,7 +223,7 @@ export default function GamificationTab() {
         </div>
 
         {/* Quick stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--gap)' }}>
+        <div className="grid-2-col">
           <StatCard icon={Flame} label="Day streak" value={currentStatus?.streak ?? 0} suffix="days" accent="var(--warn)" />
           <StatCard icon={Zap} label="Total XP" value={(currentStatus?.totalXP ?? 0).toLocaleString()} accent="var(--accent)" />
           <StatCard icon={Check} label="Today's tasks" value={`${dailyDone}/${daily.length}`} accent="var(--good)" />
@@ -244,7 +244,7 @@ export default function GamificationTab() {
             <QuestForm onCreated={handleQuestCreated} />
           </div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <div className="grid-3-col">
           {questCols.map(([label, , items]) => (
             <div key={label} style={{ background: 'var(--surface-inset)', borderRadius: 'var(--r)', padding: 12, minHeight: 180 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 4px' }}>
@@ -300,7 +300,7 @@ export default function GamificationTab() {
       </section>
 
       {/* Tasks + Skills */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.05fr)', gap: 'var(--gap)' }}>
+      <div className="grid-2-col">
         {/* Tasks */}
         <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -390,7 +390,7 @@ export default function GamificationTab() {
               <SkillForm onCreated={handleSkillCreated} />
             </div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 200px', gap: 18, alignItems: 'center' }}>
+          <div className="grid-2-col" style={{ alignItems: 'center' }}>
             <div style={{ display: 'grid', gap: 9 }}>
               {skills.map((s) => {
                 const axisVal = s.progress.percentage;

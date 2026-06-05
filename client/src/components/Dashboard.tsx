@@ -11,7 +11,8 @@ import {
   BarChart2,
   Settings,
   Flame,
-  Plus,
+  Menu,
+  X,
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 
@@ -44,6 +45,7 @@ export default function Dashboard() {
   const [status, setStatus] = useState<GamificationStatus | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [levelUp, setLevelUp] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const toastId = useRef(0);
 
   useEffect(() => {
@@ -94,20 +96,17 @@ export default function Dashboard() {
   const hunterRank = 'E';
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', height: '100vh' }}>
+    <div className="dashboard-shell">
+      {/* Sidebar backdrop (mobile) */}
+      <div
+        className={`sidebar-backdrop${sidebarOpen ? ' sidebar-open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* Sidebar */}
-      <aside
-        style={{
-          background: 'var(--bg-1)',
-          borderRight: '1px solid var(--line-soft)',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '22px 16px',
-          overflow: 'hidden',
-        }}
-      >
+      <aside className={`dashboard-sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
         {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '0 8px 22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '0 8px 22px', justifyContent: 'space-between' }}>
           <div
             style={{
               width: 34,
@@ -132,6 +131,14 @@ export default function Dashboard() {
               LEVEL UP YOUR LIFE
             </div>
           </div>
+          <button
+            className="hamburger-btn"
+            onClick={() => setSidebarOpen(false)}
+            style={{ marginLeft: 'auto' }}
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Mini hunter card */}
@@ -182,7 +189,7 @@ export default function Dashboard() {
             return (
               <button
                 key={n.path}
-                onClick={() => navigate(n.path)}
+                onClick={() => { navigate(n.path); setSidebarOpen(false); }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -255,7 +262,7 @@ export default function Dashboard() {
       </aside>
 
       {/* Main column */}
-      <div style={{ overflowY: 'auto', height: '100vh' }}>
+      <div className="dashboard-main">
         {/* Sticky header */}
         <header
           style={{
@@ -265,32 +272,39 @@ export default function Dashboard() {
             background: 'color-mix(in oklch, var(--bg-0) 82%, transparent)',
             backdropFilter: 'blur(14px)',
             borderBottom: '1px solid var(--line-soft)',
-            padding: '18px 32px',
+            padding: '14px 20px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            gap: 12,
           }}
         >
-          <div>
-            <div className="eyebrow" style={{ marginBottom: 3 }}>{currentNav.sub}</div>
-            <h1 style={{ fontSize: 22 }}>{currentNav.label}</h1>
+          <button
+            className="hamburger-btn"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu size={18} />
+          </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="eyebrow" style={{ marginBottom: 2 }}>{currentNav.sub}</div>
+            <h1 style={{ fontSize: 20 }}>{currentNav.label}</h1>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div className="chip" style={{ padding: '8px 14px', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div className="chip header-chip" style={{ padding: '7px 12px', gap: 7 }}>
               <span style={{ color: 'var(--warn)', display: 'flex' }}>
-                <Flame size={15} />
+                <Flame size={14} />
               </span>
               <span className="mono" style={{ fontWeight: 700 }}>{status?.streak ?? 0}</span>
-              <span style={{ color: 'var(--text-faint)', fontWeight: 500 }}>day streak</span>
+              <span className="chip-label" style={{ color: 'var(--text-faint)', fontWeight: 500 }}>day streak</span>
             </div>
-            <div className="chip" style={{ padding: '8px 14px', gap: 8, borderColor: 'var(--accent-soft)' }}>
+            <div className="chip header-chip" style={{ padding: '7px 12px', gap: 7, borderColor: 'var(--accent-soft)' }}>
               <span style={{ color: 'var(--accent)', display: 'flex' }}>
-                <Zap size={15} />
+                <Zap size={14} />
               </span>
               <span className="mono" style={{ fontWeight: 700 }}>
                 {(status?.totalXP ?? 0).toLocaleString()}
               </span>
-              <span style={{ color: 'var(--text-faint)', fontWeight: 500 }}>XP</span>
+              <span className="chip-label" style={{ color: 'var(--text-faint)', fontWeight: 500 }}>XP</span>
             </div>
           </div>
         </header>
@@ -298,7 +312,7 @@ export default function Dashboard() {
         <main
           key={location.pathname}
           className="arise-in"
-          style={{ padding: '28px 32px 60px', maxWidth: 1280, margin: '0 auto' }}
+          style={{ padding: 'clamp(16px, 4vw, 32px) clamp(16px, 4vw, 32px) 80px', maxWidth: 1280, margin: '0 auto' }}
         >
           <Outlet context={{ status, addXP }} />
         </main>

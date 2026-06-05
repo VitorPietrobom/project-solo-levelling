@@ -190,3 +190,113 @@ input, select, textarea { color-scheme: dark; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---- Responsive layout ---- */
+.dashboard-shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: 100vh;
+}
+
+.dashboard-sidebar {
+  background: var(--bg-1);
+  border-right: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  padding: 22px 16px;
+  overflow: hidden;
+}
+
+.dashboard-main {
+  overflow-y: auto;
+  height: 100vh;
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.55);
+  z-index: 39;
+}
+
+.hamburger-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-soft);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Responsive grid utilities */
+.grid-2-col {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: var(--gap);
+}
+.grid-2-col-skewed {
+  display: grid;
+  grid-template-columns: minmax(0,1.15fr) minmax(0,1fr);
+  gap: var(--gap);
+}
+.grid-3-col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 768px) {
+  body { overflow: auto; }
+
+  .dashboard-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 260px;
+    height: 100%;
+    z-index: 40;
+    transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    border-right: 1px solid var(--line);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .dashboard-sidebar.sidebar-open {
+    left: 0;
+  }
+
+  .sidebar-backdrop.sidebar-open {
+    display: block;
+  }
+
+  .dashboard-main {
+    height: 100dvh;
+    overflow-y: auto;
+  }
+
+  .hamburger-btn {
+    display: flex;
+  }
+
+  .grid-2-col,
+  .grid-2-col-skewed {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-3-col {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .chip-label {
+    display: none;
+  }
+}
