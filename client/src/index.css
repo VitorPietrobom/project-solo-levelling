@@ -3,41 +3,190 @@
 @tailwind utilities;
 
 :root {
-  /* Background colors */
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-card: #16213e;
+  /* Surfaces — deep cool ink, layered */
+  --bg-0: oklch(0.155 0.018 264);
+  --bg-1: oklch(0.188 0.020 264);
+  --surface: oklch(0.214 0.021 263);
+  --surface-hi: oklch(0.252 0.023 263);
+  --surface-inset: oklch(0.176 0.019 264);
 
-  /* Text colors */
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0b0;
+  /* Hairlines */
+  --line: oklch(0.30 0.02 264 / 0.6);
+  --line-soft: oklch(0.30 0.02 264 / 0.32);
 
-  /* Accent colors */
-  --accent-primary: #00f5d4;    /* Neon teal — XP bars, active tabs */
-  --accent-secondary: #7b2ff7;  /* Vibrant purple — levels, skills */
-  --accent-warning: #ff6b6b;    /* Coral red — soreness heat map high */
-  --accent-danger: #ff6b6b;     /* Alias for warning — error states */
-  --accent-success: #00e676;    /* Green — completed tasks */
-  --accent-info: #448aff;       /* Blue — charts, links */
+  /* Text */
+  --text: oklch(0.96 0.006 264);
+  --text-2: oklch(0.78 0.012 264);
+  --text-3: oklch(0.62 0.014 264);
+  --text-faint: oklch(0.50 0.014 264);
 
-  /* Border */
-  --border-color: #2a2a4a;
+  /* System accents */
+  --accent: oklch(0.80 0.13 192);
+  --accent-2: oklch(0.66 0.15 292);
+  --accent-soft: oklch(0.80 0.13 192 / 0.14);
+  --accent-2-soft: oklch(0.66 0.15 292 / 0.16);
 
-  /* Heat map color scale (soreness 0–100) */
-  --heatmap-0: #1a1a2e;     /* No soreness, blends with background */
-  --heatmap-25: #2d6a4f;    /* Mild, green tint */
-  --heatmap-50: #e9c46a;    /* Moderate, amber */
-  --heatmap-75: #e76f51;    /* High, orange-red */
-  --heatmap-100: #ff6b6b;   /* Intense, coral red */
+  /* Semantic */
+  --good: oklch(0.78 0.15 158);
+  --warn: oklch(0.80 0.14 78);
+  --bad: oklch(0.68 0.17 24);
+  --info: oklch(0.72 0.13 244);
+
+  /* Radii */
+  --r-sm: 9px;
+  --r: 14px;
+  --r-lg: 20px;
+  --r-xl: 26px;
+
+  /* Spacing rhythm */
+  --gap: 20px;
+  --pad: 22px;
+
+  /* Type */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Manrope', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px oklch(0.1 0.02 264 / 0.4);
+  --shadow: 0 8px 24px -10px oklch(0.08 0.02 264 / 0.7);
+  --shadow-lg: 0 24px 60px -20px oklch(0.06 0.02 264 / 0.85);
+  --glow: 0 0 0 1px var(--accent-soft), 0 0 28px -6px var(--accent);
+
+  /* Legacy aliases for components that still use old names */
+  --bg-primary: oklch(0.155 0.018 264);
+  --bg-secondary: oklch(0.188 0.020 264);
+  --bg-card: oklch(0.214 0.021 263);
+  --text-primary: oklch(0.96 0.006 264);
+  --text-secondary: oklch(0.62 0.014 264);
+  --accent-primary: oklch(0.80 0.13 192);
+  --accent-secondary: oklch(0.66 0.15 292);
+  --accent-warning: oklch(0.68 0.17 24);
+  --accent-danger: oklch(0.68 0.17 24);
+  --accent-success: oklch(0.78 0.15 158);
+  --accent-info: oklch(0.72 0.13 244);
+  --border-color: oklch(0.30 0.02 264 / 0.32);
+  --heatmap-0: oklch(0.214 0.021 263);
+  --heatmap-25: oklch(0.6 0.12 158);
+  --heatmap-50: oklch(0.78 0.14 78);
+  --heatmap-75: oklch(0.72 0.16 45);
+  --heatmap-100: oklch(0.66 0.18 24);
+}
+
+[data-density="compact"] { --gap: 14px; --pad: 16px; }
+[data-density="comfy"]   { --gap: 26px; --pad: 28px; }
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background: var(--bg-0);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.005em;
+  overflow: hidden;
   color-scheme: dark;
 }
 
-/* Native form controls (date pickers, selects, number inputs) inherit dark scheme */
-input, select, textarea {
-  color-scheme: dark;
+#root { height: 100vh; }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+
+button { font-family: inherit; cursor: pointer; }
+input, select, textarea { color-scheme: dark; }
+::selection { background: var(--accent-soft); }
+
+/* Scrollbar */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--surface-hi);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--line); background-clip: content-box; }
+
+/* ---- Reusable atoms ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--surface-inset);
+  border: 1px solid var(--line-soft);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-hi);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13.5px;
+  transition: all 0.16s ease;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+.btn-primary {
+  background: var(--accent);
+  color: oklch(0.18 0.03 240);
+  border-color: transparent;
+}
+.btn-primary:hover { color: oklch(0.16 0.03 240); filter: brightness(1.08); transform: translateY(-1px); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-3); padding: 6px 10px; }
+.btn-ghost:hover { color: var(--accent); background: var(--accent-soft); transform: none; }
+
+/* Entrance animation */
+@keyframes ariseIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+[data-arise-ready] .arise-in { animation: ariseIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
