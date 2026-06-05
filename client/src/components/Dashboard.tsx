@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Zap,
   LayoutDashboard,
@@ -39,6 +40,7 @@ const NAV = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth();
   const [status, setStatus] = useState<GamificationStatus | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [levelUp, setLevelUp] = useState(false);
@@ -266,6 +268,13 @@ export default function Dashboard() {
         >
           <Settings size={18} />
           Settings
+        </button>
+        <button
+          onClick={logout}
+          className="btn"
+          style={{ justifyContent: 'flex-start', background: 'transparent', border: 'none', color: 'var(--text-3)', marginTop: 2 }}
+        >
+          Logout
         </button>
       </aside>
 

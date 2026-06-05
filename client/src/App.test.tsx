@@ -24,7 +24,7 @@ describe('App', () => {
   it('renders the login page when not authenticated', async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     render(<App />);
-    expect(await screen.findByText('Level Up Portal')).toBeInTheDocument();
+    expect(await screen.findByText('Project Arise')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
 });

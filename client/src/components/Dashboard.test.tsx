@@ -44,16 +44,16 @@ describe('Dashboard', () => {
 
   it('renders the header with title and logout button', async () => {
     renderDashboard();
-    expect(await screen.findByText('Level Up Portal')).toBeInTheDocument();
+    expect(await screen.findByText('Project Arise')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument();
   });
 
-  it('renders the tab navigation', async () => {
+  it('renders the sidebar navigation', async () => {
     renderDashboard();
-    expect(await screen.findByRole('tab', { name: 'Gamification' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Body' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Diet' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Learning' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /status/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /body/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /diet/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /learning/i })).toBeInTheDocument();
   });
 
   it('renders child route content via Outlet', async () => {
