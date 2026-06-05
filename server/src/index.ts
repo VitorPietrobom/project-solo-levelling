@@ -54,7 +54,7 @@ app.use('/api/lessons', lessonRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/weekly-summary', weeklySummaryRoutes);
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   // Warm up the DB connection pool before accepting requests
   import('./lib/prisma').then(({ default: prisma }) => {
     prisma.$connect().then(() => {
