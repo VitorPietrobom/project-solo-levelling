@@ -21,8 +21,10 @@ let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
 function getJWKS(): ReturnType<typeof createRemoteJWKSet> | null {
   if (jwks) return jwks;
-  const url = process.env.NEON_AUTH_JWKS_URL;
-  if (!url) return null;
+  const base = process.env.NEON_AUTH_BASE_URL ?? process.env.NEON_AUTH_JWKS_URL;
+  if (!base) return null;
+  // If base looks like a full JWKS URL use it directly, otherwise append the well-known path
+  const url = base.endsWith('jwks.json') ? base : `${base.replace(/\/$/, '')}/.well-known/jwks.json`;
   jwks = createRemoteJWKSet(new URL(url));
   return jwks;
 }
@@ -57,7 +59,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   const JWKS = getJWKS();
   if (!JWKS) {
-    console.error('[auth] 401: NEON_AUTH_JWKS_URL env var is not set');
+    console.error('[auth] 401: NEON_AUTH_BASE_URL (or NEON_AUTH_JWKS_URL) env var is not set');
     res.status(401).json({ error: 'Auth not configured' });
     return;
   }
