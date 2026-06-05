@@ -40,6 +40,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith('Bearer ')) {
+    console.error('[auth] 401: missing/invalid authorization header. Header value:', header ?? '(none)');
     res.status(401).json({ error: 'Missing or invalid authorization header' });
     return;
   }
@@ -56,6 +57,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   const JWKS = getJWKS();
   if (!JWKS) {
+    console.error('[auth] 401: NEON_AUTH_JWKS_URL env var is not set');
     res.status(401).json({ error: 'Auth not configured' });
     return;
   }
