@@ -171,6 +171,7 @@ export default function GamificationTab() {
     name: s.name.slice(0, 6),
     axis: s.level,
   }));
+  const radarMax = Math.max(1, ...radarData.map((d) => d.axis));
 
   const questCols: [string, string, Quest[]][] = [
     ['To Do', 'todo', todoQuests],
@@ -411,7 +412,7 @@ export default function GamificationTab() {
               )}
             </div>
             {radarData.length > 0 ? (
-              <RadarChart data={radarData} size={200} />
+              <RadarChart data={radarData} size={200} max={radarMax} />
             ) : (
               <div style={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: 12 }}>
                 Add skills to see radar
