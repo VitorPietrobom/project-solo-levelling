@@ -17,6 +17,7 @@ interface RecipeFormProps {
       protein: number;
       carbs: number;
       fat: number;
+      servings: number;
       ingredients: IngredientInput[];
     },
   ) => void;
@@ -26,6 +27,7 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
   const [name, setName] = useState('');
   const [steps, setSteps] = useState('');
   const [caloriesPerServing, setCaloriesPerServing] = useState('');
+  const [servings, setServings] = useState('1');
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
@@ -68,6 +70,11 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
     const parsedCarbs = parseMacro(carbs);
     const parsedFat = parseMacro(fat);
 
+    const parsedServings = (() => {
+      const n = parseInt(servings, 10);
+      return !servings || isNaN(n) || n < 1 ? 1 : n;
+    })();
+
     const validIngredients = ingredients
       .filter((ing) => ing.name.trim())
       .map((ing) => ({ name: ing.name.trim(), quantity: ing.quantity.trim(), unit: ing.unit.trim() }));
@@ -81,6 +88,7 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
       protein: parsedProtein,
       carbs: parsedCarbs,
       fat: parsedFat,
+      servings: parsedServings,
       ingredients: validIngredients.map((ing, i) => ({ id: `temp-ing-${now}-${i}`, ...ing })),
     };
 
@@ -91,12 +99,14 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
       protein: parsedProtein,
       carbs: parsedCarbs,
       fat: parsedFat,
+      servings: parsedServings,
       ingredients: validIngredients,
     });
 
     setName('');
     setSteps('');
     setCaloriesPerServing('');
+    setServings('1');
     setProtein('');
     setCarbs('');
     setFat('');
@@ -126,15 +136,26 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
         aria-label="Preparation steps"
       />
 
-      <input
-        type="number"
-        min="0"
-        placeholder="Calories per serving"
-        value={caloriesPerServing}
-        onChange={(e) => setCaloriesPerServing(e.target.value)}
-        className="w-full bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
-        aria-label="Calories per serving"
-      />
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          type="number"
+          min="0"
+          placeholder="Calories per serving"
+          value={caloriesPerServing}
+          onChange={(e) => setCaloriesPerServing(e.target.value)}
+          className="w-full bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+          aria-label="Calories per serving"
+        />
+        <input
+          type="number"
+          min="1"
+          placeholder="Servings"
+          value={servings}
+          onChange={(e) => setServings(e.target.value)}
+          className="w-full bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+          aria-label="Servings"
+        />
+      </div>
 
       {/* Macros */}
       <div>

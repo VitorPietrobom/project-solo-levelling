@@ -13,6 +13,7 @@ Output ONLY valid JSON, no explanation:
   "name": "Recipe Name",
   "steps": "1. Step one\\n2. Step two\\n3. Step three",
   "caloriesPerServing": 400,
+  "servings": 4,
   "protein": 30,
   "carbs": 45,
   "fat": 12,
@@ -24,6 +25,7 @@ Output ONLY valid JSON, no explanation:
 
 Rules:
 - Estimate calories per serving based on the ingredients and typical portion sizes
+- Estimate the number of servings the recipe yields
 - Estimate protein, carbs, and fat in grams per serving
 - Use metric units (g, ml, tbsp, tsp, cups) for quantities
 - Steps should be numbered and separated by newlines
@@ -49,6 +51,10 @@ export default function RecipeImport({ onImport }: RecipeImportProps) {
         const n = Number(v);
         return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
       };
+      const toServings = (v: any): number => {
+        const n = Number(v);
+        return Number.isFinite(n) && n >= 1 ? Math.round(n) : 1;
+      };
 
       const now = Date.now();
       const optimistic: Recipe = {
@@ -59,6 +65,7 @@ export default function RecipeImport({ onImport }: RecipeImportProps) {
         protein: toMacro(data.protein),
         carbs: toMacro(data.carbs),
         fat: toMacro(data.fat),
+        servings: toServings(data.servings),
         ingredients: (data.ingredients || []).map((ing: any, i: number) => ({
           id: `temp-ing-${now}-${i}`,
           name: ing.name,
@@ -74,6 +81,7 @@ export default function RecipeImport({ onImport }: RecipeImportProps) {
         protein: toMacro(data.protein),
         carbs: toMacro(data.carbs),
         fat: toMacro(data.fat),
+        servings: toServings(data.servings),
         ingredients: data.ingredients || [],
       });
 

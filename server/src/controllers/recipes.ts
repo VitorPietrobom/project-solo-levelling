@@ -31,11 +31,15 @@ export async function listRecipes(req: Request, res: Response): Promise<void> {
 export async function createRecipe(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
-    const { name, steps, caloriesPerServing, ingredients, protein, carbs, fat } = req.body;
+    const { name, steps, caloriesPerServing, ingredients, protein, carbs, fat, servings } = req.body;
 
     const toMacro = (v: unknown): number => {
       const n = typeof v === 'number' ? v : Number(v);
       return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+    };
+    const toServings = (v: unknown): number => {
+      const n = typeof v === 'number' ? v : Number(v);
+      return Number.isFinite(n) && n >= 1 ? Math.round(n) : 1;
     };
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -67,6 +71,7 @@ export async function createRecipe(req: Request, res: Response): Promise<void> {
         protein: toMacro(protein),
         carbs: toMacro(carbs),
         fat: toMacro(fat),
+        servings: toServings(servings),
         ingredients: {
           create: (ingredients || []).map((ing: { name: string; quantity: string; unit: string }) => ({
             name: ing.name,
