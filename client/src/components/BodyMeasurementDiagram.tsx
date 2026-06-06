@@ -23,11 +23,11 @@ function getLatest(measurements: Measurement[]): Record<string, { value: number;
 }
 
 const MEASURE_POINTS: { type: string; label: string; bodyY: number; side: 'left' | 'right' }[] = [
-  { type: 'arms',   label: 'Arms',   bodyY: 115, side: 'left' },
-  { type: 'chest',  label: 'Chest',  bodyY: 145, side: 'right' },
-  { type: 'waist',  label: 'Waist',  bodyY: 185, side: 'left' },
-  { type: 'hips',   label: 'Hips',   bodyY: 215, side: 'right' },
-  { type: 'thighs', label: 'Thighs', bodyY: 265, side: 'left' },
+  { type: 'arms',   label: 'Arms',   bodyY: 118, side: 'left' },
+  { type: 'chest',  label: 'Chest',  bodyY: 148, side: 'right' },
+  { type: 'waist',  label: 'Waist',  bodyY: 188, side: 'left' },
+  { type: 'hips',   label: 'Hips',   bodyY: 218, side: 'right' },
+  { type: 'thighs', label: 'Thighs', bodyY: 268, side: 'left' },
 ];
 
 export default function BodyMeasurementDiagram({ measurements }: BodyMeasurementDiagramProps) {
@@ -35,76 +35,165 @@ export default function BodyMeasurementDiagram({ measurements }: BodyMeasurement
   const hasData = Object.keys(latest).length > 0;
 
   return (
-    <div className="bg-card rounded-lg p-4 border border-border">
-      <h3 className="text-text-primary font-semibold mb-2">Body Measurements</h3>
-      <svg viewBox="-60 0 320 400" className="w-full max-w-[340px] mx-auto">
-        {/* Head */}
-        <ellipse cx="100" cy="40" rx="22" ry="26" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" opacity="0.4" />
-        {/* Neck */}
-        <rect x="90" y="66" width="20" height="14" rx="4" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" opacity="0.4" />
-        {/* Torso */}
-        <path d="M 65 80 L 55 80 Q 40 85 38 110 L 38 130 L 42 130 Q 50 115 60 110 L 60 200 Q 62 220 70 230 L 70 310 Q 70 320 75 325 L 80 340 L 88 340 L 88 325 Q 92 310 95 280 L 100 260 L 105 280 Q 108 310 112 325 L 112 340 L 120 340 L 125 325 Q 130 320 130 310 L 130 230 Q 138 220 140 200 L 140 110 Q 150 115 158 130 L 162 130 L 162 110 Q 160 85 145 80 L 135 80 Z"
-          fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" opacity="0.4" />
-        {/* Left arm */}
-        <path d="M 55 80 Q 30 85 22 120 L 18 170 Q 16 180 20 185 L 28 185 Q 32 180 30 170 L 38 130"
-          fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" opacity="0.4" />
-        {/* Right arm */}
-        <path d="M 145 80 Q 170 85 178 120 L 182 170 Q 184 180 180 185 L 172 185 Q 168 180 170 170 L 162 130"
-          fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" opacity="0.4" />
+    <svg viewBox="-90 0 380 390" style={{ width: '100%', maxWidth: 380, display: 'block', margin: '0 auto' }}>
+      <defs>
+        {/* Body fill gradient */}
+        <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.10" />
+          <stop offset="100%" stopColor="var(--accent-2)" stopOpacity="0.06" />
+        </linearGradient>
+        {/* Glow filter for accent dots */}
+        <filter id="dotGlow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
 
-        {/* Measurement lines */}
-        {MEASURE_POINTS.map(({ type, label, bodyY, side }) => {
-          const data = latest[type];
-          const bodyX = side === 'left' ? 38 : 162;
-          const endX = side === 'left' ? -40 : 240;
-          const textX = side === 'left' ? -45 : 245;
-          const anchor = side === 'left' ? 'end' : 'start';
+      {/* ── Body silhouette ── */}
 
-          return (
-            <g key={type}>
-              {/* Horizontal dashed line */}
-              <line
-                x1={bodyX} y1={bodyY}
-                x2={endX} y2={bodyY}
-                stroke="var(--accent-primary)" strokeWidth="0.8" strokeDasharray="4 3" opacity="0.5"
-              />
-              {/* Dot on body */}
-              <circle cx={bodyX} cy={bodyY} r="3" fill="var(--accent-primary)" />
+      {/* Head */}
+      <ellipse cx="100" cy="35" rx="21" ry="25"
+        fill="url(#bodyGrad)" stroke="var(--accent-2)" strokeWidth="1.4" opacity="0.7" />
 
-              {/* Label */}
-              <text x={textX} y={bodyY - 8} textAnchor={anchor} fill="var(--text-secondary)" fontSize="10">
-                {label}
-              </text>
-              {/* Value */}
-              {data ? (
-                <>
-                  <text x={textX} y={bodyY + 5} textAnchor={anchor} fill="var(--text-primary)" fontSize="13" fontWeight="bold">
-                    {data.value} cm
-                  </text>
-                  {data.change !== null && (
-                    <text
-                      x={textX} y={bodyY + 18} textAnchor={anchor} fontSize="9"
-                      fill={data.change < 0 ? 'var(--accent-success)' : data.change > 0 ? 'var(--accent-warning)' : 'var(--text-secondary)'}
-                    >
-                      {data.change > 0 ? '+' : ''}{data.change.toFixed(1)}
-                    </text>
-                  )}
-                </>
-              ) : (
-                <text x={textX} y={bodyY + 5} textAnchor={anchor} fill="var(--text-secondary)" fontSize="10" opacity="0.5">
-                  —
+      {/* Neck */}
+      <path d="M 91 59 L 91 74 Q 100 78 109 74 L 109 59"
+        fill="url(#bodyGrad)" stroke="var(--accent-2)" strokeWidth="1.4" opacity="0.7" />
+
+      {/* Torso + arms combined outline */}
+      <path
+        d="
+          M 68 78
+          Q 50 80 42 100 L 38 120 L 32 175 Q 30 183 34 188 L 44 188 Q 48 183 46 175 L 52 130
+
+          L 62 110
+          L 63 200 Q 65 222 74 232
+          L 74 315 Q 74 323 78 328 L 82 342 L 90 342 L 90 325
+          Q 93 310 96 282 L 100 262
+          L 104 282 Q 107 310 110 325 L 110 342 L 118 342 L 122 328
+          Q 126 323 126 315 L 126 232
+          Q 135 222 137 200 L 138 110
+          L 148 130 L 154 175 Q 152 183 156 188 L 166 188 Q 170 183 168 175 L 162 120
+          Q 158 100 140 78
+          Z
+        "
+        fill="url(#bodyGrad)"
+        stroke="var(--accent-2)"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        opacity="0.7"
+      />
+
+      {/* ── Measurement callouts ── */}
+      {MEASURE_POINTS.map(({ type, label, bodyY, side }) => {
+        const data = latest[type];
+        const bodyX = side === 'left' ? 45 : 155;
+        const lineEnd = side === 'left' ? -30 : 230;
+        const boxX = side === 'left' ? -90 : 235;
+        const boxWidth = 80;
+
+        const changeColor = !data || data.change === null
+          ? 'var(--text-faint)'
+          : data.change < 0
+            ? 'var(--good)'
+            : data.change > 0
+              ? 'var(--warn)'
+              : 'var(--text-3)';
+
+        const changeText = data?.change !== null && data?.change !== undefined
+          ? (data.change > 0 ? `+${data.change.toFixed(1)}` : data.change.toFixed(1))
+          : null;
+
+        return (
+          <g key={type}>
+            {/* Connector line */}
+            <line
+              x1={bodyX} y1={bodyY}
+              x2={lineEnd} y2={bodyY}
+              stroke="var(--accent)" strokeWidth="0.7" opacity="0.35"
+            />
+            {/* Tick at body */}
+            <line
+              x1={bodyX} y1={bodyY - 5}
+              x2={bodyX} y2={bodyY + 5}
+              stroke="var(--accent)" strokeWidth="1.2" opacity="0.6"
+            />
+            {/* Glowing dot */}
+            <circle
+              cx={bodyX} cy={bodyY} r="3.5"
+              fill="var(--accent)" filter="url(#dotGlow)" opacity="0.9"
+            />
+
+            {/* Label box background */}
+            <rect
+              x={boxX} y={bodyY - 22}
+              width={boxWidth} height={44}
+              rx="7"
+              fill="var(--surface-hi)" stroke="var(--line-soft)" strokeWidth="0.8"
+              opacity="0.95"
+            />
+
+            {/* Label */}
+            <text
+              x={boxX + boxWidth / 2} y={bodyY - 8}
+              textAnchor="middle"
+              fill="var(--text-3)"
+              fontSize="9"
+              fontFamily="var(--font-mono)"
+              letterSpacing="0.08em"
+            >
+              {label.toUpperCase()}
+            </text>
+
+            {/* Value */}
+            {data ? (
+              <>
+                <text
+                  x={boxX + boxWidth / 2} y={bodyY + 7}
+                  textAnchor="middle"
+                  fill="var(--text)"
+                  fontSize="13"
+                  fontFamily="var(--font-mono)"
+                  fontWeight="700"
+                  letterSpacing="-0.02em"
+                >
+                  {data.value}
+                  <tspan fontSize="9" fill="var(--text-faint)" dx="2">cm</tspan>
                 </text>
-              )}
-            </g>
-          );
-        })}
+                {changeText && (
+                  <text
+                    x={boxX + boxWidth / 2} y={bodyY + 20}
+                    textAnchor="middle"
+                    fontSize="9"
+                    fontFamily="var(--font-mono)"
+                    fill={changeColor}
+                  >
+                    {changeText}
+                  </text>
+                )}
+              </>
+            ) : (
+              <text
+                x={boxX + boxWidth / 2} y={bodyY + 7}
+                textAnchor="middle"
+                fill="var(--text-faint)"
+                fontSize="11"
+                fontFamily="var(--font-mono)"
+              >
+                —
+              </text>
+            )}
+          </g>
+        );
+      })}
 
-        {!hasData && (
-          <text x="100" y="380" textAnchor="middle" fill="var(--text-secondary)" fontSize="11">
-            Log measurements to see them here
-          </text>
-        )}
-      </svg>
-    </div>
+      {!hasData && (
+        <text x="100" y="375" textAnchor="middle" fill="var(--text-faint)" fontSize="11" fontFamily="var(--font-body)">
+          Log measurements to see them here
+        </text>
+      )}
+    </svg>
   );
 }
