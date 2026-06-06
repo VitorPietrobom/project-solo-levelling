@@ -5,14 +5,16 @@ export interface Task {
   xpReward: number;
   completedToday: boolean;
   lastCompletedAt: string | null;
+  linkedSkillId?: string | null;
 }
 
 interface TaskListProps {
   tasks: Task[];
   onToggle: (taskId: string) => void;
+  onUncomplete: (taskId: string) => void;
 }
 
-export default function TaskList({ tasks = [], onToggle }: TaskListProps) {
+export default function TaskList({ tasks = [], onToggle, onUncomplete }: TaskListProps) {
   const daily = tasks.filter((t) => t.recurrence === 'daily');
   const weekly = tasks.filter((t) => t.recurrence === 'weekly');
 
@@ -25,15 +27,15 @@ export default function TaskList({ tasks = [], onToggle }: TaskListProps) {
       <div key={task.id} className="bg-card rounded-lg p-3 border border-border flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => onToggle(task.id)}
-            disabled={task.completedToday}
-            className="flex items-center justify-center w-5 h-5 rounded border disabled:opacity-60"
-            aria-label={task.completedToday ? `"${task.title}" already completed` : `Mark "${task.title}" as complete`}
+            onClick={() => task.completedToday ? onUncomplete(task.id) : onToggle(task.id)}
+            className="flex items-center justify-center w-5 h-5 rounded border"
+            aria-label={task.completedToday ? `Undo "${task.title}"` : `Mark "${task.title}" as complete`}
+            title={task.completedToday ? 'Click to undo' : 'Mark complete'}
           >
             <span
-              className={`w-5 h-5 rounded border flex items-center justify-center text-xs ${
+              className={`w-5 h-5 rounded border flex items-center justify-center text-xs transition-colors ${
                 task.completedToday
-                  ? 'bg-accent-success border-accent-success text-primary'
+                  ? 'bg-accent-success border-accent-success text-primary hover:bg-red-500 hover:border-red-500'
                   : 'border-border text-transparent'
               }`}
             >

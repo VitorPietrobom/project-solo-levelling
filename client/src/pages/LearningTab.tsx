@@ -236,7 +236,7 @@ export default function LearningTab() {
       </section>
 
       {/* Journal + Lessons */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'var(--gap)' }}>
+      <div className="grid-2-col">
         <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h3 style={{ fontSize: 17 }}>Learning Journal</h3>

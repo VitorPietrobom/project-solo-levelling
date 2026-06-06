@@ -118,10 +118,8 @@ function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: (
           style={{
             padding: '20px 28px',
             borderBottom: '1px solid var(--line-soft)',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3,1fr)',
-            gap: 16,
           }}
+          className="grid-3-col"
         >
           {macros.map(([label, v, col]) => (
             <div key={label}>
@@ -136,11 +134,9 @@ function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: (
 
         {/* Ingredients + Steps */}
         <div
+          className="grid-2-col"
           style={{
             padding: '24px 28px',
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.3fr)',
-            gap: 28,
           }}
         >
           <div>
@@ -239,11 +235,9 @@ export default function RecipesTab() {
       {/* Featured recipe */}
       {featured && (
         <section
-          className="card arise-in"
+          className="card arise-in grid-2-col"
           style={{
             padding: 'var(--pad)',
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,1fr)',
             gap: 26,
             position: 'relative',
             overflow: 'hidden',
@@ -337,7 +331,7 @@ export default function RecipesTab() {
       </div>
 
       {/* Recipe grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--gap)' }}>
+      <div className="grid-3-col">
         {filtered.map((r) => {
           const rp = r.protein ?? 0;
           const rc = r.carbs ?? 0;

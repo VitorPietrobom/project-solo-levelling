@@ -143,7 +143,7 @@ export default function BodyTab() {
       </section>
 
       {/* Measurements + Soreness */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'var(--gap)' }}>
+      <div className="grid-2-col">
         <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
             <h3 style={{ fontSize: 17 }}>Measurements</h3>
@@ -165,7 +165,7 @@ export default function BodyTab() {
       </div>
 
       {/* Gym sessions + Training Programs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'var(--gap)' }}>
+      <div className="grid-2-col">
         <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
             <h3 style={{ fontSize: 17 }}>Recent Sessions</h3>
