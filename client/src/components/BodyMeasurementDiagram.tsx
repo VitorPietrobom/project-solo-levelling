@@ -22,12 +22,15 @@ function getLatest(measurements: Measurement[]): Record<string, { value: number;
   return result;
 }
 
-const MEASURE_POINTS: { type: string; label: string; bodyY: number; side: 'left' | 'right' }[] = [
-  { type: 'arms',   label: 'Arms',   bodyY: 118, side: 'left' },
-  { type: 'chest',  label: 'Chest',  bodyY: 148, side: 'right' },
-  { type: 'waist',  label: 'Waist',  bodyY: 188, side: 'left' },
-  { type: 'hips',   label: 'Hips',   bodyY: 218, side: 'right' },
-  { type: 'thighs', label: 'Thighs', bodyY: 268, side: 'left' },
+// anchorX/Y = where the dot sits on the body edge; side = which way the callout box goes
+const MEASURE_POINTS: {
+  type: string; label: string; anchorX: number; anchorY: number; side: 'left' | 'right';
+}[] = [
+  { type: 'chest',  label: 'Chest',  anchorX: 135, anchorY: 132, side: 'right' },
+  { type: 'arms',   label: 'Arms',   anchorX: 52,  anchorY: 150, side: 'left'  },
+  { type: 'waist',  label: 'Waist',  anchorX: 72,  anchorY: 178, side: 'left'  },
+  { type: 'hips',   label: 'Hips',   anchorX: 132, anchorY: 205, side: 'right' },
+  { type: 'thighs', label: 'Thighs', anchorX: 72,  anchorY: 262, side: 'left'  },
 ];
 
 export default function BodyMeasurementDiagram({ measurements }: BodyMeasurementDiagramProps) {
@@ -35,16 +38,19 @@ export default function BodyMeasurementDiagram({ measurements }: BodyMeasurement
   const hasData = Object.keys(latest).length > 0;
 
   return (
-    <svg viewBox="-90 0 380 390" style={{ width: '100%', maxWidth: 380, display: 'block', margin: '0 auto' }}>
+    <svg viewBox="-95 0 390 400" style={{ width: '100%', maxWidth: 400, display: 'block', margin: '0 auto' }}>
       <defs>
-        {/* Body fill gradient */}
         <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.10" />
-          <stop offset="100%" stopColor="var(--accent-2)" stopOpacity="0.06" />
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.14" />
+          <stop offset="55%" stopColor="var(--accent-2)" stopOpacity="0.08" />
+          <stop offset="100%" stopColor="var(--accent-2)" stopOpacity="0.03" />
         </linearGradient>
-        {/* Glow filter for accent dots */}
-        <filter id="dotGlow" x="-100%" y="-100%" width="300%" height="300%">
-          <feGaussianBlur stdDeviation="2.5" result="blur" />
+        <linearGradient id="bodyStroke" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent)" />
+          <stop offset="100%" stopColor="var(--accent-2)" />
+        </linearGradient>
+        <filter id="dotGlow" x="-150%" y="-150%" width="400%" height="400%">
+          <feGaussianBlur stdDeviation="2.4" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -52,47 +58,62 @@ export default function BodyMeasurementDiagram({ measurements }: BodyMeasurement
         </filter>
       </defs>
 
-      {/* ── Body silhouette ── */}
+      {/* Centre guide line */}
+      <line x1="100" y1="66" x2="100" y2="378" stroke="var(--line-soft)" strokeWidth="0.6" strokeDasharray="2 5" opacity="0.5" />
 
-      {/* Head */}
-      <ellipse cx="100" cy="35" rx="21" ry="25"
-        fill="url(#bodyGrad)" stroke="var(--accent-2)" strokeWidth="1.4" opacity="0.7" />
+      {/* ── Head ── */}
+      <ellipse cx="100" cy="36" rx="19" ry="23"
+        fill="url(#bodyGrad)" stroke="url(#bodyStroke)" strokeWidth="1.6" />
 
-      {/* Neck */}
-      <path d="M 91 59 L 91 74 Q 100 78 109 74 L 109 59"
-        fill="url(#bodyGrad)" stroke="var(--accent-2)" strokeWidth="1.4" opacity="0.7" />
-
-      {/* Torso + arms combined outline */}
+      {/* ── Body (symmetric athletic silhouette) ── */}
       <path
         d="
-          M 68 78
-          Q 50 80 42 100 L 38 120 L 32 175 Q 30 183 34 188 L 44 188 Q 48 183 46 175 L 52 130
-
-          L 62 110
-          L 63 200 Q 65 222 74 232
-          L 74 315 Q 74 323 78 328 L 82 342 L 90 342 L 90 325
-          Q 93 310 96 282 L 100 262
-          L 104 282 Q 107 310 110 325 L 110 342 L 118 342 L 122 328
-          Q 126 323 126 315 L 126 232
-          Q 135 222 137 200 L 138 110
-          L 148 130 L 154 175 Q 152 183 156 188 L 166 188 Q 170 183 168 175 L 162 120
-          Q 158 100 140 78
+          M 92 58
+          C 92 66, 88 70, 80 73
+          C 68 77, 60 86, 56 100
+          C 53 110, 51 122, 49 138
+          C 47 152, 45 168, 43 182
+          C 42 190, 46 192, 50 191
+          C 54 190, 56 184, 57 176
+          C 59 160, 61 142, 64 126
+          C 65 134, 65 146, 65 158
+          C 65 172, 67 186, 71 198
+          C 67 214, 66 230, 67 248
+          C 68 274, 71 308, 74 344
+          C 75 356, 77 368, 80 378
+          L 92 378
+          C 93 366, 94 350, 95 332
+          C 96 310, 98 286, 100 268
+          C 102 286, 104 310, 105 332
+          C 106 350, 107 366, 108 378
+          L 120 378
+          C 123 368, 125 356, 126 344
+          C 129 308, 132 274, 133 248
+          C 134 230, 133 214, 129 198
+          C 133 186, 135 172, 135 158
+          C 135 146, 135 134, 136 126
+          C 139 142, 141 160, 143 176
+          C 144 184, 146 190, 150 191
+          C 154 192, 158 190, 157 182
+          C 155 168, 153 152, 151 138
+          C 149 122, 147 110, 144 100
+          C 140 86, 132 77, 120 73
+          C 112 70, 108 66, 108 58
+          C 105 61, 95 61, 92 58
           Z
         "
         fill="url(#bodyGrad)"
-        stroke="var(--accent-2)"
-        strokeWidth="1.4"
+        stroke="url(#bodyStroke)"
+        strokeWidth="1.6"
         strokeLinejoin="round"
-        opacity="0.7"
       />
 
       {/* ── Measurement callouts ── */}
-      {MEASURE_POINTS.map(({ type, label, bodyY, side }) => {
+      {MEASURE_POINTS.map(({ type, label, anchorX, anchorY, side }) => {
         const data = latest[type];
-        const bodyX = side === 'left' ? 45 : 155;
-        const lineEnd = side === 'left' ? -30 : 230;
-        const boxX = side === 'left' ? -90 : 235;
-        const boxWidth = 80;
+        const boxW = 78;
+        const boxX = side === 'left' ? -92 : 232;
+        const lineEnd = side === 'left' ? boxX + boxW : boxX; // edge of box facing body
 
         const changeColor = !data || data.change === null
           ? 'var(--text-faint)'
@@ -108,79 +129,55 @@ export default function BodyMeasurementDiagram({ measurements }: BodyMeasurement
 
         return (
           <g key={type}>
-            {/* Connector line */}
+            {/* Connector: body anchor -> box edge */}
             <line
-              x1={bodyX} y1={bodyY}
-              x2={lineEnd} y2={bodyY}
-              stroke="var(--accent)" strokeWidth="0.7" opacity="0.35"
+              x1={anchorX} y1={anchorY}
+              x2={lineEnd} y2={anchorY}
+              stroke="var(--accent)" strokeWidth="0.8" opacity="0.4"
             />
-            {/* Tick at body */}
-            <line
-              x1={bodyX} y1={bodyY - 5}
-              x2={bodyX} y2={bodyY + 5}
-              stroke="var(--accent)" strokeWidth="1.2" opacity="0.6"
-            />
-            {/* Glowing dot */}
-            <circle
-              cx={bodyX} cy={bodyY} r="3.5"
-              fill="var(--accent)" filter="url(#dotGlow)" opacity="0.9"
-            />
+            {/* Glowing dot on body */}
+            <circle cx={anchorX} cy={anchorY} r="2.6" fill="var(--bg-0)" />
+            <circle cx={anchorX} cy={anchorY} r="3.6" fill="none" stroke="var(--accent)" strokeWidth="1.6" filter="url(#dotGlow)" />
 
-            {/* Label box background */}
+            {/* Callout box */}
             <rect
-              x={boxX} y={bodyY - 22}
-              width={boxWidth} height={44}
-              rx="7"
-              fill="var(--surface-hi)" stroke="var(--line-soft)" strokeWidth="0.8"
-              opacity="0.95"
+              x={boxX} y={anchorY - 22}
+              width={boxW} height={44} rx="8"
+              fill="var(--surface-hi)" stroke="var(--line-soft)" strokeWidth="0.9"
             />
-
             {/* Label */}
             <text
-              x={boxX + boxWidth / 2} y={bodyY - 8}
-              textAnchor="middle"
-              fill="var(--text-3)"
-              fontSize="9"
-              fontFamily="var(--font-mono)"
-              letterSpacing="0.08em"
+              x={boxX + boxW / 2} y={anchorY - 7}
+              textAnchor="middle" fill="var(--text-3)"
+              fontSize="8.5" fontFamily="var(--font-mono)" letterSpacing="0.12em"
             >
               {label.toUpperCase()}
             </text>
-
-            {/* Value */}
+            {/* Value / change */}
             {data ? (
               <>
                 <text
-                  x={boxX + boxWidth / 2} y={bodyY + 7}
-                  textAnchor="middle"
-                  fill="var(--text)"
-                  fontSize="13"
-                  fontFamily="var(--font-mono)"
-                  fontWeight="700"
-                  letterSpacing="-0.02em"
+                  x={boxX + boxW / 2} y={anchorY + 8}
+                  textAnchor="middle" fill="var(--text)"
+                  fontSize="14" fontFamily="var(--font-mono)" fontWeight="700" letterSpacing="-0.02em"
                 >
                   {data.value}
-                  <tspan fontSize="9" fill="var(--text-faint)" dx="2">cm</tspan>
+                  <tspan fontSize="8.5" fill="var(--text-faint)" dx="2">cm</tspan>
                 </text>
                 {changeText && (
                   <text
-                    x={boxX + boxWidth / 2} y={bodyY + 20}
-                    textAnchor="middle"
-                    fontSize="9"
-                    fontFamily="var(--font-mono)"
-                    fill={changeColor}
+                    x={boxX + boxW / 2} y={anchorY + 19}
+                    textAnchor="middle" fontSize="8.5" fontFamily="var(--font-mono)" fill={changeColor}
                   >
-                    {changeText}
+                    {changeText} cm
                   </text>
                 )}
               </>
             ) : (
               <text
-                x={boxX + boxWidth / 2} y={bodyY + 7}
-                textAnchor="middle"
-                fill="var(--text-faint)"
-                fontSize="11"
-                fontFamily="var(--font-mono)"
+                x={boxX + boxW / 2} y={anchorY + 8}
+                textAnchor="middle" fill="var(--text-faint)"
+                fontSize="12" fontFamily="var(--font-mono)"
               >
                 —
               </text>
@@ -190,7 +187,7 @@ export default function BodyMeasurementDiagram({ measurements }: BodyMeasurement
       })}
 
       {!hasData && (
-        <text x="100" y="375" textAnchor="middle" fill="var(--text-faint)" fontSize="11" fontFamily="var(--font-body)">
+        <text x="100" y="396" textAnchor="middle" fill="var(--text-faint)" fontSize="11" fontFamily="var(--font-body)">
           Log measurements to see them here
         </text>
       )}
