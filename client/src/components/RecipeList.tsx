@@ -10,6 +10,10 @@ export interface Recipe {
   name: string;
   steps: string;
   caloriesPerServing: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  servings?: number;
   ingredients: Ingredient[];
 }
 

@@ -247,6 +247,10 @@ model Recipe {
   name              String
   steps             String
   caloriesPerServing Int
+  protein           Int      @default(0)
+  carbs             Int      @default(0)
+  fat               Int      @default(0)
+  servings          Int      @default(1)
   createdAt         DateTime @default(now())
 
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)

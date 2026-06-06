@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Zap, Clock, X } from 'lucide-react';
+import { Plus, Zap, Clock, X, Sparkles } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 import type { Recipe, Ingredient } from '../components/RecipeList';
 import XPBar from '../components/ui/XPBar';
+import RecipeForm from '../components/RecipeForm';
+import RecipeImport from '../components/RecipeImport';
 
 interface RecipeWithMacros extends Recipe {
   category?: string;
@@ -206,6 +208,8 @@ export default function RecipesTab() {
   const [cat, setCat] = useState('All');
   const [open, setOpen] = useState<RecipeWithMacros | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showRecipeForm, setShowRecipeForm] = useState(false);
+  const [showRecipeImport, setShowRecipeImport] = useState(false);
 
   const fetchRecipes = useCallback(async () => {
     try {
@@ -216,6 +220,27 @@ export default function RecipesTab() {
   }, [searchTerm]);
 
   useEffect(() => { fetchRecipes(); }, [fetchRecipes]);
+
+  const handleRecipeCreated = useCallback(async (
+    optimistic: Recipe,
+    body: { name: string; steps: string; caloriesPerServing: number; protein: number; carbs: number; fat: number; servings: number; ingredients: { name: string; quantity: string; unit: string }[] },
+  ) => {
+    setRecipes((prev) => [optimistic as RecipeWithMacros, ...prev]);
+    setShowRecipeForm(false);
+    try {
+      await apiClient.post('/api/recipes', { body });
+      fetchRecipes();
+    } catch { fetchRecipes(); }
+  }, [fetchRecipes]);
+
+  const handleRecipeImported = useCallback(async (optimistic: Recipe, body: unknown) => {
+    setRecipes((prev) => [optimistic as RecipeWithMacros, ...prev]);
+    setShowRecipeImport(false);
+    try {
+      await apiClient.post('/api/recipes', { body });
+      fetchRecipes();
+    } catch { fetchRecipes(); }
+  }, [fetchRecipes]);
 
   const filtered = recipes.filter((r) => {
     if (cat === 'All') return true;
@@ -326,9 +351,24 @@ export default function RecipesTab() {
               outline: 'none',
             }}
           />
-          <button className="btn"><Plus size={15} strokeWidth={2.4} />New recipe</button>
+          <button className="btn" onClick={() => { setShowRecipeImport((v) => !v); setShowRecipeForm(false); }}>
+            <Sparkles size={15} strokeWidth={2.4} />{showRecipeImport ? 'Cancel' : 'AI import'}
+          </button>
+          <button className="btn" onClick={() => { setShowRecipeForm((v) => !v); setShowRecipeImport(false); }}>
+            <Plus size={15} strokeWidth={2.4} />{showRecipeForm ? 'Cancel' : 'New recipe'}
+          </button>
         </div>
       </div>
+      {showRecipeForm && (
+        <div style={{ marginBottom: 'var(--gap)' }}>
+          <RecipeForm onCreated={handleRecipeCreated} />
+        </div>
+      )}
+      {showRecipeImport && (
+        <div style={{ marginBottom: 'var(--gap)' }}>
+          <RecipeImport onImport={handleRecipeImported} />
+        </div>
+      )}
 
       {/* Recipe grid */}
       <div className="grid-3-col">
