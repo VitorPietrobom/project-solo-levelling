@@ -10,7 +10,15 @@ interface IngredientInput {
 interface RecipeFormProps {
   onCreated: (
     optimistic: Recipe,
-    body: { name: string; steps: string; caloriesPerServing: number; ingredients: IngredientInput[] },
+    body: {
+      name: string;
+      steps: string;
+      caloriesPerServing: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      ingredients: IngredientInput[];
+    },
   ) => void;
 }
 
@@ -18,6 +26,9 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
   const [name, setName] = useState('');
   const [steps, setSteps] = useState('');
   const [caloriesPerServing, setCaloriesPerServing] = useState('');
+  const [protein, setProtein] = useState('');
+  const [carbs, setCarbs] = useState('');
+  const [fat, setFat] = useState('');
   const [ingredients, setIngredients] = useState<IngredientInput[]>([{ name: '', quantity: '', unit: '' }]);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +60,14 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
       return;
     }
 
+    const parseMacro = (v: string): number => {
+      const n = parseInt(v, 10);
+      return !v || isNaN(n) || n < 0 ? 0 : n;
+    };
+    const parsedProtein = parseMacro(protein);
+    const parsedCarbs = parseMacro(carbs);
+    const parsedFat = parseMacro(fat);
+
     const validIngredients = ingredients
       .filter((ing) => ing.name.trim())
       .map((ing) => ({ name: ing.name.trim(), quantity: ing.quantity.trim(), unit: ing.unit.trim() }));
@@ -59,6 +78,9 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
       name: trimmedName,
       steps: trimmedSteps,
       caloriesPerServing: parsedCal,
+      protein: parsedProtein,
+      carbs: parsedCarbs,
+      fat: parsedFat,
       ingredients: validIngredients.map((ing, i) => ({ id: `temp-ing-${now}-${i}`, ...ing })),
     };
 
@@ -66,12 +88,18 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
       name: trimmedName,
       steps: trimmedSteps,
       caloriesPerServing: parsedCal,
+      protein: parsedProtein,
+      carbs: parsedCarbs,
+      fat: parsedFat,
       ingredients: validIngredients,
     });
 
     setName('');
     setSteps('');
     setCaloriesPerServing('');
+    setProtein('');
+    setCarbs('');
+    setFat('');
     setIngredients([{ name: '', quantity: '', unit: '' }]);
   }
 
@@ -107,6 +135,40 @@ export default function RecipeForm({ onCreated }: RecipeFormProps) {
         className="w-full bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
         aria-label="Calories per serving"
       />
+
+      {/* Macros */}
+      <div>
+        <h4 className="text-text-primary text-sm font-semibold mb-2">Macros (grams per serving)</h4>
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            type="number"
+            min="0"
+            placeholder="Protein"
+            value={protein}
+            onChange={(e) => setProtein(e.target.value)}
+            className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+            aria-label="Protein (g)"
+          />
+          <input
+            type="number"
+            min="0"
+            placeholder="Carbs"
+            value={carbs}
+            onChange={(e) => setCarbs(e.target.value)}
+            className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+            aria-label="Carbs (g)"
+          />
+          <input
+            type="number"
+            min="0"
+            placeholder="Fat"
+            value={fat}
+            onChange={(e) => setFat(e.target.value)}
+            className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+            aria-label="Fat (g)"
+          />
+        </div>
+      </div>
 
       {/* Ingredients */}
       <div className="space-y-2">

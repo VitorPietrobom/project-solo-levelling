@@ -221,7 +221,7 @@ export default function RecipesTab() {
 
   const handleRecipeCreated = useCallback(async (
     optimistic: Recipe,
-    body: { name: string; steps: string; caloriesPerServing: number; ingredients: { name: string; quantity: string; unit: string }[] },
+    body: { name: string; steps: string; caloriesPerServing: number; protein: number; carbs: number; fat: number; ingredients: { name: string; quantity: string; unit: string }[] },
   ) => {
     setRecipes((prev) => [optimistic as RecipeWithMacros, ...prev]);
     setShowRecipeForm(false);

@@ -3,11 +3,7 @@ import CalorieTracker from '../components/CalorieTracker';
 import type { FoodEntry } from '../components/CalorieTracker';
 import FoodEntryForm from '../components/FoodEntryForm';
 import FoodEntryImport from '../components/FoodEntryImport';
-import RecipeList from '../components/RecipeList';
 import type { Recipe } from '../components/RecipeList';
-import RecipeDetail from '../components/RecipeDetail';
-import RecipeForm from '../components/RecipeForm';
-import RecipeImport from '../components/RecipeImport';
 import MealPrepPlan from '../components/MealPrepPlan';
 import type { MealPrepPlanData } from '../components/MealPrepPlan';
 import MealPrepForm from '../components/MealPrepForm';
@@ -22,12 +18,8 @@ export default function DietTab() {
   const [showFoodForm, setShowFoodForm] = useState(false);
   const [showFoodImport, setShowFoodImport] = useState(false);
 
-  // Recipe state
+  // Recipes — fetched only to populate the meal-prep planner; managed in the Recipes tab
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showRecipeForm, setShowRecipeForm] = useState(false);
-  const [showRecipeImport, setShowRecipeImport] = useState(false);
 
   // Meal prep state
   const [mealPrepPlan, setMealPrepPlan] = useState<MealPrepPlanData | null>(null);
@@ -49,10 +41,9 @@ export default function DietTab() {
     } catch { /* silently fail */ }
   }, []);
 
-  const fetchRecipes = useCallback(async (search: string) => {
+  const fetchRecipes = useCallback(async () => {
     try {
-      const url = search ? `/api/recipes?search=${encodeURIComponent(search)}` : '/api/recipes';
-      const data = (await apiClient.get(url)) as Recipe[];
+      const data = (await apiClient.get('/api/recipes')) as Recipe[];
       setRecipes(data);
     } catch { /* silently fail */ }
   }, []);
@@ -78,8 +69,8 @@ export default function DietTab() {
   }, [fetchFoodEntries, fetchCalorieGoal, fetchMealPrepPlan, selectedDate]);
 
   useEffect(() => {
-    fetchRecipes(searchTerm);
-  }, [fetchRecipes, searchTerm]);
+    fetchRecipes();
+  }, [fetchRecipes]);
 
   useEffect(() => {
     if (selectedMealPrepDay) {
@@ -131,39 +122,6 @@ export default function DietTab() {
       .catch(() => setCalorieGoal(prev));
   }
 
-  function handleRecipeCreated(
-    optimistic: Recipe,
-    body: { name: string; steps: string; caloriesPerServing: number; ingredients: { name: string; quantity: string; unit: string }[] },
-  ) {
-    setRecipes((prev) => [optimistic, ...prev]);
-    setShowRecipeForm(false);
-    apiClient
-      .post('/api/recipes', { body })
-      .then((data) =>
-        setRecipes((prev) =>
-          prev.map((r) => (r.id === optimistic.id ? (data as Recipe) : r)),
-        ),
-      )
-      .catch(() =>
-        setRecipes((prev) => prev.filter((r) => r.id !== optimistic.id)),
-      );
-  }
-
-  function handleRecipeImported(optimistic: Recipe, body: any) {
-    setRecipes((prev) => [optimistic, ...prev]);
-    setShowRecipeImport(false);
-    apiClient.post('/api/recipes', { body })
-      .then((data) => setRecipes((prev) => prev.map((r) => (r.id === optimistic.id ? (data as Recipe) : r))))
-      .catch(() => setRecipes((prev) => prev.filter((r) => r.id !== optimistic.id)));
-  }
-
-  function handleRecipeDelete(id: string) {
-    const prev = recipes;
-    setRecipes((r) => r.filter((recipe) => recipe.id !== id));
-    if (selectedRecipeId === id) setSelectedRecipeId(null);
-    apiClient.delete(`/api/recipes/${id}`).catch(() => setRecipes(prev));
-  }
-
   function handleMealPrepCreated(body: {
     weekStartDate: string;
     entries: { dayOfWeek: string; mealType: string; recipeId: string }[];
@@ -183,8 +141,6 @@ export default function DietTab() {
       apiClient.delete(`/api/meal-prep/${mealPrepPlan.id}`).catch(() => fetchMealPrepPlan());
     }
   }
-
-  const selectedRecipe = recipes.find((r) => r.id === selectedRecipeId) ?? null;
 
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>
@@ -265,45 +221,6 @@ export default function DietTab() {
           </div>
         </section>
       </div>
-
-      {/* Recipes section */}
-      <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 17 }}>Recipes</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={() => { setShowRecipeImport(!showRecipeImport); setShowRecipeForm(false); setSelectedRecipeId(null); }} className="btn btn-ghost">
-              {showRecipeImport ? 'Cancel' : 'Import'}
-            </button>
-            <button onClick={() => { setShowRecipeForm(!showRecipeForm); setShowRecipeImport(false); setSelectedRecipeId(null); }} className="btn btn-ghost">
-              {showRecipeForm ? 'Cancel' : '+ New Recipe'}
-            </button>
-          </div>
-        </div>
-
-        {showRecipeForm && (
-          <div style={{ marginBottom: 16 }}>
-            <RecipeForm onCreated={handleRecipeCreated} />
-          </div>
-        )}
-
-        {showRecipeImport && (
-          <div style={{ marginBottom: 16 }}>
-            <RecipeImport onImport={handleRecipeImported} />
-          </div>
-        )}
-
-        {selectedRecipeId ? (
-          <RecipeDetail recipe={selectedRecipe} onClose={() => setSelectedRecipeId(null)} />
-        ) : (
-          <RecipeList
-            recipes={recipes}
-            onSelect={(id) => { setSelectedRecipeId(id); setShowRecipeForm(false); }}
-            onDelete={handleRecipeDelete}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-          />
-        )}
-      </section>
 
       {/* Meal Prep section */}
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>

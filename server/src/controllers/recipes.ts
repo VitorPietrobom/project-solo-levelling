@@ -31,7 +31,12 @@ export async function listRecipes(req: Request, res: Response): Promise<void> {
 export async function createRecipe(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
-    const { name, steps, caloriesPerServing, ingredients } = req.body;
+    const { name, steps, caloriesPerServing, ingredients, protein, carbs, fat } = req.body;
+
+    const toMacro = (v: unknown): number => {
+      const n = typeof v === 'number' ? v : Number(v);
+      return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+    };
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
       res.status(400).json({ error: 'Name is required' });
@@ -59,6 +64,9 @@ export async function createRecipe(req: Request, res: Response): Promise<void> {
         name: name.trim(),
         steps: steps.trim(),
         caloriesPerServing,
+        protein: toMacro(protein),
+        carbs: toMacro(carbs),
+        fat: toMacro(fat),
         ingredients: {
           create: (ingredients || []).map((ing: { name: string; quantity: string; unit: string }) => ({
             name: ing.name,
