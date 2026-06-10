@@ -150,6 +150,16 @@ export default function GamificationTab() {
     apiClient.patch(`/api/quests/${questId}/steps/${stepId}`).catch(() => fetchQuests());
   }
 
+  function handleQuestDelete(questId: string) {
+    setQuests((prev) => prev.filter((q) => q.id !== questId));
+    apiClient.delete(`/api/quests/${questId}`).catch(() => fetchQuests());
+  }
+
+  function handleSkillDelete(skillId: string) {
+    setSkills((prev) => prev.filter((s) => s.id !== skillId));
+    apiClient.delete(`/api/skills/${skillId}`).catch(() => fetchSkills());
+  }
+
   function handleSkillCreated(optimistic: Skill, body: { name: string }) {
     setSkills((prev) => [optimistic, ...prev]);
     setShowSkillForm(false);
@@ -273,7 +283,15 @@ export default function GamificationTab() {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                         <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}>{q.title}</span>
-                        <span className="mono" style={{ fontSize: 11, color: 'var(--accent)', whiteSpace: 'nowrap' }}>+{q.xpReward}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="mono" style={{ fontSize: 11, color: 'var(--accent)', whiteSpace: 'nowrap' }}>+{q.xpReward}</span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleQuestDelete(q.id); }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', lineHeight: 1, padding: '0 2px', fontSize: 13 }}
+                            title="Delete quest"
+                            aria-label={`Delete quest "${q.title}"`}
+                          >✕</button>
+                        </div>
                       </div>
                       {q.description && (
                         <div style={{ color: 'var(--text-3)', fontSize: 12.5, marginBottom: 11 }}>{q.description}</div>
@@ -410,6 +428,13 @@ export default function GamificationTab() {
                     >
                       <CheckSquare size={12} />
                     </button>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ padding: '4px 8px', fontSize: 11, color: 'var(--bad)' }}
+                      onClick={() => handleSkillDelete(s.id)}
+                      title="Delete skill"
+                      aria-label={`Delete skill "${s.name}"`}
+                    >✕</button>
                   </div>
                 );
               })}

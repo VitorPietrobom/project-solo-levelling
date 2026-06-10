@@ -114,3 +114,17 @@ export async function completeStep(req: Request, res: Response): Promise<void> {
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function deleteQuest(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const id = req.params.id as string;
+    const quest = await prisma.quest.findFirst({ where: { id, userId } });
+    if (!quest) { res.status(404).json({ error: 'Quest not found' }); return; }
+    await prisma.quest.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}

@@ -38,11 +38,36 @@ function Metric({ label, value, unit, accent }: { label: string; value: number |
 }
 
 function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: () => void }) {
+  const [logged, setLogged] = useState(false);
+  const [logging, setLogging] = useState(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  async function handleLogAsEaten() {
+    setLogging(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      await apiClient.post('/api/food-entries', {
+        body: {
+          foodName: recipe.name,
+          calories: recipe.caloriesPerServing ?? 0,
+          protein: recipe.protein ?? 0,
+          carbs: recipe.carbs ?? 0,
+          fat: recipe.fat ?? 0,
+          mealType: 'Snack',
+          date: today,
+        },
+      });
+      setLogged(true);
+      setTimeout(onClose, 900);
+    } catch {
+      setLogging(false);
+    }
+  }
 
   const p = recipe.protein ?? 0;
   const c = recipe.carbs ?? 0;
@@ -195,8 +220,16 @@ function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: (
             justifyContent: 'flex-end',
           }}
         >
-          <button className="btn"><Plus size={15} strokeWidth={2.4} />Add to meal plan</button>
-          <button className="btn btn-primary"><Zap size={15} strokeWidth={2.6} />Log as eaten</button>
+          <button className="btn" onClick={onClose}>Close</button>
+          <button
+            className="btn btn-primary"
+            onClick={handleLogAsEaten}
+            disabled={logging || logged}
+            style={{ minWidth: 130 }}
+          >
+            <Zap size={15} strokeWidth={2.6} />
+            {logged ? 'Logged ✓' : logging ? 'Logging…' : 'Log as eaten'}
+          </button>
         </div>
       </div>
     </div>
