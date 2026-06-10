@@ -13,6 +13,7 @@ import type { Task } from '../components/TaskList';
 import SkillForm from '../components/SkillForm';
 import type { Skill } from '../components/SkillList';
 import { apiClient } from '../lib/apiClient';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 interface GamificationStatus {
   level: number;
@@ -70,6 +71,7 @@ export default function GamificationTab() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [localStatus, setLocalStatus] = useState<GamificationStatus | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'quest' | 'skill'; id: string; name: string } | null>(null);
 
   const fetchQuests = useCallback(async () => {
     try { setQuests((await apiClient.get('/api/quests')) as Quest[]); } catch { /* silently fail */ }
@@ -150,14 +152,25 @@ export default function GamificationTab() {
     apiClient.patch(`/api/quests/${questId}/steps/${stepId}`).catch(() => fetchQuests());
   }
 
-  function handleQuestDelete(questId: string) {
-    setQuests((prev) => prev.filter((q) => q.id !== questId));
-    apiClient.delete(`/api/quests/${questId}`).catch(() => fetchQuests());
+  function handleQuestDelete(questId: string, questTitle: string) {
+    setConfirmDelete({ type: 'quest', id: questId, name: questTitle });
   }
 
-  function handleSkillDelete(skillId: string) {
-    setSkills((prev) => prev.filter((s) => s.id !== skillId));
-    apiClient.delete(`/api/skills/${skillId}`).catch(() => fetchSkills());
+  function handleSkillDelete(skillId: string, skillName: string) {
+    setConfirmDelete({ type: 'skill', id: skillId, name: skillName });
+  }
+
+  function confirmDeleteAction() {
+    if (!confirmDelete) return;
+    const { type, id } = confirmDelete;
+    if (type === 'quest') {
+      setQuests((prev) => prev.filter((q) => q.id !== id));
+      apiClient.delete(`/api/quests/${id}`).catch(() => fetchQuests());
+    } else {
+      setSkills((prev) => prev.filter((s) => s.id !== id));
+      apiClient.delete(`/api/skills/${id}`).catch(() => fetchSkills());
+    }
+    setConfirmDelete(null);
   }
 
   function handleSkillCreated(optimistic: Skill, body: { name: string }) {
@@ -199,6 +212,7 @@ export default function GamificationTab() {
   ];
 
   return (
+    <>
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>
       {/* Hero row */}
       <div className="grid-2-col-skewed">
@@ -286,7 +300,7 @@ export default function GamificationTab() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span className="mono" style={{ fontSize: 11, color: 'var(--accent)', whiteSpace: 'nowrap' }}>+{q.xpReward}</span>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleQuestDelete(q.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleQuestDelete(q.id, q.title); }}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', lineHeight: 1, padding: '0 2px', fontSize: 13 }}
                             title="Delete quest"
                             aria-label={`Delete quest "${q.title}"`}
@@ -431,7 +445,7 @@ export default function GamificationTab() {
                     <button
                       className="btn btn-ghost"
                       style={{ padding: '4px 8px', fontSize: 11, color: 'var(--bad)' }}
-                      onClick={() => handleSkillDelete(s.id)}
+                      onClick={() => handleSkillDelete(s.id, s.name)}
                       title="Delete skill"
                       aria-label={`Delete skill "${s.name}"`}
                     >✕</button>
@@ -453,5 +467,14 @@ export default function GamificationTab() {
         </section>
       </div>
     </div>
+
+    {confirmDelete && (
+      <ConfirmDialog
+        message={`Delete "${confirmDelete.name}"? This cannot be undone.`}
+        onConfirm={confirmDeleteAction}
+        onCancel={() => setConfirmDelete(null)}
+      />
+    )}
+    </>
   );
 }
