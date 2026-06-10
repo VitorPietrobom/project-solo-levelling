@@ -128,3 +128,29 @@ export async function deleteQuest(req: Request, res: Response): Promise<void> {
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function completeQuestAll(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const id = req.params.id as string;
+    const quest = await prisma.quest.findFirst({
+      where: { id, userId },
+      include: { steps: true },
+    });
+    if (!quest) { res.status(404).json({ error: 'Quest not found' }); return; }
+    if (quest.completed) { res.json(quest); return; }
+
+    await prisma.questStep.updateMany({ where: { questId: id }, data: { completed: true } });
+    await prisma.quest.update({ where: { id }, data: { completed: true } });
+    await awardXP(userId, quest.xpReward, `quest:${id}`);
+
+    const updated = await prisma.quest.findUnique({
+      where: { id },
+      include: { steps: { orderBy: { sortOrder: 'asc' as const } } },
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
