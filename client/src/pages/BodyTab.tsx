@@ -115,7 +115,7 @@ export default function BodyTab() {
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>
       {/* Whoop */}
-      <WhoopCard />
+      <WhoopCard onSynced={fetchWeight} />
 
       {/* Weight chart */}
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>

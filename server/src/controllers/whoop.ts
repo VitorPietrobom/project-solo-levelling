@@ -216,7 +216,19 @@ export async function syncWhoop(req: Request, res: Response): Promise<void> {
     data: { latest, syncedAt: new Date(), whoopUserId: profile?.user_id ? String(profile.user_id) : undefined },
   });
 
-  res.json({ connected: true, syncedAt: updated.syncedAt, latest });
+  // Auto-log today's bodyweight from WHOOP — but never clobber a manual entry.
+  let weightLogged = false;
+  const whoopWeight = body?.weight_kilogram;
+  if (typeof whoopWeight === 'number' && whoopWeight > 0) {
+    const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    const existing = await prisma.weightEntry.findUnique({ where: { userId_date: { userId, date: today } } });
+    if (!existing) {
+      await prisma.weightEntry.create({ data: { userId, weight: Math.round(whoopWeight * 10) / 10, date: today } });
+      weightLogged = true;
+    }
+  }
+
+  res.json({ connected: true, syncedAt: updated.syncedAt, latest, weightLogged });
 }
 
 // GET /api/whoop/status — connection state + last synced snapshot.
