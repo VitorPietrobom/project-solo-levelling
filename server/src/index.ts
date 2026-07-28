@@ -23,6 +23,7 @@ import weeklySummaryRoutes from './routes/weekly-summary';
 import whoopRoutes from './routes/whoop';
 import nutritionRoutes from './routes/nutrition';
 import exportRoutes from './routes/export';
+import { authProxy } from './controllers/authProxy';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -59,6 +60,8 @@ app.use('/api/weekly-summary', weeklySummaryRoutes);
 app.use('/api/whoop', whoopRoutes);
 app.use('/api/nutrition', nutritionRoutes);
 app.use('/api/export', exportRoutes);
+// Same-origin auth proxy (all methods, any sub-path) so session cookies are first-party.
+app.all('/api/auth-proxy/*', authProxy);
 
 if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   // Warm up the DB connection pool before accepting requests
