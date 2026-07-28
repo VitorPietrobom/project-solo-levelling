@@ -40,7 +40,7 @@ function Metric({ icon: Icon, label, value, unit, color }: {
   );
 }
 
-export default function WhoopCard() {
+export default function WhoopCard({ onSynced }: { onSynced?: () => void } = {}) {
   const [status, setStatus] = useState<WhoopStatus | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,8 +79,9 @@ export default function WhoopCard() {
     setSyncing(true);
     setError(null);
     try {
-      const data = (await apiClient.post('/api/whoop/sync')) as WhoopStatus;
+      const data = (await apiClient.post('/api/whoop/sync')) as WhoopStatus & { weightLogged?: boolean };
       setStatus(data);
+      if (data.weightLogged) onSynced?.(); // WHOOP added today's bodyweight — refresh the chart
     } catch {
       setError('Could not sync Whoop data. Try reconnecting.');
     } finally {
