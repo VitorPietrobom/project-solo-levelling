@@ -20,6 +20,7 @@ import journalRoutes from './routes/journal';
 import lessonRoutes from './routes/lessons';
 import noteRoutes from './routes/notes';
 import weeklySummaryRoutes from './routes/weekly-summary';
+import whoopRoutes from './routes/whoop';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,6 +54,7 @@ app.use('/api/journal', journalRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/weekly-summary', weeklySummaryRoutes);
+app.use('/api/whoop', whoopRoutes);
 
 if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   // Warm up the DB connection pool before accepting requests
