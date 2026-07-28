@@ -1,10 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
   const { login, signup } = useAuth();
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -25,7 +23,12 @@ export default function LoginPage() {
         setIsSignUp(false);
       } else {
         await login(email, password);
-        navigate('/', { replace: true });
+        // Full page load (not SPA navigate) so the Better Auth session hook
+        // re-initializes from the freshly-set cookie. A soft navigate races the
+        // session refetch and ProtectedRoute bounces back to /login — which is
+        // what forced a second login attempt.
+        window.location.assign('/');
+        return;
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Authentication failed';
