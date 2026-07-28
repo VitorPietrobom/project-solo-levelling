@@ -78,14 +78,8 @@ export async function renderRecipePng(recipe: ShareRecipe): Promise<Blob> {
 
   const PAD = 84;
   const contentW = W - PAD * 2;
-  let y = 96;
-
-  // Brand eyebrow with lightning glyph
-  ctx.fillStyle = C.accent;
-  ctx.font = "700 22px 'JetBrains Mono', monospace";
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText('⚡ PROJECT ARISE', PAD, y);
-  y += 58;
+  let y = 120;
 
   // Title
   ctx.fillStyle = C.text;
@@ -190,10 +184,6 @@ export async function renderRecipePng(recipe: ShareRecipe): Promise<Blob> {
   ctx.fillStyle = C.text3;
   ctx.font = "600 26px 'Manrope', sans-serif";
   ctx.fillText('Made with Project Arise', PAD, H - 64);
-  ctx.textAlign = 'right';
-  ctx.fillStyle = C.accent;
-  ctx.fillText('project-arise-sand.vercel.app', W - PAD, H - 64);
-  ctx.textAlign = 'left';
 
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png');
