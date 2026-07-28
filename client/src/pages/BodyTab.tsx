@@ -13,6 +13,7 @@ import SorenessBodyDiagram from '../components/SorenessBodyDiagram';
 import TrainingProgramView from '../components/TrainingProgramView';
 import type { TrainingProgram } from '../components/TrainingProgramView';
 import TrainingProgramForm from '../components/TrainingProgramForm';
+import WhoopCard from '../components/WhoopCard';
 import { apiClient } from '../lib/apiClient';
 
 export default function BodyTab() {
@@ -113,6 +114,9 @@ export default function BodyTab() {
 
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>
+      {/* Whoop */}
+      <WhoopCard />
+
       {/* Weight chart */}
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 14 }}>
