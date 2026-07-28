@@ -195,16 +195,6 @@ input, select, textarea { color-scheme: dark; }
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
-/* ---- PWA standalone safe areas (iOS notch / status bar) ---- */
-@media (display-mode: standalone) {
-  .app-header {
-    padding-top: calc(14px + env(safe-area-inset-top)) !important;
-  }
-  .dashboard-sidebar {
-    padding-top: calc(22px + env(safe-area-inset-top));
-  }
-}
-
 /* ---- Responsive layout ---- */
 .dashboard-shell {
   display: grid;
@@ -212,13 +202,20 @@ input, select, textarea { color-scheme: dark; }
   height: 100vh;
 }
 
+/* Safe-area insets are baked in unconditionally — env() is 0 outside a
+   notched/standalone context, so this is a no-op in a normal browser but
+   clears the iOS status bar / notch in the installed PWA. */
 .dashboard-sidebar {
   background: var(--bg-1);
   border-right: 1px solid var(--line-soft);
   display: flex;
   flex-direction: column;
-  padding: 22px 16px;
+  padding: calc(22px + env(safe-area-inset-top)) 16px 22px;
   overflow: hidden;
+}
+
+.app-header {
+  padding-top: calc(14px + env(safe-area-inset-top)) !important;
 }
 
 .dashboard-main {
