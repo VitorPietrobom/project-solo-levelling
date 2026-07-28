@@ -10,6 +10,7 @@ import LearningTab from './pages/LearningTab';
 import SummaryTab from './pages/SummaryTab';
 import RecipesTab from './pages/RecipesTab';
 import SettingsTab from './pages/SettingsTab';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route
             path="/"
             element={
