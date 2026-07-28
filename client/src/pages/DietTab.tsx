@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import CalorieTracker from '../components/CalorieTracker';
 import type { FoodEntry } from '../components/CalorieTracker';
 import FoodEntryForm from '../components/FoodEntryForm';
 import FoodEntryImport from '../components/FoodEntryImport';
@@ -15,7 +14,6 @@ import { apiClient } from '../lib/apiClient';
 export default function DietTab() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
-  const [calorieGoal, setCalorieGoal] = useState(2000);
   const [showFoodForm, setShowFoodForm] = useState(false);
   const [showFoodImport, setShowFoodImport] = useState(false);
 
@@ -32,13 +30,6 @@ export default function DietTab() {
     try {
       const data = (await apiClient.get(`/api/food-entries?date=${date}`)) as FoodEntry[];
       setFoodEntries(data);
-    } catch { /* silently fail */ }
-  }, []);
-
-  const fetchCalorieGoal = useCallback(async () => {
-    try {
-      const data = (await apiClient.get('/api/calorie-goal')) as { calorieGoal: number };
-      if (data.calorieGoal) setCalorieGoal(data.calorieGoal);
     } catch { /* silently fail */ }
   }, []);
 
@@ -65,9 +56,8 @@ export default function DietTab() {
 
   useEffect(() => {
     fetchFoodEntries(selectedDate);
-    fetchCalorieGoal();
     fetchMealPrepPlan();
-  }, [fetchFoodEntries, fetchCalorieGoal, fetchMealPrepPlan, selectedDate]);
+  }, [fetchFoodEntries, fetchMealPrepPlan, selectedDate]);
 
   useEffect(() => {
     fetchRecipes();
@@ -115,13 +105,6 @@ export default function DietTab() {
     apiClient.delete(`/api/food-entries/${entryId}`).catch(() => fetchFoodEntries(selectedDate));
   }
 
-  function handleGoalChange(goal: number) {
-    const prev = calorieGoal;
-    setCalorieGoal(goal);
-    apiClient
-      .put('/api/calorie-goal', { body: { calorieGoal: goal } })
-      .catch(() => setCalorieGoal(prev));
-  }
 
   function handleMealPrepCreated(body: {
     weekStartDate: string;
@@ -170,18 +153,8 @@ export default function DietTab() {
       {/* Dynamic nutrition target (WHOOP-driven) */}
       <NutritionTarget consumed={consumed} date={selectedDate} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left column — Calorie Tracker */}
-        <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
-          <h3 style={{ fontSize: 17, marginBottom: 16 }}>Calories</h3>
-          <CalorieTracker
-            entries={foodEntries}
-            calorieGoal={calorieGoal}
-            onGoalChange={handleGoalChange}
-          />
-        </section>
-
-        {/* Right column — Food Entry Form + Entry List */}
+      <div>
+        {/* Food Entry Form + Entry List */}
         <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h3 style={{ fontSize: 17 }}>Food Log</h3>

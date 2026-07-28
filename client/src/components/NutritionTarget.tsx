@@ -154,7 +154,18 @@ export default function NutritionTarget({ consumed, date }: Props) {
                 style={{ display: 'block', marginTop: 5, width: 110, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '6px 10px', fontSize: 13 }}
               />
             </label>
+            <label style={{ fontSize: 12.5, color: 'var(--text-3)' }}>
+              Base calories (until adaptive)
+              <input
+                type="number" step={50} defaultValue={settings.fallbackCalories}
+                onBlur={(e) => saveSettings({ fallbackCalories: Number(e.target.value) })}
+                style={{ display: 'block', marginTop: 5, width: 110, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '6px 10px', fontSize: 13 }}
+              />
+            </label>
           </div>
+          <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 12 }}>
+            Base calories are only used until WHOOP or ~2 weeks of logs unlock your adaptive TDEE.
+          </p>
         </div>
       )}
 
