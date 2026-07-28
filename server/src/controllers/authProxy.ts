@@ -52,11 +52,16 @@ export async function authProxy(req: Request, res: Response): Promise<void> {
   const cookies = anyHeaders.getSetCookie ? anyHeaders.getSetCookie() : [];
   for (const c of cookies) res.append('Set-Cookie', firstPartyCookie(c));
 
-  // Forward a safe subset of response headers.
-  for (const h of ['content-type', 'cache-control', 'location']) {
-    const v = upstream.headers.get(h);
-    if (v) res.setHeader(h, v);
-  }
+  // Forward ALL other upstream headers. Better Auth returns the JWT and bearer
+  // token in custom headers (set-auth-jwt / set-auth-token); dropping those made
+  // getAuthToken() return null → backend 401 → bounce back to /login. Skip
+  // set-cookie (handled above) and hop-by-hop / encoding headers.
+  const skip = new Set(['set-cookie', 'content-encoding', 'content-length', 'transfer-encoding', 'connection', 'keep-alive']);
+  upstream.headers.forEach((value, key) => {
+    if (!skip.has(key.toLowerCase())) {
+      try { res.setHeader(key, value); } catch { /* ignore invalid header names */ }
+    }
+  });
 
   const buf = Buffer.from(await upstream.arrayBuffer());
   res.send(buf);
