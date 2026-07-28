@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { authClient, type AuthUser } from '../lib/neonAuth';
 
 interface AuthContextValue {
@@ -31,9 +31,23 @@ const useSession = authClient.useSession as unknown as () => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data, isPending } = useSession();
 
+  // On a cold start the session token lives only in memory, so it must be
+  // re-derived from the auth cookie asynchronously. Force one explicit
+  // getSession and hold "loading" until it resolves — otherwise ProtectedRoute
+  // can briefly see no user and bounce a still-valid session to /login,
+  // which reads as "it forgot my login every time I reopen the app".
+  const [initialCheckDone, setInitialCheckDone] = useState(false);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve(authClient.getSession())
+      .catch(() => null)
+      .finally(() => { if (active) setInitialCheckDone(true); });
+    return () => { active = false; };
+  }, []);
+
   const user = (data?.user ?? null) as AuthUser | null;
   const session = data?.session ?? null;
-  const isLoading = isPending;
+  const isLoading = isPending || !initialCheckDone;
 
   const login = useCallback(async (email: string, password: string) => {
     const { error } = await authClient.signIn.email({ email, password });
