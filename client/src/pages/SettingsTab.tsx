@@ -1,10 +1,13 @@
 import { useAuth } from '../contexts/AuthContext';
+import DataExport from '../components/DataExport';
 
 export default function SettingsTab() {
   const { logout } = useAuth();
 
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)', maxWidth: 560 }}>
+      <DataExport />
+
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
         <h3 style={{ fontSize: 17, marginBottom: 16 }}>Account</h3>
         <div style={{ display: 'grid', gap: 10 }}>

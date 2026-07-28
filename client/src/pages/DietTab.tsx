@@ -201,7 +201,7 @@ export default function DietTab() {
           )}
           {showFoodImport && (
             <div style={{ marginBottom: 16 }}>
-              <FoodEntryImport onImport={handleFoodImport} />
+              <FoodEntryImport onImport={handleFoodImport} defaultDate={selectedDate} />
             </div>
           )}
 

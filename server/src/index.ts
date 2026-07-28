@@ -22,6 +22,7 @@ import noteRoutes from './routes/notes';
 import weeklySummaryRoutes from './routes/weekly-summary';
 import whoopRoutes from './routes/whoop';
 import nutritionRoutes from './routes/nutrition';
+import exportRoutes from './routes/export';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -57,6 +58,7 @@ app.use('/api/notes', noteRoutes);
 app.use('/api/weekly-summary', weeklySummaryRoutes);
 app.use('/api/whoop', whoopRoutes);
 app.use('/api/nutrition', nutritionRoutes);
+app.use('/api/export', exportRoutes);
 
 if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   // Warm up the DB connection pool before accepting requests

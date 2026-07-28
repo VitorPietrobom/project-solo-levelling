@@ -3,35 +3,37 @@ import type { FoodEntry } from './CalorieTracker';
 
 interface FoodEntryImportProps {
   onImport: (entries: { optimistic: FoodEntry; body: any }[]) => void;
+  defaultDate?: string;
 }
 
-const PROMPT_TEXT = `I need you to convert my meal/food into JSON format for calorie and macro tracking. I'll describe what I ate or send a photo of my meal.
+const PROMPT_TEXT = `You are my food-logging assistant for today. I'll send you photos of meals, nutrition labels, or short descriptions of what I ate throughout the day, one message at a time.
 
-Output ONLY valid JSON, no explanation:
+Your job: keep a RUNNING log of everything I eat today and, after EACH message I send, reply with:
+1. One short line confirming what you added (e.g. "Added: chicken bowl ~620 kcal").
+2. The FULL updated JSON for the whole day so far, in a code block.
+
+Be very brief. No extra commentary, no coaching, no disclaimers — just the confirmation line and the JSON.
+
+JSON format (this exact shape):
 
 {
+  "date": "YYYY-MM-DD",
   "entries": [
-    {
-      "foodName": "Food Name",
-      "calories": 300,
-      "protein": 25,
-      "carbs": 30,
-      "fat": 10,
-      "mealType": "lunch"
-    }
+    { "foodName": "Food Name", "calories": 300, "protein": 25, "carbs": 30, "fat": 10, "mealType": "lunch" }
   ]
 }
 
-Valid mealTypes: breakfast, lunch, dinner, snack
-
 Rules:
-- Estimate calories and macros as accurately as possible based on typical serving sizes
-- protein, carbs, fat in grams
-- If I describe a full meal, break it into individual food items
-- Use common food database values for estimates
-- Round to nearest whole number for calories, one decimal for macros`;
+- Set "date" to today's date and keep it the same all day.
+- Valid mealTypes: breakfast, lunch, dinner, snack.
+- protein, carbs, fat are in grams. Round calories to whole numbers, macros to one decimal.
+- Break a full meal into individual food items when it makes sense.
+- Estimate from the photo / label / description using common food-database values.
+- Each new message ADDS to the list — always return the complete day's entries, never just the newest item.
 
-export default function FoodEntryImport({ onImport }: FoodEntryImportProps) {
+Start by replying "Ready — send your first meal." and nothing else.`;
+
+export default function FoodEntryImport({ onImport, defaultDate }: FoodEntryImportProps) {
   const [json, setJson] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -47,28 +49,22 @@ export default function FoodEntryImport({ onImport }: FoodEntryImportProps) {
         return;
       }
 
-      const today = new Date().toISOString().split('T')[0];
-      const result = entries.map((e: any, i: number) => ({
-        optimistic: {
-          id: `temp-${Date.now()}-${i}`,
+      // Date precedence: per-entry date → top-level "date" → the day you're viewing → today.
+      const fallbackDate = defaultDate || new Date().toISOString().split('T')[0];
+      const dayDate = typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? data.date : fallbackDate;
+      const result = entries.map((e: any, i: number) => {
+        const date = e.date || dayDate;
+        const fields = {
           foodName: e.foodName,
           calories: e.calories || 0,
           protein: e.protein || 0,
           carbs: e.carbs || 0,
           fat: e.fat || 0,
           mealType: e.mealType || 'snack',
-          date: e.date || today,
-        } as FoodEntry,
-        body: {
-          foodName: e.foodName,
-          calories: e.calories || 0,
-          protein: e.protein || 0,
-          carbs: e.carbs || 0,
-          fat: e.fat || 0,
-          mealType: e.mealType || 'snack',
-          date: e.date || today,
-        },
-      }));
+          date,
+        };
+        return { optimistic: { id: `temp-${Date.now()}-${i}`, ...fields } as FoodEntry, body: fields };
+      });
 
       onImport(result);
       setJson('');
