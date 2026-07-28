@@ -1,19 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Flame, Activity, Settings2, TrendingDown } from 'lucide-react';
+import { Flame, Activity, Settings2, TrendingDown, Brain, Zap, Check } from 'lucide-react';
 import Ring from './ui/Ring';
 import XPBar from './ui/XPBar';
 import { apiClient } from '../lib/apiClient';
+import { useAriseAddXP } from './Dashboard';
 
 interface Macro { calories: number; protein: number; carbs: number; fat: number }
+interface Adherence { proteinMet: boolean; caloriesOk: boolean; eligible: boolean; claimed: boolean; xp: number }
 interface TargetResponse {
   date: string;
   tdee: number | null;
-  source: 'whoop' | 'fallback';
+  source: 'adaptive' | 'whoop' | 'fallback';
   daysOfData: number;
   goal: string;
   calorieDelta: number;
   weightKg: number | null;
   target: Macro;
+  adherence: Adherence;
   suggestion: string | null;
 }
 interface SettingsResponse {
@@ -53,6 +56,8 @@ export default function NutritionTarget({ consumed, date }: Props) {
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const addXP = useAriseAddXP();
 
   const fetchTarget = useCallback(async () => {
     try { setData((await apiClient.get(`/api/nutrition/target?date=${date}`)) as TargetResponse); }
@@ -73,6 +78,16 @@ export default function NutritionTarget({ consumed, date }: Props) {
       setSettings(next);
       await fetchTarget();
     } finally { setSaving(false); }
+  }
+
+  async function claimXp() {
+    if (!data) return;
+    setClaiming(true);
+    try {
+      const r = (await apiClient.post('/api/nutrition/claim', { body: { date } })) as { awarded: boolean; xp: number };
+      if (r.awarded) addXP(r.xp, 'Nutrition goal hit');
+      await fetchTarget();
+    } catch { /* not eligible yet */ } finally { setClaiming(false); }
   }
 
   if (!data) {
@@ -163,9 +178,41 @@ export default function NutritionTarget({ consumed, date }: Props) {
         </div>
       </div>
 
+      {/* Daily nutrition XP */}
+      {(() => {
+        const proteinMet = t.protein > 0 && consumed.protein >= t.protein * 0.9;
+        const caloriesOk = consumed.calories >= 1000 && consumed.calories <= t.calories * 1.08;
+        const eligible = consumed.calories > 0 && proteinMet && caloriesOk;
+        const claimed = data.adherence.claimed;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 16, padding: '11px 14px', background: 'var(--surface-inset)', borderRadius: 'var(--r-sm)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-2)' }}>
+              <Zap size={15} style={{ color: claimed ? 'var(--good)' : 'var(--accent)' }} />
+              {claimed
+                ? <span>Daily nutrition XP claimed <span className="mono" style={{ color: 'var(--good)' }}>+{data.adherence.xp}</span></span>
+                : eligible
+                  ? <span>Targets hit! Claim your <span className="mono" style={{ color: 'var(--accent)' }}>+{data.adherence.xp} XP</span></span>
+                  : <span style={{ color: 'var(--text-faint)' }}>Hit ~90% protein & stay within calories to earn <span className="mono">+{data.adherence.xp} XP</span></span>}
+            </div>
+            {claimed ? (
+              <span className="chip" style={{ color: 'var(--good)', borderColor: 'var(--good)' }}><Check size={13} /> Done</span>
+            ) : (
+              <button className="btn btn-primary" onClick={claimXp} disabled={!eligible || claiming} style={{ opacity: eligible ? 1 : 0.5 }}>
+                <Zap size={14} strokeWidth={2.4} />{claiming ? 'Claiming…' : 'Claim XP'}
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       {/* TDEE source line */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, fontSize: 12, color: 'var(--text-faint)' }}>
-        {data.source === 'whoop' ? (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 12, color: 'var(--text-faint)' }}>
+        {data.source === 'adaptive' ? (
+          <>
+            <Brain size={13} style={{ color: 'var(--accent-2)' }} />
+            <span>Adaptive TDEE {data.tdee} kcal — learned from your intake + weight trend{data.weightKg ? ` · ${Math.round(data.weightKg)} kg` : ''}</span>
+          </>
+        ) : data.source === 'whoop' ? (
           <>
             <Activity size={13} style={{ color: 'var(--accent)' }} />
             <span>Burn {data.tdee} kcal (WHOOP {data.daysOfData}-day avg){data.weightKg ? ` · ${Math.round(data.weightKg)} kg` : ''}</span>
@@ -173,7 +220,7 @@ export default function NutritionTarget({ consumed, date }: Props) {
         ) : (
           <>
             <Flame size={13} />
-            <span>Using fallback target — connect WHOOP on the Body tab for a dynamic burn-based goal.</span>
+            <span>Static target — connect WHOOP or log weight + food for ~2 weeks to unlock adaptive TDEE.</span>
           </>
         )}
       </div>
