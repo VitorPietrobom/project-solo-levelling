@@ -179,7 +179,7 @@ export async function getNutritionSettings(req: Request, res: Response): Promise
 
 // PUT /api/nutrition/settings
 export async function updateNutritionSettings(req: Request, res: Response): Promise<void> {
-  const { goal, adjust, calorieDelta, proteinPerKg } = req.body ?? {};
+  const { goal, adjust, calorieDelta, proteinPerKg, fallbackCalories } = req.body ?? {};
   const data: Record<string, unknown> = {};
   if (typeof goal === 'string' && GOALS.has(goal)) data.nutritionGoal = goal;
   if (typeof adjust === 'string' && ADJUST.has(adjust)) data.nutritionAdjust = adjust;
@@ -188,6 +188,9 @@ export async function updateNutritionSettings(req: Request, res: Response): Prom
   }
   if (typeof proteinPerKg === 'number' && proteinPerKg > 0 && proteinPerKg <= 4) {
     data.proteinPerKg = proteinPerKg;
+  }
+  if (typeof fallbackCalories === 'number' && Number.isFinite(fallbackCalories)) {
+    data.calorieGoal = Math.round(Math.max(1000, Math.min(6000, fallbackCalories)));
   }
   const user = await prisma.user.update({ where: { id: req.user!.id }, data });
   res.json(settingsPayload(user));
