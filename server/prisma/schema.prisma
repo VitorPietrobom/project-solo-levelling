@@ -100,6 +100,19 @@ model User {
   notes            Note[]
   whoopConnection  WhoopConnection?
   whoopDailies     WhoopDaily[]
+  nutritionXpClaims NutritionXpClaim[]
+}
+
+model NutritionXpClaim {
+  id        String   @id @default(uuid())
+  userId    String
+  date      String   // YYYY-MM-DD the XP was claimed for
+  xp        Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
 }
 
 model WhoopDaily {
