@@ -9,6 +9,7 @@ import DietTab from './pages/DietTab';
 import LearningTab from './pages/LearningTab';
 import SummaryTab from './pages/SummaryTab';
 import RecipesTab from './pages/RecipesTab';
+import SettingsTab from './pages/SettingsTab';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
             <Route path="learning" element={<LearningTab />} />
             <Route path="summary" element={<SummaryTab />} />
             <Route path="recipes" element={<RecipesTab />} />
+            <Route path="settings" element={<SettingsTab />} />
           </Route>
         </Routes>
       </AuthProvider>

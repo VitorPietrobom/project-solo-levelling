@@ -175,26 +175,11 @@ export default function BodyTab() {
           </div>
           {showImport && <div style={{ marginBottom: 16 }}><GymSessionImport onImport={handleGymSessionImported} /></div>}
           {gymSessions.length > 0 ? (
-            <div style={{ display: 'grid', gap: 10 }}>
-              {gymSessions.slice(0, 5).map((g) => (
-                <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', background: 'var(--surface-inset)', borderRadius: 'var(--r)' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Dumbbell size={22} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 15 }}>{g.notes || 'Workout'}</div>
-                    <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>{g.date} · {g.exercises.length} exercises</div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 12, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
-                      <Clock size={12} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
             <GymSessionLog sessions={gymSessions} onDelete={handleGymSessionDeleted} />
+          ) : (
+            <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
+              No sessions yet. Import from Hevy to get started.
+            </p>
           )}
         </section>
 

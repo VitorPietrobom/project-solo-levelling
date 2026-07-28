@@ -248,6 +248,7 @@ export default function Dashboard() {
         <button
           className="btn"
           style={{ justifyContent: 'flex-start', background: 'transparent', border: 'none', color: 'var(--text-3)' }}
+          onClick={() => { navigate('/settings'); setSidebarOpen(false); }}
         >
           <Settings size={18} />
           Settings
@@ -265,6 +266,7 @@ export default function Dashboard() {
       <div className="dashboard-main">
         {/* Sticky header */}
         <header
+          className="app-header"
           style={{
             position: 'sticky',
             top: 0,

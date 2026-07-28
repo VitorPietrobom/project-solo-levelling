@@ -13,6 +13,7 @@ import type { Task } from '../components/TaskList';
 import SkillForm from '../components/SkillForm';
 import type { Skill } from '../components/SkillList';
 import { apiClient } from '../lib/apiClient';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 interface GamificationStatus {
   level: number;
@@ -70,6 +71,9 @@ export default function GamificationTab() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [localStatus, setLocalStatus] = useState<GamificationStatus | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'quest' | 'skill'; id: string; name: string } | null>(null);
+  const [dragQuestId, setDragQuestId] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   const fetchQuests = useCallback(async () => {
     try { setQuests((await apiClient.get('/api/quests')) as Quest[]); } catch { /* silently fail */ }
@@ -150,6 +154,59 @@ export default function GamificationTab() {
     apiClient.patch(`/api/quests/${questId}/steps/${stepId}`).catch(() => fetchQuests());
   }
 
+  function handleQuestDelete(questId: string, questTitle: string) {
+    setConfirmDelete({ type: 'quest', id: questId, name: questTitle });
+  }
+
+  function handleSkillDelete(skillId: string, skillName: string) {
+    setConfirmDelete({ type: 'skill', id: skillId, name: skillName });
+  }
+
+  function handleDrop(targetCol: string) {
+    setDragOverCol(null);
+    if (!dragQuestId) return;
+    const quest = quests.find((q) => q.id === dragQuestId);
+    if (!quest) return;
+
+    const currentCol = quest.completed ? 'Done' : quest.steps.some((s) => s.completed) ? 'In Progress' : 'Todo';
+    if (currentCol === targetCol) return;
+
+    if (targetCol === 'Done') {
+      // Complete all steps + quest
+      setQuests((prev) => prev.map((q) =>
+        q.id === dragQuestId
+          ? { ...q, completed: true, steps: q.steps.map((s) => ({ ...s, completed: true })) }
+          : q,
+      ));
+      if (addXP) addXP(quest.xpReward, quest.title);
+      apiClient.patch(`/api/quests/${dragQuestId}/complete`).catch(() => fetchQuests());
+    } else if (targetCol === 'In Progress' && currentCol === 'Todo') {
+      // Complete the first step
+      const firstStep = quest.steps.find((s) => !s.completed);
+      if (!firstStep) return;
+      setQuests((prev) => prev.map((q) =>
+        q.id === dragQuestId
+          ? { ...q, steps: q.steps.map((s) => s.id === firstStep.id ? { ...s, completed: true } : s) }
+          : q,
+      ));
+      apiClient.patch(`/api/quests/${dragQuestId}/steps/${firstStep.id}`).catch(() => fetchQuests());
+    }
+    setDragQuestId(null);
+  }
+
+  function confirmDeleteAction() {
+    if (!confirmDelete) return;
+    const { type, id } = confirmDelete;
+    if (type === 'quest') {
+      setQuests((prev) => prev.filter((q) => q.id !== id));
+      apiClient.delete(`/api/quests/${id}`).catch(() => fetchQuests());
+    } else {
+      setSkills((prev) => prev.filter((s) => s.id !== id));
+      apiClient.delete(`/api/skills/${id}`).catch(() => fetchSkills());
+    }
+    setConfirmDelete(null);
+  }
+
   function handleSkillCreated(optimistic: Skill, body: { name: string }) {
     setSkills((prev) => [optimistic, ...prev]);
     setShowSkillForm(false);
@@ -189,6 +246,7 @@ export default function GamificationTab() {
   ];
 
   return (
+    <>
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>
       {/* Hero row */}
       <div className="grid-2-col-skewed">
@@ -245,52 +303,88 @@ export default function GamificationTab() {
           </div>
         )}
         <div className="grid-3-col">
-          {questCols.map(([label, , items]) => (
-            <div key={label} style={{ background: 'var(--surface-inset)', borderRadius: 'var(--r)', padding: 12, minHeight: 180 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 4px' }}>
-                <span className="eyebrow">{label}</span>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{items.length}</span>
-              </div>
-              <div style={{ display: 'grid', gap: 10 }}>
-                {items.map((q) => {
-                  const done = q.steps.filter((s) => s.completed).length;
-                  const total = q.steps.length || 1;
-                  const isDone = q.completed;
-                  return (
-                    <div
-                      key={q.id}
-                      onClick={() => !isDone && q.steps.find((s) => !s.completed) && handleStepToggle(q.id, q.steps.find((s) => !s.completed)!.id)}
-                      style={{
-                        background: 'var(--surface)',
-                        border: '1px solid var(--line-soft)',
-                        borderRadius: 'var(--r-sm)',
-                        padding: 13,
-                        cursor: isDone ? 'default' : 'pointer',
-                        transition: 'border-color .16s, transform .16s',
-                      }}
-                      onMouseEnter={(e) => { if (!isDone) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line-soft)'; e.currentTarget.style.transform = 'none'; }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                        <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}>{q.title}</span>
-                        <span className="mono" style={{ fontSize: 11, color: 'var(--accent)', whiteSpace: 'nowrap' }}>+{q.xpReward}</span>
-                      </div>
-                      {q.description && (
-                        <div style={{ color: 'var(--text-3)', fontSize: 12.5, marginBottom: 11 }}>{q.description}</div>
-                      )}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: 99, background: TAG_COLOR['Work'] ?? 'var(--text-3)' }} />
-                        <div style={{ flex: 1 }}>
-                          <XPBar value={done} max={total} height={5} color={isDone ? 'var(--good)' : 'var(--accent)'} />
+          {questCols.map(([label, , items]) => {
+            const isOver = dragOverCol === label && dragQuestId !== null;
+            const canDrop = dragQuestId !== null && (() => {
+              const q = quests.find((q) => q.id === dragQuestId);
+              if (!q) return false;
+              const col = q.completed ? 'Done' : q.steps.some((s) => s.completed) ? 'In Progress' : 'Todo';
+              return col !== label && !(label === 'Todo');
+            })();
+            return (
+              <div
+                key={label}
+                onDragOver={(e) => { e.preventDefault(); setDragOverCol(label); }}
+                onDragLeave={() => setDragOverCol(null)}
+                onDrop={() => handleDrop(label)}
+                style={{
+                  background: isOver && canDrop ? 'var(--accent-soft)' : 'var(--surface-inset)',
+                  borderRadius: 'var(--r)',
+                  padding: 12,
+                  minHeight: 180,
+                  border: `2px solid ${isOver && canDrop ? 'var(--accent)' : 'transparent'}`,
+                  transition: 'background .15s, border-color .15s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 4px' }}>
+                  <span className="eyebrow">{label}</span>
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{(items as Quest[]).length}</span>
+                </div>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {(items as Quest[]).map((q) => {
+                    const done = q.steps.filter((s) => s.completed).length;
+                    const total = q.steps.length || 1;
+                    const isDone = q.completed;
+                    const isDragging = dragQuestId === q.id;
+                    return (
+                      <div
+                        key={q.id}
+                        draggable
+                        onDragStart={() => setDragQuestId(q.id)}
+                        onDragEnd={() => { setDragQuestId(null); setDragOverCol(null); }}
+                        onClick={() => !isDone && q.steps.find((s) => !s.completed) && handleStepToggle(q.id, q.steps.find((s) => !s.completed)!.id)}
+                        style={{
+                          background: 'var(--surface)',
+                          border: '1px solid var(--line-soft)',
+                          borderRadius: 'var(--r-sm)',
+                          padding: 13,
+                          cursor: isDragging ? 'grabbing' : 'grab',
+                          transition: 'border-color .16s, transform .16s, opacity .16s',
+                          opacity: isDragging ? 0.45 : 1,
+                          userSelect: 'none',
+                        }}
+                        onMouseEnter={(e) => { if (!isDragging) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line-soft)'; e.currentTarget.style.transform = 'none'; }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}>{q.title}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span className="mono" style={{ fontSize: 11, color: 'var(--accent)', whiteSpace: 'nowrap' }}>+{q.xpReward}</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleQuestDelete(q.id, q.title); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', lineHeight: 1, padding: '0 2px', fontSize: 13 }}
+                              title="Delete quest"
+                              aria-label={`Delete quest "${q.title}"`}
+                            >✕</button>
+                          </div>
                         </div>
-                        <span className="mono" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{done}/{total}</span>
+                        {q.description && (
+                          <div style={{ color: 'var(--text-3)', fontSize: 12.5, marginBottom: 11 }}>{q.description}</div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: 99, background: TAG_COLOR['Work'] ?? 'var(--text-3)' }} />
+                          <div style={{ flex: 1 }}>
+                            <XPBar value={done} max={total} height={5} color={isDone ? 'var(--good)' : 'var(--accent)'} />
+                          </div>
+                          <span className="mono" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{done}/{total}</span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         {(todoQuests.length + inProgressQuests.length) > 0 && (
           <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-faint)', textAlign: 'center' }}>
@@ -410,6 +504,13 @@ export default function GamificationTab() {
                     >
                       <CheckSquare size={12} />
                     </button>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ padding: '4px 8px', fontSize: 11, color: 'var(--bad)' }}
+                      onClick={() => handleSkillDelete(s.id, s.name)}
+                      title="Delete skill"
+                      aria-label={`Delete skill "${s.name}"`}
+                    >✕</button>
                   </div>
                 );
               })}
@@ -428,5 +529,14 @@ export default function GamificationTab() {
         </section>
       </div>
     </div>
+
+    {confirmDelete && (
+      <ConfirmDialog
+        message={`Delete "${confirmDelete.name}"? This cannot be undone.`}
+        onConfirm={confirmDeleteAction}
+        onCancel={() => setConfirmDelete(null)}
+      />
+    )}
+    </>
   );
 }

@@ -83,3 +83,17 @@ export async function logActivity(req: Request, res: Response): Promise<void> {
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function deleteSkill(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const id = req.params.id as string;
+    const skill = await prisma.skill.findFirst({ where: { id, userId } });
+    if (!skill) { res.status(404).json({ error: 'Skill not found' }); return; }
+    await prisma.skill.delete({ where: { id } });
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
