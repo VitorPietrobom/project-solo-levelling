@@ -26,6 +26,13 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
+// LoginPage does a full-page load on success; spy on it.
+const mockAssign = vi.fn();
+Object.defineProperty(window, 'location', {
+  value: { ...window.location, assign: mockAssign },
+  writable: true,
+});
+
 function renderLoginPage() {
   return render(
     <MemoryRouter initialEntries={['/login']}>
@@ -49,7 +56,7 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
 
-  it('calls login and navigates on successful submit', async () => {
+  it('calls login and redirects on successful submit', async () => {
     const user = userEvent.setup();
     mockSignIn.mockResolvedValueOnce({ error: null });
 
@@ -70,7 +77,7 @@ describe('LoginPage', () => {
     });
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+      expect(mockAssign).toHaveBeenCalledWith('/');
     });
   });
 
