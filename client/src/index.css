@@ -191,6 +191,16 @@ input, select, textarea { color-scheme: dark; }
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
+/* ---- PWA standalone safe areas (iOS notch / status bar) ---- */
+@media (display-mode: standalone) {
+  .app-header {
+    padding-top: calc(14px + env(safe-area-inset-top)) !important;
+  }
+  .dashboard-sidebar {
+    padding-top: calc(22px + env(safe-area-inset-top));
+  }
+}
+
 /* ---- Responsive layout ---- */
 .dashboard-shell {
   display: grid;

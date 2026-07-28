@@ -266,6 +266,7 @@ export default function Dashboard() {
       <div className="dashboard-main">
         {/* Sticky header */}
         <header
+          className="app-header"
           style={{
             position: 'sticky',
             top: 0,
