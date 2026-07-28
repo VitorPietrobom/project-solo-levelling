@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Zap, Clock, X, Sparkles } from 'lucide-react';
+import { Plus, Zap, Clock, X, Sparkles, Share2 } from 'lucide-react';
+import { shareRecipe } from '../lib/recipeShare';
 import { apiClient } from '../lib/apiClient';
 import type { Recipe, Ingredient } from '../components/RecipeList';
 import XPBar from '../components/ui/XPBar';
@@ -40,12 +41,24 @@ function Metric({ label, value, unit, accent }: { label: string; value: number |
 function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: () => void }) {
   const [logged, setLogged] = useState(false);
   const [logging, setLogging] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  async function handleShare() {
+    setSharing(true);
+    try {
+      await shareRecipe(recipe);
+    } catch {
+      /* user cancelled the share sheet, or it failed — no-op */
+    } finally {
+      setSharing(false);
+    }
+  }
 
   async function handleLogAsEaten() {
     setLogging(true);
@@ -218,9 +231,13 @@ function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: (
             display: 'flex',
             gap: 10,
             justifyContent: 'flex-end',
+            flexWrap: 'wrap',
           }}
         >
           <button className="btn" onClick={onClose}>Close</button>
+          <button className="btn" onClick={handleShare} disabled={sharing}>
+            <Share2 size={15} strokeWidth={2.4} />{sharing ? 'Creating…' : 'Share'}
+          </button>
           <button
             className="btn btn-primary"
             onClick={handleLogAsEaten}
