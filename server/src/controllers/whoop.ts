@@ -144,17 +144,37 @@ export async function syncWhoop(req: Request, res: Response): Promise<void> {
   const token = await freshAccessToken(userId);
   if (!token) { res.status(400).json({ error: 'Whoop not connected' }); return; }
 
-  const [recovery, sleep, cycle, workouts, profile] = await Promise.all([
+  const [recovery, sleep, cycles, workouts, profile, body] = await Promise.all([
     whoopGet(token, '/v2/recovery?limit=1'),
     whoopGet(token, '/v2/activity/sleep?limit=1'),
-    whoopGet(token, '/v2/cycle?limit=1'),
+    whoopGet(token, '/v2/cycle?limit=14'),
     whoopGet(token, '/v2/activity/workout?limit=5'),
     whoopGet(token, '/v2/user/profile/basic'),
+    whoopGet(token, '/v2/user/measurement/body'),
   ]);
 
   const rec = recovery?.records?.[0]?.score ?? null;
   const slp = sleep?.records?.[0]?.score ?? null;
-  const cyc = cycle?.records?.[0]?.score ?? null;
+  const cyc = cycles?.records?.[0]?.score ?? null;
+
+  // Persist daily energy burn (kilojoules → kcal) for each recent cycle so the
+  // nutrition engine can compute a trailing TDEE average.
+  const KJ_TO_KCAL = 1 / 4.184;
+  if (Array.isArray(cycles?.records)) {
+    for (const c of cycles.records) {
+      const kj = c?.score?.kilojoule;
+      const start = c?.start;
+      if (kj == null || !start) continue;
+      const date = String(start).slice(0, 10); // YYYY-MM-DD
+      const calories = Math.round(kj * KJ_TO_KCAL);
+      if (calories <= 0) continue;
+      await prisma.whoopDaily.upsert({
+        where: { userId_date: { userId, date } },
+        create: { userId, date, calories, strain: c?.score?.strain ?? null },
+        update: { calories, strain: c?.score?.strain ?? null },
+      });
+    }
+  }
 
   const latest = {
     recovery: rec ? {
@@ -183,6 +203,11 @@ export async function syncWhoop(req: Request, res: Response): Promise<void> {
     profile: profile ? {
       firstName: profile.first_name ?? null,
       lastName: profile.last_name ?? null,
+    } : null,
+    body: body ? {
+      weightKg: body.weight_kilogram ?? null,
+      heightM: body.height_meter ?? null,
+      maxHeartRate: body.max_heart_rate ?? null,
     } : null,
   };
 

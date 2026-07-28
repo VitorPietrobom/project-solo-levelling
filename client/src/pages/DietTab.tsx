@@ -9,6 +9,7 @@ import type { MealPrepPlanData } from '../components/MealPrepPlan';
 import MealPrepForm from '../components/MealPrepForm';
 import GroceryList from '../components/GroceryList';
 import type { GroceryListData } from '../components/GroceryList';
+import NutritionTarget from '../components/NutritionTarget';
 import { apiClient } from '../lib/apiClient';
 
 export default function DietTab() {
@@ -142,6 +143,16 @@ export default function DietTab() {
     }
   }
 
+  const consumed = foodEntries.reduce(
+    (acc, e) => ({
+      calories: acc.calories + (e.calories || 0),
+      protein: acc.protein + (e.protein || 0),
+      carbs: acc.carbs + (e.carbs || 0),
+      fat: acc.fat + (e.fat || 0),
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  );
+
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>
       {/* Date selector */}
@@ -155,6 +166,9 @@ export default function DietTab() {
           aria-label="Select date"
         />
       </div>
+
+      {/* Dynamic nutrition target (WHOOP-driven) */}
+      <NutritionTarget consumed={consumed} date={selectedDate} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left column — Calorie Tracker */}
@@ -187,7 +201,7 @@ export default function DietTab() {
           )}
           {showFoodImport && (
             <div style={{ marginBottom: 16 }}>
-              <FoodEntryImport onImport={handleFoodImport} />
+              <FoodEntryImport onImport={handleFoodImport} defaultDate={selectedDate} />
             </div>
           )}
 

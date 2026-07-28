@@ -76,6 +76,11 @@ model User {
   email        String   @unique
   totalXP      Int      @default(0)
   calorieGoal  Int      @default(2000)
+  // Nutrition engine settings
+  nutritionGoal   String  @default("maintain") // cut | maintain | bulk | recomp
+  nutritionAdjust String  @default("steady")   // steady | reactive
+  calorieDelta    Int     @default(0)          // signed daily kcal adjustment (cut = negative)
+  proteinPerKg    Float   @default(1.8)
   createdAt    DateTime @default(now())
 
   quests           Quest[]
@@ -94,6 +99,20 @@ model User {
   lessonsLearned   LessonLearned[]
   notes            Note[]
   whoopConnection  WhoopConnection?
+  whoopDailies     WhoopDaily[]
+}
+
+model WhoopDaily {
+  id        String   @id @default(uuid())
+  userId    String
+  date      String   // YYYY-MM-DD (the cycle's calendar day)
+  calories  Int      // total energy burned that day (kcal, from WHOOP kilojoules)
+  strain    Float?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
 }
 
 model WhoopConnection {
