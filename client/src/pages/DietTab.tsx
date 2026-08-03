@@ -9,6 +9,7 @@ import MealPrepForm from '../components/MealPrepForm';
 import GroceryList from '../components/GroceryList';
 import type { GroceryListData } from '../components/GroceryList';
 import NutritionTarget from '../components/NutritionTarget';
+import NutritionAiPrompt from '../components/NutritionAiPrompt';
 import { apiClient } from '../lib/apiClient';
 
 export default function DietTab() {
@@ -152,6 +153,9 @@ export default function DietTab() {
 
       {/* Dynamic nutrition target (WHOOP-driven) */}
       <NutritionTarget consumed={consumed} date={selectedDate} />
+
+      {/* Copyable AI analysis prompt (bring-your-own-AI, no API cost) */}
+      <NutritionAiPrompt date={selectedDate} />
 
       <div>
         {/* Food Entry Form + Entry List */}
