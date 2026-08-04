@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { awardXP } from '../services/xp';
+
+export const JOURNAL_XP = 10;
 
 export async function listJournalEntries(req: Request, res: Response): Promise<void> {
   try {
@@ -52,7 +55,8 @@ export async function createJournalEntry(req: Request, res: Response): Promise<v
       },
     });
 
-    res.status(201).json(entry);
+    await awardXP(userId, JOURNAL_XP, `journal:${entry.id}`);
+    res.status(201).json({ ...entry, xpAwarded: JOURNAL_XP });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });

@@ -81,6 +81,8 @@ model User {
   nutritionAdjust String  @default("steady")   // steady | reactive
   calorieDelta    Int     @default(0)          // signed daily kcal adjustment (cut = negative)
   proteinPerKg    Float   @default(1.8)
+  // Learning
+  readingGoal     Int     @default(12) // books per year
   createdAt    DateTime @default(now())
 
   quests           Quest[]
@@ -361,6 +363,7 @@ model Book {
   totalPages    Int
   currentPage   Int        @default(0)
   notes         String?
+  rating        Int?
   linkedSkillId String?
   startedAt     DateTime?
   finishedAt    DateTime?
