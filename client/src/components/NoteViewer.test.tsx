@@ -16,7 +16,7 @@ describe('NoteViewer', () => {
     render(<NoteViewer note={sampleNote} onEdit={vi.fn()} onClose={vi.fn()} />);
     expect(screen.getByText('My Note')).toBeInTheDocument();
     expect(screen.getByText((_content, element) =>
-      element?.tagName === 'PRE' && element.textContent === 'This is the note body.\nWith multiple lines.',
+      element?.tagName === 'P' && element.textContent === 'This is the note body.\nWith multiple lines.',
     )).toBeInTheDocument();
   });
 
@@ -53,6 +53,6 @@ describe('NoteViewer', () => {
 
   it('shows last updated date', () => {
     render(<NoteViewer note={sampleNote} onEdit={vi.fn()} onClose={vi.fn()} />);
-    expect(screen.getByText(/Last updated:/)).toBeInTheDocument();
+    expect(screen.getByText(/Last updated/)).toBeInTheDocument();
   });
 });

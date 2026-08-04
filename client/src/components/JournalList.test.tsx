@@ -20,8 +20,8 @@ describe('JournalList', () => {
 
   it('shows date headers', () => {
     render(<JournalList entries={sampleEntries} onDelete={vi.fn()} />);
-    const headers = screen.getAllByRole('heading', { level: 4 });
-    expect(headers.length).toBe(2);
+    expect(screen.getByText(/Jun 15, 2024/)).toBeInTheDocument();
+    expect(screen.getByText(/Jun 14, 2024/)).toBeInTheDocument();
   });
 
   it('shows tag badges', () => {
@@ -33,12 +33,12 @@ describe('JournalList', () => {
 
   it('shows linked skill indicator', () => {
     render(<JournalList entries={sampleEntries} onDelete={vi.fn()} />);
-    expect(screen.getByText('🔗 Linked skill')).toBeInTheDocument();
+    expect(screen.getByText('skill')).toBeInTheDocument();
   });
 
   it('shows empty state when no entries', () => {
     render(<JournalList entries={[]} onDelete={vi.fn()} />);
-    expect(screen.getByText('No journal entries yet.')).toBeInTheDocument();
+    expect(screen.getByText(/No journal entries yet/)).toBeInTheDocument();
   });
 
   it('calls onDelete when clicking delete button', async () => {

@@ -11,98 +11,65 @@ interface BookFormProps {
   onCreated: (optimistic: Book, body: { title: string; author: string; totalPages: number; linkedSkillId?: string }) => void;
 }
 
+const field: React.CSSProperties = {
+  width: '100%', background: 'var(--surface)', color: 'var(--text)',
+  border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)',
+  padding: '9px 12px', fontSize: 14, outline: 'none',
+};
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 11.5, color: 'var(--text-3)', marginBottom: 5, letterSpacing: '0.02em' };
+
 export default function BookForm({ skills, onCreated }: BookFormProps) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [totalPages, setTotalPages] = useState('');
   const [linkedSkillId, setLinkedSkillId] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const pages = parseInt(totalPages, 10);
-    if (!title.trim() || !author.trim() || isNaN(pages) || pages <= 0) return;
+    if (!title.trim()) { setError('Title is required'); return; }
+    if (!author.trim()) { setError('Author is required'); return; }
+    if (isNaN(pages) || pages <= 0) { setError('Total pages must be a positive number'); return; }
 
     const optimistic: Book = {
-      id: `temp-${Date.now()}`,
-      title: title.trim(),
-      author: author.trim(),
-      status: 'want_to_read',
-      totalPages: pages,
-      currentPage: 0,
-      notes: null,
-      linkedSkillId: linkedSkillId || null,
-      startedAt: null,
-      finishedAt: null,
+      id: `temp-${Date.now()}`, title: title.trim(), author: author.trim(),
+      status: 'want_to_read', totalPages: pages, currentPage: 0,
+      notes: null, linkedSkillId: linkedSkillId || null, startedAt: null, finishedAt: null,
     };
-
     const body: any = { title: title.trim(), author: author.trim(), totalPages: pages };
     if (linkedSkillId) body.linkedSkillId = linkedSkillId;
-
     onCreated(optimistic, body);
-    setTitle('');
-    setAuthor('');
-    setTotalPages('');
-    setLinkedSkillId('');
+    setTitle(''); setAuthor(''); setTotalPages(''); setLinkedSkillId(''); setError(null);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-card rounded-lg p-4 border border-border space-y-3">
-      <div>
-        <label htmlFor="book-title" className="text-text-secondary text-xs block mb-1">Title</label>
-        <input
-          id="book-title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-          required
-        />
-      </div>
-      <div>
-        <label htmlFor="book-author" className="text-text-secondary text-xs block mb-1">Author</label>
-        <input
-          id="book-author"
-          type="text"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-          required
-        />
-      </div>
-      <div>
-        <label htmlFor="book-pages" className="text-text-secondary text-xs block mb-1">Total Pages</label>
-        <input
-          id="book-pages"
-          type="number"
-          min={1}
-          value={totalPages}
-          onChange={(e) => setTotalPages(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-          required
-        />
+    <form onSubmit={handleSubmit} style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: 16, display: 'grid', gap: 12 }}>
+      {error && <p style={{ color: 'var(--warn)', fontSize: 13 }}>{error}</p>}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 200px' }}>
+          <label style={labelStyle}>Title</label>
+          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title" style={field} />
+        </div>
+        <div style={{ flex: '1 1 160px' }}>
+          <label style={labelStyle}>Author</label>
+          <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} aria-label="Author" style={field} />
+        </div>
+        <div style={{ flex: '0 1 120px' }}>
+          <label style={labelStyle}>Total pages</label>
+          <input type="number" min={1} value={totalPages} onChange={(e) => setTotalPages(e.target.value)} aria-label="Total Pages" style={field} />
+        </div>
       </div>
       {skills.length > 0 && (
         <div>
-          <label htmlFor="book-skill" className="text-text-secondary text-xs block mb-1">Link to Skill (optional)</label>
-          <select
-            id="book-skill"
-            value={linkedSkillId}
-            onChange={(e) => setLinkedSkillId(e.target.value)}
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-          >
+          <label style={labelStyle}>Link to skill (optional)</label>
+          <select value={linkedSkillId} onChange={(e) => setLinkedSkillId(e.target.value)} aria-label="Link to Skill (optional)" style={field}>
             <option value="">None</option>
-            {skills.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
+            {skills.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
       )}
-      <button
-        type="submit"
-        className="bg-accent-primary text-primary px-4 py-2 rounded text-sm font-semibold hover:opacity-90"
-      >
-        Add Book
-      </button>
+      <button type="submit" className="btn btn-primary" style={{ justifySelf: 'start' }}>Add Book</button>
     </form>
   );
 }
