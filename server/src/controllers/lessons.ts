@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { awardXP } from '../services/xp';
+
+export const LESSON_XP = 15;
 
 export async function listLessons(req: Request, res: Response): Promise<void> {
   try {
@@ -57,7 +60,8 @@ export async function createLesson(req: Request, res: Response): Promise<void> {
       },
     });
 
-    res.status(201).json(lesson);
+    await awardXP(userId, LESSON_XP, `lesson:${lesson.id}`);
+    res.status(201).json({ ...lesson, xpAwarded: LESSON_XP });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });

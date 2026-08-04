@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { awardXP } from '../services/xp';
+
+export const BOOK_FINISH_XP = 80;
 
 export async function listBooks(req: Request, res: Response): Promise<void> {
   try {
@@ -75,10 +78,21 @@ export async function updateBook(req: Request, res: Response): Promise<void> {
     }
 
     const data: any = {};
-    const { status, currentPage, notes } = req.body;
+    const { status, currentPage, notes, rating } = req.body;
 
     if (notes !== undefined) {
       data.notes = notes;
+    }
+
+    if (rating !== undefined) {
+      if (rating === null) {
+        data.rating = null;
+      } else if (typeof rating === 'number' && rating >= 1 && rating <= 5) {
+        data.rating = Math.round(rating);
+      } else {
+        res.status(400).json({ error: 'Rating must be 1–5' });
+        return;
+      }
     }
 
     if (currentPage !== undefined) {
@@ -112,15 +126,19 @@ export async function updateBook(req: Request, res: Response): Promise<void> {
       data,
     });
 
-    // Award XP to linked skill when finishing
-    if (status === 'finished' && existing.linkedSkillId) {
-      await prisma.skill.update({
-        where: { id: existing.linkedSkillId },
-        data: { totalXP: { increment: existing.totalPages } },
-      });
+    // Reward finishing a book — but only on the transition into "finished".
+    const justFinished = status === 'finished' && existing.status !== 'finished';
+    if (justFinished) {
+      await awardXP(userId, BOOK_FINISH_XP, `book:${bookId}`);
+      if (existing.linkedSkillId) {
+        await prisma.skill.update({
+          where: { id: existing.linkedSkillId },
+          data: { totalXP: { increment: existing.totalPages } },
+        });
+      }
     }
 
-    res.json(updated);
+    res.json({ ...updated, xpAwarded: justFinished ? BOOK_FINISH_XP : 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
