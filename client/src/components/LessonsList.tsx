@@ -1,3 +1,5 @@
+import { Search, X, Link2 } from 'lucide-react';
+
 export interface Lesson {
   id: string;
   content: string;
@@ -20,41 +22,39 @@ function formatDate(dateStr: string): string {
 
 export default function LessonsList({ lessons = [], onDelete, searchTerm, onSearchChange }: LessonsListProps) {
   return (
-    <div className="space-y-3">
-      <input
-        type="text"
-        value={searchTerm}
-        onChange={(e) => onSearchChange(e.target.value)}
-        placeholder="Search lessons..."
-        className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-        aria-label="Search lessons"
-      />
+    <div style={{ display: 'grid', gap: 12 }}>
+      <div style={{ position: 'relative' }}>
+        <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-faint)' }} />
+        <input
+          type="text" value={searchTerm} onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Search lessons…" aria-label="Search lessons"
+          style={{ width: '100%', background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '9px 12px 9px 34px', fontSize: 13.5, outline: 'none' }}
+        />
+      </div>
+
       {lessons.length === 0 ? (
-        <p className="text-text-secondary text-sm">No lessons found.</p>
+        <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '12px 0' }}>
+          {searchTerm ? 'No lessons match.' : 'No lessons yet. Capture what you learned.'}
+        </p>
       ) : (
-        <div className="space-y-2">
+        <div style={{ display: 'grid', gap: 8 }}>
           {lessons.map((lesson) => (
-            <div key={lesson.id} className="bg-card rounded-lg p-3 border border-border">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-text-primary text-sm">{lesson.content}</p>
+            <div key={lesson.id} style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '12px 14px', borderLeft: '3px solid var(--accent-2)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                <p style={{ fontSize: 13.5, color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{lesson.content}</p>
                 <button
-                  onClick={() => onDelete(lesson.id)}
-                  className="text-accent-warning text-xs hover:opacity-80 shrink-0"
-                  aria-label={`Delete lesson`}
-                >
-                  ✕
-                </button>
+                  onClick={() => onDelete(lesson.id)} aria-label="Delete lesson"
+                  style={{ background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', flexShrink: 0, display: 'flex', lineHeight: 1 }}
+                ><X size={14} /></button>
               </div>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                 {lesson.tags.map((tag) => (
-                  <span key={tag} className="bg-secondary text-accent-info text-xs px-2 py-0.5 rounded-full">
-                    {tag}
-                  </span>
+                  <span key={tag} className="chip" style={{ fontSize: 10.5, padding: '3px 8px', color: 'var(--accent-2)' }}>{tag}</span>
                 ))}
                 {lesson.linkedSkillId && (
-                  <span className="text-accent-secondary text-xs">🔗 Linked skill</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)' }}><Link2 size={11} /> skill</span>
                 )}
-                <span className="text-text-secondary text-xs ml-auto">{formatDate(lesson.date)}</span>
+                <span style={{ color: 'var(--text-faint)', fontSize: 11, marginLeft: 'auto' }}>{formatDate(lesson.date)}</span>
               </div>
             </div>
           ))}

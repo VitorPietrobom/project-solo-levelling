@@ -1,4 +1,6 @@
+import { Pencil, X } from 'lucide-react';
 import type { Note } from './NoteList';
+import Markdown from './ui/Markdown';
 
 interface NoteViewerProps {
   note: Note | null;
@@ -9,52 +11,37 @@ interface NoteViewerProps {
 export default function NoteViewer({ note, onEdit, onClose }: NoteViewerProps) {
   if (!note) {
     return (
-      <div className="bg-card rounded-lg p-6 border border-border text-center">
-        <p className="text-text-secondary text-sm">Note not found.</p>
-        <button onClick={onClose} className="text-accent-info text-sm mt-2 hover:opacity-80">
-          Back to list
-        </button>
+      <div style={{ background: 'var(--surface-inset)', borderRadius: 'var(--r)', padding: 24, textAlign: 'center' }}>
+        <p style={{ color: 'var(--text-faint)', fontSize: 13 }}>Note not found.</p>
+        <button onClick={onClose} className="btn btn-ghost" style={{ marginTop: 8 }}>Back to list</button>
       </div>
     );
   }
 
   return (
-    <div className="bg-card rounded-lg p-4 border border-border space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-text-primary font-semibold text-lg">{note.title}</h3>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onEdit}
-            className="text-accent-info text-sm hover:opacity-80"
-            aria-label="Edit note"
-          >
-            ✏️ Edit
-          </button>
-          <button
-            onClick={onClose}
-            className="text-text-secondary text-sm hover:text-text-primary"
-            aria-label="Close viewer"
-          >
-            ✕
-          </button>
+    <div style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+        <h3 style={{ fontSize: 20 }}>{note.title}</h3>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <button className="btn btn-ghost" onClick={onEdit} aria-label="Edit note"><Pencil size={14} />Edit</button>
+          <button className="btn btn-ghost" onClick={onClose} aria-label="Close viewer" style={{ padding: '6px 8px' }}><X size={16} /></button>
         </div>
       </div>
+
       {note.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
           {note.tags.map((tag) => (
-            <span key={tag} className="bg-secondary text-accent-info text-xs px-2 py-0.5 rounded-full">
-              {tag}
-            </span>
+            <span key={tag} className="chip" style={{ fontSize: 11, color: 'var(--accent-2)', borderColor: 'var(--accent-2-soft)' }}>{tag}</span>
           ))}
         </div>
       )}
-      <div className="bg-secondary rounded p-4 border border-border">
-        <pre className="text-text-primary text-sm whitespace-pre-wrap font-sans">
-          {note.content || 'No content.'}
-        </pre>
+
+      <div style={{ borderTop: '1px solid var(--line-soft)', paddingTop: 14 }}>
+        <Markdown text={note.content || ''} />
       </div>
-      <p className="text-text-secondary text-xs">
-        Last updated: {new Date(note.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+
+      <p style={{ color: 'var(--text-faint)', fontSize: 11.5, marginTop: 16 }}>
+        Last updated {new Date(note.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
       </p>
     </div>
   );

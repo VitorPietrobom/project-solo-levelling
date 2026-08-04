@@ -54,8 +54,7 @@ describe('NoteList', () => {
     render(
       <NoteList notes={sampleNotes} onSelect={vi.fn()} onDelete={onDelete} searchTerm="" onSearchChange={vi.fn()} />,
     );
-    const deleteButtons = screen.getAllByText('✕');
-    fireEvent.click(deleteButtons[0]);
+    fireEvent.click(screen.getByLabelText('Delete note: React Hooks'));
     expect(onDelete).toHaveBeenCalledWith('n1');
   });
 

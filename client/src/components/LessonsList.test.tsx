@@ -25,7 +25,7 @@ describe('LessonsList', () => {
 
   it('shows linked skill indicator', () => {
     render(<LessonsList lessons={sampleLessons} onDelete={vi.fn()} searchTerm="" onSearchChange={vi.fn()} />);
-    expect(screen.getByText('🔗 Linked skill')).toBeInTheDocument();
+    expect(screen.getByText('skill')).toBeInTheDocument();
   });
 
   it('shows search input', () => {
@@ -42,7 +42,7 @@ describe('LessonsList', () => {
 
   it('shows empty state when no lessons', () => {
     render(<LessonsList lessons={[]} onDelete={vi.fn()} searchTerm="" onSearchChange={vi.fn()} />);
-    expect(screen.getByText('No lessons found.')).toBeInTheDocument();
+    expect(screen.getByText(/No lessons yet/)).toBeInTheDocument();
   });
 
   it('calls onDelete when clicking delete button', async () => {

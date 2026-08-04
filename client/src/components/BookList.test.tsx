@@ -25,12 +25,9 @@ const sampleBooks: Book[] = [
 describe('BookList', () => {
   it('renders kanban columns', () => {
     render(<BookList books={sampleBooks} onUpdateStatus={vi.fn()} onUpdateProgress={vi.fn()} onDelete={vi.fn()} />);
-    // Column headers are h4 elements
-    const headers = screen.getAllByRole('heading', { level: 4 });
-    const headerTexts = headers.map((h) => h.textContent);
-    expect(headerTexts).toContain('Want to Read');
-    expect(headerTexts).toContain('Reading');
-    expect(headerTexts).toContain('Finished');
+    expect(screen.getByText('Want to Read')).toBeInTheDocument();
+    expect(screen.getAllByText('Reading').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Finished').length).toBeGreaterThan(0);
   });
 
   it('places books in correct columns', () => {
@@ -42,14 +39,14 @@ describe('BookList', () => {
 
   it('shows empty state when no books', () => {
     render(<BookList books={[]} onUpdateStatus={vi.fn()} onUpdateProgress={vi.fn()} onDelete={vi.fn()} />);
-    expect(screen.getByText('No books yet. Add one to get started.')).toBeInTheDocument();
+    expect(screen.getByText(/No books yet/)).toBeInTheDocument();
   });
 
   it('shows page count for each book', () => {
     render(<BookList books={sampleBooks} onUpdateStatus={vi.fn()} onUpdateProgress={vi.fn()} onDelete={vi.fn()} />);
-    expect(screen.getByText('0 / 400 pages')).toBeInTheDocument();
-    expect(screen.getByText('150 / 300 pages')).toBeInTheDocument();
-    expect(screen.getByText('350 / 350 pages')).toBeInTheDocument();
+    expect(screen.getByText('0 / 400')).toBeInTheDocument();
+    expect(screen.getByText('150 / 300')).toBeInTheDocument();
+    expect(screen.getByText('350 / 350')).toBeInTheDocument();
   });
 
   it('calls onUpdateStatus when clicking status button', async () => {

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { X, BookOpen } from 'lucide-react';
+import XPBar from './ui/XPBar';
 
 export interface Book {
   id: string;
@@ -20,35 +22,20 @@ interface BookListProps {
   onDelete: (id: string) => void;
 }
 
-function ProgressBar({ current, total }: { current: number; total: number }) {
-  const pct = total > 0 ? Math.min((current / total) * 100, 100) : 0;
-  return (
-    <div className="w-full bg-primary rounded-full h-1.5 overflow-hidden">
-      <div
-        className="bg-accent-primary h-1.5 rounded-full transition-all duration-300"
-        style={{ width: `${pct}%` }}
-        role="progressbar"
-        aria-valuenow={current}
-        aria-valuemin={0}
-        aria-valuemax={total}
-        aria-label={`Reading progress: ${current} of ${total} pages`}
-      />
-    </div>
-  );
-}
+const STATUS_COLOR: Record<Book['status'], string> = {
+  want_to_read: 'var(--info)',
+  reading: 'var(--accent)',
+  finished: 'var(--good)',
+};
 
-function BookCard({
-  book,
-  onUpdateStatus,
-  onUpdateProgress,
-  onDelete,
-}: {
+function BookCard({ book, onUpdateStatus, onUpdateProgress, onDelete }: {
   book: Book;
   onUpdateStatus: (id: string, status: Book['status']) => void;
   onUpdateProgress: (id: string, currentPage: number) => void;
   onDelete: (id: string) => void;
 }) {
   const [pageInput, setPageInput] = useState('');
+  const pct = book.totalPages > 0 ? Math.round(Math.min((book.currentPage / book.totalPages) * 100, 100)) : 0;
 
   function handleLogPages() {
     const page = parseInt(pageInput, 10);
@@ -59,93 +46,57 @@ function BookCard({
   }
 
   return (
-    <div className="bg-secondary rounded-lg p-3 border border-border">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-text-primary font-semibold text-sm">{book.title}</span>
-        <button
-          onClick={() => onDelete(book.id)}
-          className="text-accent-warning text-xs hover:opacity-80"
-          aria-label={`Delete ${book.title}`}
-        >
-          ✕
-        </button>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: 13 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
+        <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}>{book.title}</span>
+        <button onClick={() => onDelete(book.id)} aria-label={`Delete ${book.title}`}
+          style={{ background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', flexShrink: 0, display: 'flex', lineHeight: 1 }}><X size={13} /></button>
       </div>
-      <p className="text-text-secondary text-xs mb-2">{book.author}</p>
-      <ProgressBar current={book.currentPage} total={book.totalPages} />
-      <p className="text-text-secondary text-xs mt-1 mb-2">
-        {book.currentPage} / {book.totalPages} pages
-      </p>
+      <p style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 10 }}>{book.author}</p>
+
+      <XPBar value={book.currentPage} max={book.totalPages || 1} height={6} color={STATUS_COLOR[book.status]} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>{book.currentPage} / {book.totalPages}</span>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{pct}%</span>
+      </div>
 
       {book.status === 'reading' && (
-        <div className="flex items-center gap-1 mb-2">
+        <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
           <input
-            type="number"
-            min={0}
-            max={book.totalPages}
-            value={pageInput}
+            type="number" min={0} max={book.totalPages} value={pageInput}
             onChange={(e) => setPageInput(e.target.value)}
-            placeholder="Page #"
-            className="w-20 bg-primary border border-border rounded px-2 py-1 text-xs text-text-primary"
-            aria-label={`Log page for ${book.title}`}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleLogPages(); }}
+            placeholder="Page #" aria-label={`Log page for ${book.title}`}
+            style={{ width: 84, background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '5px 8px', fontSize: 12, outline: 'none' }}
           />
-          <button
-            onClick={handleLogPages}
-            className="text-accent-info text-xs hover:opacity-80"
-          >
-            Log
-          </button>
+          <button className="btn btn-ghost" style={{ padding: '5px 10px', fontSize: 12 }} onClick={handleLogPages}>Log</button>
         </div>
       )}
 
-      <div className="flex gap-1 flex-wrap">
-        {book.status !== 'want_to_read' && (
-          <button
-            onClick={() => onUpdateStatus(book.id, 'want_to_read')}
-            className="text-xs bg-primary text-text-secondary px-2 py-0.5 rounded hover:text-text-primary"
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+        {(['want_to_read', 'reading', 'finished'] as const).filter((s) => s !== book.status).map((s) => (
+          <button key={s} onClick={() => onUpdateStatus(book.id, s)}
+            style={{ fontSize: 11, fontWeight: 600, background: 'var(--surface-inset)', color: 'var(--text-3)', border: '1px solid var(--line-soft)', borderRadius: 99, padding: '4px 10px', cursor: 'pointer', transition: 'all .15s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = STATUS_COLOR[s]; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'var(--line-soft)'; }}
           >
-            Want to Read
+            {s === 'want_to_read' ? 'Want to read' : s === 'reading' ? 'Reading' : 'Finished'}
           </button>
-        )}
-        {book.status !== 'reading' && (
-          <button
-            onClick={() => onUpdateStatus(book.id, 'reading')}
-            className="text-xs bg-primary text-text-secondary px-2 py-0.5 rounded hover:text-text-primary"
-          >
-            Reading
-          </button>
-        )}
-        {book.status !== 'finished' && (
-          <button
-            onClick={() => onUpdateStatus(book.id, 'finished')}
-            className="text-xs bg-primary text-text-secondary px-2 py-0.5 rounded hover:text-text-primary"
-          >
-            Finished
-          </button>
-        )}
+        ))}
       </div>
     </div>
   );
 }
 
-function KanbanColumn({
-  title,
-  count,
-  accent,
-  children,
-}: {
-  title: string;
-  count: number;
-  accent: string;
-  children: React.ReactNode;
-}) {
+function Column({ title, count, color, children }: { title: string; count: number; color: string; children: React.ReactNode }) {
   return (
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2 mb-3">
-        <span className={`w-2 h-2 rounded-full ${accent}`} />
-        <h4 className="text-text-secondary text-sm font-semibold">{title}</h4>
-        <span className="text-text-secondary text-xs bg-secondary rounded-full px-2 py-0.5">{count}</span>
+    <div style={{ background: 'var(--surface-inset)', borderRadius: 'var(--r)', padding: 12, minHeight: 120 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '0 4px' }}>
+        <span style={{ width: 8, height: 8, borderRadius: 99, background: color }} />
+        <span className="eyebrow">{title}</span>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 'auto' }}>{count}</span>
       </div>
-      <div className="space-y-2">{children}</div>
+      <div style={{ display: 'grid', gap: 8 }}>{children}</div>
     </div>
   );
 }
@@ -156,26 +107,25 @@ export default function BookList({ books = [], onUpdateStatus, onUpdateProgress,
   const finished = books.filter((b) => b.status === 'finished');
 
   if (books.length === 0) {
-    return <p className="text-text-secondary text-sm">No books yet. Add one to get started.</p>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '32px 0', color: 'var(--text-faint)' }}>
+        <BookOpen size={26} />
+        <p style={{ fontSize: 13 }}>No books yet. Add one to start your shelf.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <KanbanColumn title="Want to Read" count={wantToRead.length} accent="bg-accent-info">
-        {wantToRead.map((b) => (
-          <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onDelete={onDelete} />
-        ))}
-      </KanbanColumn>
-      <KanbanColumn title="Reading" count={reading.length} accent="bg-accent-primary">
-        {reading.map((b) => (
-          <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onDelete={onDelete} />
-        ))}
-      </KanbanColumn>
-      <KanbanColumn title="Finished" count={finished.length} accent="bg-accent-success">
-        {finished.map((b) => (
-          <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onDelete={onDelete} />
-        ))}
-      </KanbanColumn>
+    <div className="grid-3-col">
+      <Column title="Want to Read" count={wantToRead.length} color={STATUS_COLOR.want_to_read}>
+        {wantToRead.map((b) => <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onDelete={onDelete} />)}
+      </Column>
+      <Column title="Reading" count={reading.length} color={STATUS_COLOR.reading}>
+        {reading.map((b) => <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onDelete={onDelete} />)}
+      </Column>
+      <Column title="Finished" count={finished.length} color={STATUS_COLOR.finished}>
+        {finished.map((b) => <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onDelete={onDelete} />)}
+      </Column>
     </div>
   );
 }

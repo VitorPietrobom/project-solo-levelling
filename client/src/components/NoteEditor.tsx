@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import type { Note } from './NoteList';
+import Markdown from './ui/Markdown';
 
 interface NoteEditorProps {
   note: Note | null;
@@ -7,93 +9,79 @@ interface NoteEditorProps {
   onClose: () => void;
 }
 
+const inputStyle: React.CSSProperties = {
+  width: '100%', background: 'var(--surface)', color: 'var(--text)',
+  border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)',
+  padding: '9px 12px', fontSize: 14, outline: 'none',
+};
+
 export default function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tagsInput, setTagsInput] = useState('');
+  const [tab, setTab] = useState<'write' | 'preview'>('write');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (note) {
-      setTitle(note.title);
-      setContent(note.content ?? '');
-      setTagsInput(note.tags.join(', '));
-    } else {
-      setTitle('');
-      setContent('');
-      setTagsInput('');
-    }
+    setTitle(note?.title ?? '');
+    setContent(note?.content ?? '');
+    setTagsInput(note?.tags.join(', ') ?? '');
+    setTab('write');
   }, [note]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return;
-
-    const tags = tagsInput
-      .split(',')
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
+    if (!title.trim()) { setError('Title is required'); return; }
+    const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
     onSave({ title: title.trim(), content, tags });
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-card rounded-lg p-4 border border-border space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-text-primary font-semibold">{note ? 'Edit Note' : 'New Note'}</h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-accent-info text-sm hover:opacity-80"
-          aria-label="Close editor"
-        >
-          ✕
-        </button>
+    <form onSubmit={handleSubmit} style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: 18, display: 'grid', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{ fontSize: 16 }}>{note ? 'Edit Note' : 'New Note'}</h3>
+        <button type="button" className="btn btn-ghost" onClick={onClose} aria-label="Close editor" style={{ padding: '6px 8px' }}><X size={16} /></button>
       </div>
+
+      {error && <p style={{ color: 'var(--warn)', fontSize: 13 }}>{error}</p>}
+
+      <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" aria-label="Title" style={inputStyle} />
+
+      {/* Write / Preview tabs */}
       <div>
-        <label htmlFor="note-title" className="text-text-secondary text-xs block mb-1">Title</label>
-        <input
-          id="note-title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-          required
-        />
+        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+          {(['write', 'preview'] as const).map((t) => (
+            <button
+              key={t} type="button" onClick={() => setTab(t)}
+              style={{
+                padding: '5px 14px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                borderRadius: 'var(--r-sm)', textTransform: 'capitalize',
+                border: `1px solid ${tab === t ? 'var(--line-soft)' : 'transparent'}`,
+                background: tab === t ? 'var(--surface-hi)' : 'transparent',
+                color: tab === t ? 'var(--text)' : 'var(--text-3)',
+              }}
+            >{t}</button>
+          ))}
+          <span style={{ marginLeft: 'auto', alignSelf: 'center', fontSize: 11, color: 'var(--text-faint)' }}>Markdown supported</span>
+        </div>
+        {tab === 'write' ? (
+          <textarea
+            value={content} onChange={(e) => setContent(e.target.value)} aria-label="Content (markdown)"
+            placeholder={'# Heading\n\nWrite in **markdown** — lists, `code`, > quotes, [links](https://…)'}
+            style={{ ...inputStyle, minHeight: 200, resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: 13, lineHeight: 1.5 }}
+          />
+        ) : (
+          <div style={{ ...inputStyle, minHeight: 200, cursor: 'default' }}>
+            <Markdown text={content} />
+          </div>
+        )}
       </div>
-      <div>
-        <label htmlFor="note-content" className="text-text-secondary text-xs block mb-1">Content (markdown)</label>
-        <textarea
-          id="note-content"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary min-h-[160px] resize-y font-mono focus:outline-none focus:border-accent-primary"
-        />
-      </div>
-      <div>
-        <label htmlFor="note-tags" className="text-text-secondary text-xs block mb-1">Tags (comma-separated)</label>
-        <input
-          id="note-tags"
-          type="text"
-          value={tagsInput}
-          onChange={(e) => setTagsInput(e.target.value)}
-          placeholder="react, hooks, patterns"
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-        />
-      </div>
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="bg-accent-primary text-primary px-4 py-2 rounded text-sm font-semibold hover:opacity-90"
-        >
-          {note ? 'Save Changes' : 'Create Note'}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="bg-secondary text-text-secondary px-4 py-2 rounded text-sm hover:text-text-primary"
-        >
-          Cancel
-        </button>
+
+      <input type="text" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="Tags (comma-separated) — e.g. react, hooks" aria-label="Tags (comma-separated)" style={inputStyle} />
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="submit" className="btn btn-primary">{note ? 'Save Changes' : 'Create Note'}</button>
+        <button type="button" className="btn" onClick={onClose}>Cancel</button>
       </div>
     </form>
   );

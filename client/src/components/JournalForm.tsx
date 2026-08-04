@@ -11,94 +11,58 @@ interface JournalFormProps {
   onCreated: (optimistic: JournalEntry, body: { content: string; tags: string[]; linkedSkillId?: string; date: string }) => void;
 }
 
+const field: React.CSSProperties = {
+  width: '100%', background: 'var(--surface)', color: 'var(--text)',
+  border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)',
+  padding: '9px 12px', fontSize: 14, outline: 'none',
+};
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 11.5, color: 'var(--text-3)', marginBottom: 5, letterSpacing: '0.02em' };
+
 export default function JournalForm({ skills, onCreated }: JournalFormProps) {
   const [content, setContent] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [linkedSkillId, setLinkedSkillId] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!content.trim() || !date) return;
-
-    const tags = tagsInput
-      .split(',')
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
-    const optimistic: JournalEntry = {
-      id: `temp-${Date.now()}`,
-      content: content.trim(),
-      tags,
-      linkedSkillId: linkedSkillId || null,
-      date,
-    };
-
+    if (!content.trim()) { setError('Write something first'); return; }
+    const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
+    const optimistic: JournalEntry = { id: `temp-${Date.now()}`, content: content.trim(), tags, linkedSkillId: linkedSkillId || null, date };
     const body: any = { content: content.trim(), tags, date };
     if (linkedSkillId) body.linkedSkillId = linkedSkillId;
-
     onCreated(optimistic, body);
-    setContent('');
-    setTagsInput('');
-    setLinkedSkillId('');
+    setContent(''); setTagsInput(''); setLinkedSkillId(''); setError(null);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-card rounded-lg p-4 border border-border space-y-3">
+    <form onSubmit={handleSubmit} style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: 16, display: 'grid', gap: 12 }}>
+      {error && <p style={{ color: 'var(--warn)', fontSize: 13 }}>{error}</p>}
       <div>
-        <label htmlFor="journal-content" className="text-text-secondary text-xs block mb-1">What did you learn?</label>
-        <textarea
-          id="journal-content"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary min-h-[80px] resize-y focus:outline-none focus:border-accent-primary"
-          required
-        />
+        <label style={labelStyle}>What did you learn?</label>
+        <textarea value={content} onChange={(e) => setContent(e.target.value)} aria-label="What did you learn?" style={{ ...field, minHeight: 90, resize: 'vertical', lineHeight: 1.5 }} />
       </div>
-      <div>
-        <label htmlFor="journal-tags" className="text-text-secondary text-xs block mb-1">Tags (comma-separated)</label>
-        <input
-          id="journal-tags"
-          type="text"
-          value={tagsInput}
-          onChange={(e) => setTagsInput(e.target.value)}
-          placeholder="react, hooks, state"
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-        />
-      </div>
-      <div>
-        <label htmlFor="journal-date" className="text-text-secondary text-xs block mb-1">Date</label>
-        <input
-          id="journal-date"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-          required
-        />
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 180px' }}>
+          <label style={labelStyle}>Tags (comma-separated)</label>
+          <input type="text" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="react, hooks, state" aria-label="Tags (comma-separated)" style={field} />
+        </div>
+        <div style={{ flex: '0 1 150px' }}>
+          <label style={labelStyle}>Date</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" style={field} />
+        </div>
       </div>
       {skills.length > 0 && (
         <div>
-          <label htmlFor="journal-skill" className="text-text-secondary text-xs block mb-1">Link to Skill (optional)</label>
-          <select
-            id="journal-skill"
-            value={linkedSkillId}
-            onChange={(e) => setLinkedSkillId(e.target.value)}
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
-          >
+          <label style={labelStyle}>Link to skill (optional)</label>
+          <select value={linkedSkillId} onChange={(e) => setLinkedSkillId(e.target.value)} aria-label="Link to Skill (optional)" style={field}>
             <option value="">None</option>
-            {skills.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
+            {skills.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
       )}
-      <button
-        type="submit"
-        className="bg-accent-primary text-primary px-4 py-2 rounded text-sm font-semibold hover:opacity-90"
-      >
-        Add Entry
-      </button>
+      <button type="submit" className="btn btn-primary" style={{ justifySelf: 'start' }}>Add Entry</button>
     </form>
   );
 }
