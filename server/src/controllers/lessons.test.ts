@@ -12,6 +12,8 @@ vi.mock('../lib/prisma', () => ({
     },
     user: {
       upsert: vi.fn().mockResolvedValue({}),
+      // awardXP persists the new total.
+      update: vi.fn().mockResolvedValue({ totalXP: 0 }),
     },
   },
 }));

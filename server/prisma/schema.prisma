@@ -63,6 +63,27 @@ enum DocumentFormat {
   markdown
 }
 
+// Node types in the knowledge graph. The first three replace the old
+// Note / JournalEntry / LessonLearned models; the rest are new.
+enum KnowledgeKind {
+  note
+  journal
+  lesson
+  idea
+  question
+  source
+  person
+  concept
+}
+
+enum EdgeKind {
+  relates
+  supports
+  contradicts
+  derived_from
+  example_of
+}
+
 enum BookStatus {
   want_to_read
   reading
@@ -72,43 +93,45 @@ enum BookStatus {
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id
-  email        String   @unique
-  totalXP      Int      @default(0)
-  calorieGoal  Int      @default(2000)
+  id              String   @id
+  email           String   @unique
+  totalXP         Int      @default(0)
+  calorieGoal     Int      @default(2000)
   // Nutrition engine settings
-  nutritionGoal   String  @default("maintain") // cut | maintain | bulk | recomp
-  nutritionAdjust String  @default("steady")   // steady | reactive
-  calorieDelta    Int     @default(0)          // signed daily kcal adjustment (cut = negative)
-  proteinPerKg    Float   @default(1.8)
+  nutritionGoal   String   @default("maintain") // cut | maintain | bulk | recomp
+  nutritionAdjust String   @default("steady") // steady | reactive
+  calorieDelta    Int      @default(0) // signed daily kcal adjustment (cut = negative)
+  proteinPerKg    Float    @default(1.8)
   // Learning
-  readingGoal     Int     @default(12) // books per year
-  createdAt    DateTime @default(now())
+  readingGoal     Int      @default(12) // books per year
+  createdAt       DateTime @default(now())
 
-  quests           Quest[]
-  tasks            Task[]
-  skills           Skill[]
-  weightEntries    WeightEntry[]
-  measurements     Measurement[]
-  gymSessions      GymSession[]
-  trainingPrograms TrainingProgram[]
-  foodEntries      FoodEntry[]
-  recipes          Recipe[]
-  mealPrepPlans    MealPrepPlan[]
-  documents        Document[]
-  books            Book[]
-  journalEntries   JournalEntry[]
-  lessonsLearned   LessonLearned[]
-  notes            Note[]
-  whoopConnection  WhoopConnection?
-  whoopDailies     WhoopDaily[]
+  quests            Quest[]
+  tasks             Task[]
+  skills            Skill[]
+  weightEntries     WeightEntry[]
+  measurements      Measurement[]
+  gymSessions       GymSession[]
+  trainingPrograms  TrainingProgram[]
+  foodEntries       FoodEntry[]
+  recipes           Recipe[]
+  mealPrepPlans     MealPrepPlan[]
+  documents         Document[]
+  books             Book[]
+  journalEntries    JournalEntry[]
+  lessonsLearned    LessonLearned[]
+  notes             Note[]
+  knowledgeNodes    KnowledgeNode[]
+  knowledgeEdges    KnowledgeEdge[]
+  whoopConnection   WhoopConnection?
+  whoopDailies      WhoopDaily[]
   nutritionXpClaims NutritionXpClaim[]
 }
 
 model NutritionXpClaim {
   id        String   @id @default(uuid())
   userId    String
-  date      String   // YYYY-MM-DD the XP was claimed for
+  date      String // YYYY-MM-DD the XP was claimed for
   xp        Int
   createdAt DateTime @default(now())
 
@@ -120,8 +143,8 @@ model NutritionXpClaim {
 model WhoopDaily {
   id        String   @id @default(uuid())
   userId    String
-  date      String   // YYYY-MM-DD (the cycle's calendar day)
-  calories  Int      // total energy burned that day (kcal, from WHOOP kilojoules)
+  date      String // YYYY-MM-DD (the cycle's calendar day)
+  calories  Int // total energy burned that day (kcal, from WHOOP kilojoules)
   strain    Float?
   createdAt DateTime @default(now())
 
@@ -170,15 +193,15 @@ model QuestStep {
 }
 
 model Task {
-  id              String      @id @default(uuid())
+  id              String     @id @default(uuid())
   userId          String
   title           String
   recurrence      Recurrence
   xpReward        Int
-  completedToday  Boolean     @default(false)
+  completedToday  Boolean    @default(false)
   lastCompletedAt DateTime?
   linkedSkillId   String?
-  createdAt       DateTime    @default(now())
+  createdAt       DateTime   @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -232,7 +255,7 @@ model Exercise {
   reps      Int
   weight    Float
 
-  session      GymSession           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session      GymSession            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   muscleGroups ExerciseMuscleGroup[]
 }
 
@@ -292,19 +315,19 @@ model FoodEntry {
 }
 
 model Recipe {
-  id                String   @id @default(uuid())
-  userId            String
-  name              String
-  steps             String
+  id                 String   @id @default(uuid())
+  userId             String
+  name               String
+  steps              String
   caloriesPerServing Int
-  protein           Int      @default(0)
-  carbs             Int      @default(0)
-  fat               Int      @default(0)
-  servings          Int      @default(1)
-  createdAt         DateTime @default(now())
+  protein            Int      @default(0)
+  carbs              Int      @default(0)
+  fat                Int      @default(0)
+  servings           Int      @default(1)
+  createdAt          DateTime @default(now())
 
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ingredients    Ingredient[]
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients     Ingredient[]
   mealPrepEntries MealPrepEntry[]
 }
 
@@ -353,7 +376,6 @@ model Document {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-
 model Book {
   id            String     @id @default(uuid())
   userId        String
@@ -373,7 +395,6 @@ model Book {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-
 model JournalEntry {
   id            String   @id @default(uuid())
   userId        String
@@ -385,7 +406,6 @@ model JournalEntry {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
 
 model LessonLearned {
   id            String   @id @default(uuid())
@@ -399,7 +419,6 @@ model LessonLearned {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-
 model Note {
   id        String   @id @default(uuid())
   userId    String
@@ -410,4 +429,48 @@ model Note {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Knowledge graph ─────────────────────────────────────────────────────────
+
+model KnowledgeNode {
+  id            String        @id @default(uuid())
+  userId        String
+  kind          KnowledgeKind @default(note)
+  title         String
+  content       String        @default("")
+  tags          String[]      @default([])
+  linkedSkillId String?
+  bookId        String?
+  // Set when the row was backfilled from the legacy note/journal/lesson tables,
+  // so the import stays idempotent.
+  legacyId      String?       @unique
+  date          DateTime?     @db.Date
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outgoing KnowledgeEdge[] @relation("edgeFrom")
+  incoming KnowledgeEdge[] @relation("edgeTo")
+
+  @@index([userId])
+}
+
+model KnowledgeEdge {
+  id        String   @id @default(uuid())
+  userId    String
+  fromId    String
+  toId      String
+  kind      EdgeKind @default(relates)
+  // Edges created by parsing [[wiki-links]] out of node content are managed
+  // automatically and rebuilt on every save; manual edges are never touched.
+  auto      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  from KnowledgeNode @relation("edgeFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   KnowledgeNode @relation("edgeTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId, kind])
+  @@index([userId])
 }

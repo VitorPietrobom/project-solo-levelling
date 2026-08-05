@@ -32,6 +32,11 @@
   --bad: oklch(0.68 0.17 24);
   --info: oklch(0.72 0.13 244);
 
+  /* Knowledge-graph node kinds that need a hue of their own so all eight
+     types stay distinguishable in the legend. */
+  --kind-source: oklch(0.72 0.13 330);
+  --kind-person: oklch(0.76 0.09 60);
+
   /* Radii */
   --r-sm: 9px;
   --r: 14px;
