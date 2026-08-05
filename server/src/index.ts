@@ -24,6 +24,7 @@ import whoopRoutes from './routes/whoop';
 import nutritionRoutes from './routes/nutrition';
 import exportRoutes from './routes/export';
 import learningRoutes from './routes/learning';
+import knowledgeRoutes from './routes/knowledge';
 import { authProxy } from './controllers/authProxy';
 
 const app = express();
@@ -62,6 +63,7 @@ app.use('/api/whoop', whoopRoutes);
 app.use('/api/nutrition', nutritionRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/learning', learningRoutes);
+app.use('/api/knowledge', knowledgeRoutes);
 // Same-origin auth proxy (all methods, any sub-path) so session cookies are first-party.
 app.all('/api/auth-proxy/*', authProxy);
 
