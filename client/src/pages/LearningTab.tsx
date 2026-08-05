@@ -80,6 +80,11 @@ export default function LearningTab() {
     setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, rating } : b)));
     apiClient.patch(`/api/books/${id}`, { body: { rating } }).catch(() => fetchBooks());
   }
+  function handleBookRefreshCover(id: string) {
+    apiClient.post(`/api/books/${id}/cover`)
+      .then((data) => setBooks((prev) => prev.map((b) => (b.id === id ? (data as Book) : b))))
+      .catch(() => { /* ignore */ });
+  }
 
   // ── Journal ──
   function handleJournalCreated(optimistic: JournalEntry, body: any) {
@@ -203,6 +208,7 @@ export default function LearningTab() {
             onUpdateStatus={handleBookUpdateStatus}
             onUpdateProgress={handleBookUpdateProgress}
             onUpdateRating={handleBookUpdateRating}
+            onRefreshCover={handleBookRefreshCover}
             onDelete={(id) => { const b = books.find((x) => x.id === id); setConfirmDelete({ kind: 'book', id, label: b?.title ?? 'this book' }); }}
           />
         </section>

@@ -4,6 +4,27 @@ import { awardXP } from '../services/xp';
 
 export const BOOK_FINISH_XP = 80;
 
+// Look up a cover image from the Open Library API (free, no key). Best-effort:
+// returns null on any failure so book creation never blocks on it.
+async function fetchCover(title: string, author: string): Promise<string | null> {
+  try {
+    const q = new URLSearchParams({ title, author, limit: '1', fields: 'cover_i,isbn' });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch(`https://openlibrary.org/search.json?${q}`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!r.ok) return null;
+    const data = await r.json() as { docs?: { cover_i?: number; isbn?: string[] }[] };
+    const doc = data.docs?.[0];
+    if (!doc) return null;
+    if (doc.cover_i) return `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`;
+    if (doc.isbn?.[0]) return `https://covers.openlibrary.org/b/isbn/${doc.isbn[0]}-M.jpg`;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function listBooks(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
@@ -47,6 +68,8 @@ export async function createBook(req: Request, res: Response): Promise<void> {
     const validStatuses = ['want_to_read', 'reading', 'finished'];
     const bookStatus = status && validStatuses.includes(status) ? status : 'want_to_read';
 
+    const coverUrl = await fetchCover(title.trim(), author.trim());
+
     const book = await prisma.book.create({
       data: {
         userId,
@@ -54,6 +77,7 @@ export async function createBook(req: Request, res: Response): Promise<void> {
         author: author.trim(),
         totalPages,
         status: bookStatus,
+        coverUrl,
         linkedSkillId: linkedSkillId || null,
         startedAt: bookStatus === 'reading' ? new Date() : null,
       },
@@ -139,6 +163,23 @@ export async function updateBook(req: Request, res: Response): Promise<void> {
     }
 
     res.json({ ...updated, xpAwarded: justFinished ? BOOK_FINISH_XP : 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// POST /api/books/:id/cover — (re)fetch the cover from Open Library.
+export async function refreshCover(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const bookId = req.params.id as string;
+    const book = await prisma.book.findFirst({ where: { id: bookId, userId } });
+    if (!book) { res.status(404).json({ error: 'Book not found' }); return; }
+
+    const coverUrl = await fetchCover(book.title, book.author);
+    const updated = await prisma.book.update({ where: { id: bookId }, data: { coverUrl } });
+    res.json(updated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
