@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, BookOpen, Star, Clock } from 'lucide-react';
+import { X, BookOpen, Star, Clock, Image as ImageIcon } from 'lucide-react';
 import XPBar from './ui/XPBar';
 
 export interface Book {
@@ -11,6 +11,7 @@ export interface Book {
   currentPage: number;
   notes: string | null;
   rating?: number | null;
+  coverUrl?: string | null;
   linkedSkillId: string | null;
   startedAt: string | null;
   finishedAt: string | null;
@@ -21,6 +22,7 @@ interface BookListProps {
   onUpdateStatus: (id: string, status: Book['status']) => void;
   onUpdateProgress: (id: string, currentPage: number) => void;
   onUpdateRating?: (id: string, rating: number | null) => void;
+  onRefreshCover?: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
@@ -57,11 +59,35 @@ const STATUS_COLOR: Record<Book['status'], string> = {
   finished: 'var(--good)',
 };
 
-function BookCard({ book, onUpdateStatus, onUpdateProgress, onUpdateRating, onDelete }: {
+function BookCover({ book, onRefreshCover }: { book: Book; onRefreshCover?: (id: string) => void }) {
+  const [failed, setFailed] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const show = book.coverUrl && !failed;
+  return (
+    <div style={{ width: 46, height: 66, flexShrink: 0, borderRadius: 5, overflow: 'hidden', background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {show ? (
+        <img src={book.coverUrl!} alt="" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : onRefreshCover ? (
+        <button
+          title="Find cover" aria-label="Find cover"
+          onClick={() => { setFetching(true); setFailed(false); onRefreshCover(book.id); }}
+          style={{ width: '100%', height: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {fetching ? <ImageIcon size={16} className="spin" /> : <ImageIcon size={16} />}
+        </button>
+      ) : (
+        <BookOpen size={16} color="var(--text-faint)" />
+      )}
+    </div>
+  );
+}
+
+function BookCard({ book, onUpdateStatus, onUpdateProgress, onUpdateRating, onRefreshCover, onDelete }: {
   book: Book;
   onUpdateStatus: (id: string, status: Book['status']) => void;
   onUpdateProgress: (id: string, currentPage: number) => void;
   onUpdateRating: (id: string, rating: number | null) => void;
+  onRefreshCover?: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   const [pageInput, setPageInput] = useState('');
@@ -77,12 +103,17 @@ function BookCard({ book, onUpdateStatus, onUpdateProgress, onUpdateRating, onDe
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: 13 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
-        <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}>{book.title}</span>
-        <button onClick={() => onDelete(book.id)} aria-label={`Delete ${book.title}`}
-          style={{ background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', flexShrink: 0, display: 'flex', lineHeight: 1 }}><X size={13} /></button>
+      <div style={{ display: 'flex', gap: 11, marginBottom: 10 }}>
+        <BookCover book={book} onRefreshCover={onRefreshCover} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}>{book.title}</span>
+            <button onClick={() => onDelete(book.id)} aria-label={`Delete ${book.title}`}
+              style={{ background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', flexShrink: 0, display: 'flex', lineHeight: 1 }}><X size={13} /></button>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>{book.author}</p>
+        </div>
       </div>
-      <p style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 10 }}>{book.author}</p>
 
       <XPBar value={book.currentPage} max={book.totalPages || 1} height={6} color={STATUS_COLOR[book.status]} />
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
@@ -143,7 +174,7 @@ function Column({ title, count, color, children }: { title: string; count: numbe
   );
 }
 
-export default function BookList({ books = [], onUpdateStatus, onUpdateProgress, onUpdateRating = () => {}, onDelete }: BookListProps) {
+export default function BookList({ books = [], onUpdateStatus, onUpdateProgress, onUpdateRating = () => {}, onRefreshCover, onDelete }: BookListProps) {
   const wantToRead = books.filter((b) => b.status === 'want_to_read');
   const reading = books.filter((b) => b.status === 'reading');
   const finished = books.filter((b) => b.status === 'finished');
@@ -160,13 +191,13 @@ export default function BookList({ books = [], onUpdateStatus, onUpdateProgress,
   return (
     <div className="grid-3-col">
       <Column title="Want to Read" count={wantToRead.length} color={STATUS_COLOR.want_to_read}>
-        {wantToRead.map((b) => <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onUpdateRating={onUpdateRating} onDelete={onDelete} />)}
+        {wantToRead.map((b) => <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onUpdateRating={onUpdateRating} onRefreshCover={onRefreshCover} onDelete={onDelete} />)}
       </Column>
       <Column title="Reading" count={reading.length} color={STATUS_COLOR.reading}>
-        {reading.map((b) => <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onUpdateRating={onUpdateRating} onDelete={onDelete} />)}
+        {reading.map((b) => <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onUpdateRating={onUpdateRating} onRefreshCover={onRefreshCover} onDelete={onDelete} />)}
       </Column>
       <Column title="Finished" count={finished.length} color={STATUS_COLOR.finished}>
-        {finished.map((b) => <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onUpdateRating={onUpdateRating} onDelete={onDelete} />)}
+        {finished.map((b) => <BookCard key={b.id} book={b} onUpdateStatus={onUpdateStatus} onUpdateProgress={onUpdateProgress} onUpdateRating={onUpdateRating} onRefreshCover={onRefreshCover} onDelete={onDelete} />)}
       </Column>
     </div>
   );

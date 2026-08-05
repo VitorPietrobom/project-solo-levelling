@@ -364,6 +364,7 @@ model Book {
   currentPage   Int        @default(0)
   notes         String?
   rating        Int?
+  coverUrl      String?
   linkedSkillId String?
   startedAt     DateTime?
   finishedAt    DateTime?
