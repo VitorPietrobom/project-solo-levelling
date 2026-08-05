@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, X, Trash2, Link2, CornerUpLeft, Layers, HelpCircle, Check, Plus } from 'lucide-react';
+import { Pencil, X, Trash2, Link2, CornerUpLeft, Layers, HelpCircle, Check, Plus, BookOpen } from 'lucide-react';
 import Markdown from './ui/Markdown';
 import { KIND_META, EDGE_KINDS, EDGE_LABEL, type FullNode, type GraphNode, type EdgeKind } from '../lib/knowledge';
 
@@ -66,6 +66,9 @@ export default function KnowledgeNodePanel({ node, allNodes, onSelect, onEdit, o
   const [linkKind, setLinkKind] = useState<EdgeKind>('relates');
 
   const meta = KIND_META[node.kind] ?? KIND_META.note;
+  // Book nodes mirror the bookshelf, so editing or deleting them here would
+  // just be undone by the next sync — link them instead.
+  const isBook = Boolean(node.bookId);
   const connected = new Set([...node.links, ...node.backlinks].map((l) => l.node.id));
   const candidates = allNodes.filter((n) => n.id !== node.id && !connected.has(n.id));
 
@@ -82,12 +85,14 @@ export default function KnowledgeNodePanel({ node, allNodes, onSelect, onEdit, o
     <div style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: 18 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ minWidth: 0 }}>
-          <span className="chip" style={{ fontSize: 10.5, color: meta.color, borderColor: 'var(--line-soft)' }}>{meta.label}</span>
+          <span className="chip" style={{ fontSize: 10.5, color: isBook ? 'var(--kind-source)' : meta.color, borderColor: 'var(--line-soft)' }}>
+            {isBook ? <><BookOpen size={11} style={{ marginRight: 4, verticalAlign: -1 }} />Book</> : meta.label}
+          </span>
           <h3 style={{ fontSize: 19, marginTop: 8 }}>{node.title}</h3>
         </div>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-          <button className="btn btn-ghost" onClick={onEdit} aria-label="Edit node" style={{ padding: '6px 8px' }}><Pencil size={14} /></button>
-          <button className="btn btn-ghost" onClick={onDelete} aria-label="Delete node" style={{ padding: '6px 8px' }}><Trash2 size={14} /></button>
+          {!isBook && <button className="btn btn-ghost" onClick={onEdit} aria-label="Edit node" style={{ padding: '6px 8px' }}><Pencil size={14} /></button>}
+          {!isBook && <button className="btn btn-ghost" onClick={onDelete} aria-label="Delete node" style={{ padding: '6px 8px' }}><Trash2 size={14} /></button>}
           <button className="btn btn-ghost" onClick={onClose} aria-label="Close node" style={{ padding: '6px 8px' }}><X size={15} /></button>
         </div>
       </div>
@@ -98,6 +103,12 @@ export default function KnowledgeNodePanel({ node, allNodes, onSelect, onEdit, o
             <span key={t} className="chip" style={{ fontSize: 11, color: 'var(--accent-2)', borderColor: 'var(--accent-2-soft)' }}>{t}</span>
           ))}
         </div>
+      )}
+
+      {isBook && (
+        <p style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 10 }}>
+          Synced from your bookshelf — edit the book there. You can still link it to anything.
+        </p>
       )}
 
       {node.content.trim() !== '' && (

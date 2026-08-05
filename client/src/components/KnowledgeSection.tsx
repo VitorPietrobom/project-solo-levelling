@@ -14,13 +14,15 @@ interface Props {
   /** Search text from the Learning tab's global search box. */
   query: string;
   activeTags: string[];
+  /** Bumped by the parent when the bookshelf changes, so book nodes refresh. */
+  refreshKey?: number;
   /** Reports every tag in the graph so the parent can render the tag cloud. */
   onTagsDiscovered?: (tags: string[]) => void;
   addXP: (amount: number, reason: string) => void;
   onChanged?: () => void;
 }
 
-export default function KnowledgeSection({ query, activeTags, onTagsDiscovered, addXP, onChanged }: Props) {
+export default function KnowledgeSection({ query, activeTags, refreshKey = 0, onTagsDiscovered, addXP, onChanged }: Props) {
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export default function KnowledgeSection({ query, activeTags, onTagsDiscovered, 
     try { setSelected((await apiClient.get(`/api/knowledge/${id}`)) as FullNode); } catch { setSelected(null); }
   }, []);
 
-  useEffect(() => { fetchGraph(); }, [fetchGraph]);
+  useEffect(() => { fetchGraph(); }, [fetchGraph, refreshKey]);
   useEffect(() => { if (selectedId) fetchNode(selectedId); else setSelected(null); }, [selectedId, fetchNode]);
 
   useEffect(() => {

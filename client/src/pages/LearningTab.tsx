@@ -126,6 +126,7 @@ export default function LearningTab() {
         <KnowledgeSection
           query={query}
           activeTags={activeTags}
+          refreshKey={statsKey}
           onTagsDiscovered={handleTags}
           addXP={addXP}
           onChanged={bumpStats}

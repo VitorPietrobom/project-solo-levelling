@@ -14,8 +14,17 @@ vi.mock('../lib/prisma', () => ({
     skill: {
       update: vi.fn(),
     },
+    // The bookshelf is projected into the knowledge graph as `source` nodes.
+    knowledgeNode: {
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({}),
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
     user: {
       upsert: vi.fn().mockResolvedValue({}),
+      // awardXP persists the new total.
+      update: vi.fn().mockResolvedValue({ totalXP: 0 }),
     },
   },
 }));

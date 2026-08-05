@@ -35,7 +35,6 @@ export default function KnowledgeGraph({ nodes, edges, selectedId, matchIds, onS
 
   const simEdges = useMemo(() => edges.map((e) => ({ fromId: e.fromId, toId: e.toId })), [edges]);
   const nodeIds = useMemo(() => nodes.map((n) => n.id), [nodes]);
-  const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
   // Re-seed whenever the node set changes, keeping positions of nodes we
   // already know so adding one doesn't rearrange the whole map.
@@ -225,11 +224,22 @@ export default function KnowledgeGraph({ nodes, edges, selectedId, matchIds, onS
                 onPointerLeave={() => setHoverId((h) => (h === n.id ? null : h))}
               >
                 {selected && <circle r={r + 6} fill="none" stroke="var(--accent)" strokeWidth={1.5} opacity={0.6} />}
-                <circle
-                  r={r} fill={meta.color}
-                  stroke={selected ? 'var(--accent)' : 'var(--bg-1)'} strokeWidth={selected ? 2 : 1.5}
-                  opacity={selected || near || !selectedId ? 1 : 0.55}
-                />
+                {n.bookId ? (
+                  // Books are drawn as spines rather than dots — they come from
+                  // the bookshelf, not from something you wrote.
+                  <rect
+                    x={-r * 0.72} y={-r} width={r * 1.44} height={r * 2} rx={2}
+                    fill={meta.color}
+                    stroke={selected ? 'var(--accent)' : 'var(--bg-1)'} strokeWidth={selected ? 2 : 1.5}
+                    opacity={selected || near || !selectedId ? 1 : 0.55}
+                  />
+                ) : (
+                  <circle
+                    r={r} fill={meta.color}
+                    stroke={selected ? 'var(--accent)' : 'var(--bg-1)'} strokeWidth={selected ? 2 : 1.5}
+                    opacity={selected || near || !selectedId ? 1 : 0.55}
+                  />
+                )}
                 {showLabel && (
                   <text
                     y={r + 12} textAnchor="middle"
@@ -254,6 +264,11 @@ export default function KnowledgeGraph({ nodes, edges, selectedId, matchIds, onS
             </span>
           );
         })}
+        {nodes.some((n) => n.bookId) && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--text-faint)' }}>
+            <span style={{ width: 5, height: 8, borderRadius: 1, background: 'var(--kind-source)' }} />Book
+          </span>
+        )}
       </div>
     </div>
   );

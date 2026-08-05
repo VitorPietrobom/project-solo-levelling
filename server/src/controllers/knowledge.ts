@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { awardXP } from '../services/xp';
+import { syncBookNodes } from '../services/bookNodes';
 
 export const NODE_XP = 12;
 export const LINK_XP = 4;
@@ -82,6 +83,11 @@ async function syncAutoEdges(userId: string, nodeId: string, content: string): P
 export async function getGraph(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
+
+    // Keep the bookshelf projection in step before reading the graph. This is
+    // a no-op write unless a book was added, renamed or deleted.
+    try { await syncBookNodes(userId); } catch (e) { console.error('book node sync failed', e); }
+
     const [nodes, edges] = await Promise.all([
       prisma.knowledgeNode.findMany({
         where: { userId },
@@ -342,6 +348,9 @@ export async function importLegacy(req: Request, res: Response): Promise<void> {
       await prisma.knowledgeNode.createMany({ data: rows, skipDuplicates: true });
     }
 
+    // Pull the bookshelf in too, so books can be linked as sources.
+    const bookSync = await syncBookNodes(userId);
+
     // Shared tags are the cheapest honest signal for "these two are related",
     // so seed auto-edges between nodes that share a tag. Imports only.
     const all = await prisma.knowledgeNode.findMany({ where: { userId }, select: { id: true, tags: true } });
@@ -373,7 +382,7 @@ export async function importLegacy(req: Request, res: Response): Promise<void> {
       await prisma.knowledgeEdge.createMany({ data: seeded, skipDuplicates: true });
     }
 
-    res.json({ imported: rows.length, linked: seeded.length });
+    res.json({ imported: rows.length + bookSync.created, linked: seeded.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });

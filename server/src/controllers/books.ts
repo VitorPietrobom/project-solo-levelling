@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { awardXP } from '../services/xp';
+import { syncBookNodes, removeBookNode } from '../services/bookNodes';
 
 export const BOOK_FINISH_XP = 80;
 
@@ -82,6 +83,9 @@ export async function createBook(req: Request, res: Response): Promise<void> {
         startedAt: bookStatus === 'reading' ? new Date() : null,
       },
     });
+
+    // Mirror the book into the knowledge graph as a source node.
+    try { await syncBookNodes(userId); } catch (e) { console.error('book node sync failed', e); }
 
     res.status(201).json(book);
   } catch (err) {
@@ -198,6 +202,7 @@ export async function deleteBook(req: Request, res: Response): Promise<void> {
     }
 
     await prisma.book.delete({ where: { id: bookId } });
+    await removeBookNode(userId, bookId);
     res.json({ message: 'Book deleted' });
   } catch (err) {
     console.error(err);
