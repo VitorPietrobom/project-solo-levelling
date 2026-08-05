@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import Ring from '../components/ui/Ring';
 import XPBar from '../components/ui/XPBar';
-import RadarChart from '../components/ui/RadarChart';
+import RadarChart, { niceMax } from '../components/ui/RadarChart';
 import QuestForm from '../components/QuestForm';
 import type { Quest } from '../components/QuestList';
 import TaskForm from '../components/TaskForm';
@@ -27,12 +27,20 @@ interface OutletCtx {
   addXP: (amount: number, label: string) => void;
 }
 
-const TAG_COLOR: Record<string, string> = {
-  Work: 'var(--info)',
-  Mind: 'var(--accent-2)',
-  Body: 'var(--accent)',
-  Diet: 'var(--good)',
-};
+// Hunter rank by level — the chip used to read "E-Rank" forever regardless of
+// how far you'd got.
+const RANKS: { from: number; label: string; color: string }[] = [
+  { from: 60, label: 'S-Rank', color: 'var(--warn)' },
+  { from: 40, label: 'A-Rank', color: 'var(--bad)' },
+  { from: 25, label: 'B-Rank', color: 'var(--accent-2)' },
+  { from: 15, label: 'C-Rank', color: 'var(--info)' },
+  { from: 7, label: 'D-Rank', color: 'var(--accent)' },
+  { from: 0, label: 'E-Rank', color: 'var(--text-3)' },
+];
+
+export function rankForLevel(level: number): { label: string; color: string } {
+  return RANKS.find((r) => level >= r.from) ?? RANKS[RANKS.length - 1]!;
+}
 
 function StatCard({
   icon: IconComp,
@@ -74,6 +82,8 @@ export default function GamificationTab() {
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'quest' | 'skill'; id: string; name: string } | null>(null);
   const [dragQuestId, setDragQuestId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  // Shared highlight between the skill list and the radar.
+  const [hoveredSkill, setHoveredSkill] = useState<number | null>(null);
 
   const fetchQuests = useCallback(async () => {
     try { setQuests((await apiClient.get('/api/quests')) as Quest[]); } catch { /* silently fail */ }
@@ -228,16 +238,23 @@ export default function GamificationTab() {
       .catch(() => fetchSkills());
   }
 
+  const rank = rankForLevel(currentStatus?.level ?? 1);
+
   const daily = tasks.filter((t) => t.recurrence === 'daily');
   const weekly = tasks.filter((t) => t.recurrence === 'weekly');
   const dailyDone = daily.filter((t) => t.completedToday).length;
 
-  // Map skills to radar — use actual level so chart reflects mastery, not next-level progress
-  const radarData = skills.slice(0, 6).map((s) => ({
-    name: s.name.slice(0, 6),
-    axis: s.level,
-  }));
-  const radarMax = Math.max(1, ...radarData.map((d) => d.axis));
+  // Every skill goes on the radar. Sorted by name rather than by level so the
+  // shape stays comparable over time instead of reshuffling as levels change.
+  const radarData = [...skills]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((s) => ({
+      // Level plus progress into the next one, so the shape moves between levels.
+      name: s.name,
+      axis: s.level + s.progress.percentage / 100,
+      detail: `Lv ${s.level}`,
+    }));
+  const radarMax = niceMax(radarData.map((d) => d.axis));
 
   const questCols: [string, string, Quest[]][] = [
     ['To Do', 'todo', todoQuests],
@@ -265,7 +282,7 @@ export default function GamificationTab() {
           <div style={{ flex: 1, position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <h2 style={{ fontSize: 26 }}>Hunter</h2>
-              <span className="chip" style={{ borderColor: 'var(--accent-2)', color: 'var(--accent-2)' }}>E-Rank</span>
+              <span className="chip" style={{ borderColor: rank.color, color: rank.color }}>{rank.label}</span>
             </div>
             <div style={{ color: 'var(--text-3)', fontSize: 14, marginBottom: 16 }}>"The journey of a thousand miles begins beneath your feet."</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-3)', marginBottom: 7 }}>
@@ -309,7 +326,7 @@ export default function GamificationTab() {
               const q = quests.find((q) => q.id === dragQuestId);
               if (!q) return false;
               const col = q.completed ? 'Done' : q.steps.some((s) => s.completed) ? 'In Progress' : 'Todo';
-              return col !== label && !(label === 'Todo');
+              return col !== label && label !== 'To Do';
             })();
             return (
               <div
@@ -372,7 +389,7 @@ export default function GamificationTab() {
                           <div style={{ color: 'var(--text-3)', fontSize: 12.5, marginBottom: 11 }}>{q.description}</div>
                         )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ width: 7, height: 7, borderRadius: 99, background: TAG_COLOR['Work'] ?? 'var(--text-3)' }} />
+                          <span style={{ width: 7, height: 7, borderRadius: 99, background: isDone ? 'var(--good)' : done > 0 ? 'var(--accent)' : 'var(--text-faint)' }} />
                           <div style={{ flex: 1 }}>
                             <XPBar value={done} max={total} height={5} color={isDone ? 'var(--good)' : 'var(--accent)'} />
                           </div>
@@ -484,16 +501,30 @@ export default function GamificationTab() {
               <SkillForm onCreated={handleSkillCreated} />
             </div>
           )}
-          <div className="grid-2-col" style={{ alignItems: 'center' }}>
+          <div className={radarData.length >= 3 ? 'grid-2-col' : ''} style={{ alignItems: 'center' }}>
             <div style={{ display: 'grid', gap: 9 }}>
-              {skills.map((s) => {
+              {[...skills].sort((a, b) => b.level - a.level || a.name.localeCompare(b.name)).map((s) => {
                 const axisVal = s.progress.percentage;
                 const level = s.level;
+                const radarIndex = radarData.findIndex((d) => d.name === s.name);
+                const on = hoveredSkill === radarIndex && radarIndex >= 0;
                 return (
-                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ width: 78, fontSize: 13, fontWeight: 600 }}>{s.name}</span>
+                  <div
+                    key={s.id}
+                    onPointerEnter={() => setHoveredSkill(radarIndex >= 0 ? radarIndex : null)}
+                    onPointerLeave={() => setHoveredSkill(null)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12 }}
+                  >
+                    <span
+                      title={s.name}
+                      style={{
+                        flex: '0 1 108px', minWidth: 0, fontSize: 13, fontWeight: 600,
+                        color: on ? 'var(--accent)' : 'var(--text)',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}
+                    >{s.name}</span>
                     <div style={{ flex: 1 }}>
-                      <XPBar value={axisVal} max={100} height={6} color="var(--accent-2)" />
+                      <XPBar value={axisVal} max={100} height={6} color={on ? 'var(--accent)' : 'var(--accent-2)'} />
                     </div>
                     <span className="mono" style={{ fontSize: 12, color: 'var(--text-3)', width: 42, textAlign: 'right' }}>Lv {level}</span>
                     <button
@@ -518,13 +549,21 @@ export default function GamificationTab() {
                 <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>No skills yet. Add one!</p>
               )}
             </div>
-            {radarData.length > 0 ? (
-              <RadarChart data={radarData} size={200} max={radarMax} />
-            ) : (
-              <div style={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: 12 }}>
-                Add skills to see radar
+            {radarData.length >= 3 ? (
+              <div style={{ padding: '8px 4px' }}>
+                <RadarChart
+                  data={radarData}
+                  size={300}
+                  max={radarMax}
+                  highlightIndex={hoveredSkill}
+                  onHighlight={setHoveredSkill}
+                />
               </div>
-            )}
+            ) : skills.length > 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 12 }}>
+                {3 - skills.length} more skill{3 - skills.length === 1 ? '' : 's'} unlocks the radar.
+              </p>
+            ) : null}
           </div>
         </section>
       </div>
