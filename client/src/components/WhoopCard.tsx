@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Activity, RefreshCw, Heart, Moon, Zap } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 
@@ -14,6 +14,20 @@ interface WhoopStatus {
   connected: boolean;
   syncedAt?: string | null;
   latest?: WhoopLatest | null;
+}
+
+// Below this age, an existing sync is fresh enough to trust; above it, opening
+// the tab should pull new data on its own rather than show stale numbers
+// until someone remembers to tap "Sync". Previously sync only ever ran right
+// after the Whoop OAuth redirect, so a normal visit could show a weight or
+// recovery reading from days ago and never catch up until manually synced.
+export const WHOOP_STALE_MS = 20 * 60 * 1000; // 20 minutes
+
+export function isWhoopSyncStale(syncedAt: string | null | undefined, now: number = Date.now()): boolean {
+  if (!syncedAt) return true;
+  const t = new Date(syncedAt).getTime();
+  if (Number.isNaN(t)) return true;
+  return now - t > WHOOP_STALE_MS;
 }
 
 function recoveryColor(score: number | null): string {
@@ -44,6 +58,9 @@ export default function WhoopCard({ onSynced }: { onSynced?: () => void } = {}) 
   const [status, setStatus] = useState<WhoopStatus | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Guards the auto-sync so it fires once per mount, not on every status
+  // refetch (a sync itself calls setStatus, which would otherwise loop).
+  const autoSyncTried = useRef(false);
 
   const fetchStatus = useCallback(async () => {
     try { setStatus((await apiClient.get('/api/whoop/status')) as WhoopStatus); }
@@ -52,18 +69,29 @@ export default function WhoopCard({ onSynced }: { onSynced?: () => void } = {}) 
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
-  // Auto-sync once right after returning from the Whoop OAuth redirect.
+  // Once the first status lands, decide whether to sync automatically: always
+  // right after the Whoop OAuth redirect, or otherwise whenever the last sync
+  // is stale — so opening the tab reflects a recent weigh-in / recovery
+  // without requiring a manual tap every time.
   useEffect(() => {
+    if (!status || autoSyncTried.current) return;
+    autoSyncTried.current = true;
+
     const params = new URLSearchParams(window.location.search);
-    if (params.get('whoop') === 'connected') {
-      window.history.replaceState({}, '', window.location.pathname);
-      handleSync();
-    } else if (params.get('whoop') === 'error' || params.get('whoop') === 'denied') {
-      setError('Whoop connection was not completed.');
+    const justConnected = params.get('whoop') === 'connected';
+    if (justConnected || params.get('whoop') === 'error' || params.get('whoop') === 'denied') {
       window.history.replaceState({}, '', window.location.pathname);
     }
+    if (params.get('whoop') === 'error' || params.get('whoop') === 'denied') {
+      setError('Whoop connection was not completed.');
+      return;
+    }
+    if (!status.connected) return;
+    if (justConnected || isWhoopSyncStale(status.syncedAt)) {
+      handleSync();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [status]);
 
   async function handleConnect() {
     setError(null);
