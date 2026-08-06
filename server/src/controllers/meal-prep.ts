@@ -139,6 +139,147 @@ export async function createOrUpdateMealPrepPlan(req: Request, res: Response): P
   }
 }
 
+// Normalize to a safe non-negative integer (macros/calories from the AI can be
+// strings, floats, or nonsense).
+function toInt(v: unknown, fallback = 0): number {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : fallback;
+}
+
+/**
+ * POST /api/meal-prep/import
+ * Atomically imports an AI-built weekly plan: creates every recipe, then a
+ * plan whose entries reference them by name. One transaction so a bad payload
+ * leaves nothing half-created.
+ *
+ * Body: { weekStartDate, recipes: [{name, steps, caloriesPerServing, protein,
+ * carbs, fat, servings, ingredients:[{name, quantity, unit}]}],
+ * schedule: [{dayOfWeek, mealType, recipeName}] }
+ */
+export async function importMealPrepPlan(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const { weekStartDate, recipes, schedule } = req.body ?? {};
+
+    if (!weekStartDate) {
+      res.status(400).json({ error: 'weekStartDate is required' });
+      return;
+    }
+    const date = new Date(weekStartDate);
+    if (Number.isNaN(date.getTime()) || date.getUTCDay() !== 1) {
+      res.status(400).json({ error: 'weekStartDate must be a Monday' });
+      return;
+    }
+    if (!Array.isArray(recipes) || recipes.length === 0) {
+      res.status(400).json({ error: 'recipes must be a non-empty array' });
+      return;
+    }
+    if (!Array.isArray(schedule) || schedule.length === 0) {
+      res.status(400).json({ error: 'schedule must be a non-empty array' });
+      return;
+    }
+
+    // Validate + clean recipes.
+    const cleanRecipes = recipes
+      .filter((r) => r && typeof r.name === 'string' && r.name.trim() !== '')
+      .map((r) => ({
+        name: String(r.name).trim(),
+        steps: typeof r.steps === 'string' && r.steps.trim() !== '' ? r.steps.trim() : 'No steps provided.',
+        caloriesPerServing: toInt(r.caloriesPerServing),
+        protein: toInt(r.protein),
+        carbs: toInt(r.carbs),
+        fat: toInt(r.fat),
+        servings: Math.max(1, toInt(r.servings, 1)),
+        ingredients: Array.isArray(r.ingredients)
+          ? r.ingredients
+              .filter((ing: any) => ing && typeof ing.name === 'string' && ing.name.trim() !== '')
+              .map((ing: any) => ({
+                name: String(ing.name).trim(),
+                quantity: ing.quantity != null ? String(ing.quantity) : '',
+                unit: ing.unit != null ? String(ing.unit) : '',
+              }))
+          : [],
+      }));
+
+    if (cleanRecipes.length === 0) {
+      res.status(400).json({ error: 'No valid recipes in payload' });
+      return;
+    }
+
+    // Everything in one transaction: recipes, then the plan, then wire entries.
+    const plan = await prisma.$transaction(async (tx) => {
+      const nameToId = new Map<string, string>();
+      for (const r of cleanRecipes) {
+        const created = await tx.recipe.create({
+          data: {
+            userId,
+            name: r.name,
+            steps: r.steps,
+            caloriesPerServing: r.caloriesPerServing,
+            protein: r.protein,
+            carbs: r.carbs,
+            fat: r.fat,
+            servings: r.servings,
+            ingredients: { create: r.ingredients },
+          },
+        });
+        // Case-insensitive lookup so the schedule can reference names loosely.
+        nameToId.set(r.name.toLowerCase(), created.id);
+      }
+
+      // Build entries from the schedule, keeping only valid, resolvable slots.
+      // A plan can hold at most one recipe per (day, meal); last one wins.
+      const bySlot = new Map<string, { dayOfWeek: DayOfWeek; mealType: MealType; recipeId: string }>();
+      for (const s of schedule) {
+        if (!s || !VALID_DAYS.includes(s.dayOfWeek) || !VALID_MEAL_TYPES.includes(s.mealType)) continue;
+        const recipeId = nameToId.get(String(s.recipeName ?? '').trim().toLowerCase());
+        if (!recipeId) continue;
+        bySlot.set(`${s.dayOfWeek}-${s.mealType}`, {
+          dayOfWeek: s.dayOfWeek as DayOfWeek,
+          mealType: s.mealType as MealType,
+          recipeId,
+        });
+      }
+      const entries = [...bySlot.values()];
+      if (entries.length === 0) {
+        throw new Error('SCHEDULE_UNRESOLVED');
+      }
+
+      // Replace any existing plan for this week.
+      const existing = await tx.mealPrepPlan.findFirst({ where: { userId, weekStartDate: date } });
+      if (existing) {
+        await tx.mealPrepEntry.deleteMany({ where: { planId: existing.id } });
+      }
+
+      const created = existing
+        ? await tx.mealPrepPlan.update({
+            where: { id: existing.id },
+            data: { entries: { create: entries.map((e) => ({ dayOfWeek: e.dayOfWeek, mealType: e.mealType, recipe: { connect: { id: e.recipeId } } })) } },
+            include: { entries: { include: { recipe: { include: { ingredients: true } } }, orderBy: { dayOfWeek: 'asc' as const } } },
+          })
+        : await tx.mealPrepPlan.create({
+            data: {
+              userId,
+              weekStartDate: date,
+              entries: { create: entries.map((e) => ({ dayOfWeek: e.dayOfWeek, mealType: e.mealType, recipe: { connect: { id: e.recipeId } } })) },
+            },
+            include: { entries: { include: { recipe: { include: { ingredients: true } } }, orderBy: { dayOfWeek: 'asc' as const } } },
+          });
+
+      return created;
+    });
+
+    res.status(201).json({ plan, recipesCreated: cleanRecipes.length, mealsScheduled: plan.entries.length });
+  } catch (err) {
+    if (err instanceof Error && err.message === 'SCHEDULE_UNRESOLVED') {
+      res.status(400).json({ error: 'None of the scheduled meals matched a recipe name in the payload' });
+      return;
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export async function getGroceryList(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;

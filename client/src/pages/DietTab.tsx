@@ -6,11 +6,22 @@ import type { Recipe } from '../components/RecipeList';
 import MealPrepPlan from '../components/MealPrepPlan';
 import type { MealPrepPlanData } from '../components/MealPrepPlan';
 import MealPrepForm from '../components/MealPrepForm';
+import MealPlanImport from '../components/MealPlanImport';
 import GroceryList from '../components/GroceryList';
 import type { GroceryListData } from '../components/GroceryList';
 import NutritionTarget from '../components/NutritionTarget';
 import NutritionAiPrompt from '../components/NutritionAiPrompt';
 import { apiClient } from '../lib/apiClient';
+
+// The Monday that opens the current week, YYYY-MM-DD (local).
+function getCurrentMonday(): string {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diff);
+  return monday.toISOString().split('T')[0];
+}
 
 export default function DietTab() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -26,6 +37,7 @@ export default function DietTab() {
   const [selectedMealPrepDay, setSelectedMealPrepDay] = useState<string | null>(null);
   const [groceryList, setGroceryList] = useState<GroceryListData | null>(null);
   const [showMealPrepForm, setShowMealPrepForm] = useState(false);
+  const [showMealPrepAi, setShowMealPrepAi] = useState(false);
 
   const fetchFoodEntries = useCallback(async (date: string) => {
     try {
@@ -215,19 +227,42 @@ export default function DietTab() {
 
       {/* Meal Prep section */}
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 17 }}>Meal Prep — This Week</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <h3 style={{ fontSize: 17 }}>Meal Prep — This Week</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 3 }}>
+              Build a week with AI, or assign your own recipes by hand.
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {mealPrepPlan && (
               <button onClick={handleMealPrepDeleted} className="btn btn-ghost" style={{ color: 'var(--bad)' }}>
                 Delete Plan
               </button>
             )}
-            <button className="btn btn-ghost" onClick={() => setShowMealPrepForm(!showMealPrepForm)}>
-              {showMealPrepForm ? 'Cancel' : '+ New Plan'}
+            <button
+              className="btn btn-primary"
+              onClick={() => { setShowMealPrepAi((v) => !v); setShowMealPrepForm(false); }}
+            >
+              {showMealPrepAi ? 'Close' : '✨ Build with AI'}
+            </button>
+            <button
+              className="btn btn-ghost"
+              onClick={() => { setShowMealPrepForm(!showMealPrepForm); setShowMealPrepAi(false); }}
+            >
+              {showMealPrepForm ? 'Cancel' : '+ Manual plan'}
             </button>
           </div>
         </div>
+
+        {showMealPrepAi && (
+          <div style={{ marginBottom: 16 }}>
+            <MealPlanImport
+              weekStartDate={getCurrentMonday()}
+              onImported={(plan) => { setMealPrepPlan(plan as MealPrepPlanData); setShowMealPrepAi(false); fetchMealPrepPlan(); }}
+            />
+          </div>
+        )}
 
         {showMealPrepForm && (
           <div style={{ marginBottom: 16 }}>
