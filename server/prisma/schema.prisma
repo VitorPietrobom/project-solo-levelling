@@ -221,6 +221,10 @@ model WeightEntry {
   userId String
   weight Float
   date   DateTime @db.Date
+  // "manual" (a weigh-in the user typed) or "whoop" (auto-logged from a sync).
+  // A WHOOP sync may refresh its own row for the day but must never overwrite
+  // a manual entry.
+  source String   @default("manual")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
