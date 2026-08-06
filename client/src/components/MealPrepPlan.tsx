@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { CalendarDays } from 'lucide-react';
 
 export interface MealPrepEntry {
   id: string;
@@ -60,75 +61,86 @@ export default function MealPrepPlan({ plan, onSelectDay, selectedDay }: MealPre
 
   if (!plan) {
     return (
-      <div className="bg-card rounded-lg p-6 border border-border text-center">
-        <p className="text-text-secondary text-sm">No meal prep plan for this week. Create one below.</p>
+      <div style={{ background: 'var(--surface-inset)', borderRadius: 'var(--r)', padding: '32px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--text-faint)' }}>
+        <CalendarDays size={24} />
+        <p style={{ fontSize: 13 }}>No meal prep plan for this week. Build one above.</p>
       </div>
     );
   }
 
+  const cellBase: React.CSSProperties = {
+    padding: '9px 10px', borderBottom: '1px solid var(--line-soft)', textAlign: 'center', fontSize: 12,
+  };
+
   return (
-    <div className="bg-card rounded-lg border border-border overflow-x-auto">
-      <table className="w-full min-w-[640px] text-sm" role="grid" aria-label="Weekly meal prep plan">
+    <div style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', overflowX: 'auto' }}>
+      <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }} role="grid" aria-label="Weekly meal prep plan">
         <thead>
           <tr>
-            <th className="text-text-secondary text-xs font-medium px-3 py-2 text-left border-b border-border" />
-            {DAYS.map((day) => (
-              <th
-                key={day}
-                className={`px-3 py-2 text-center border-b border-border cursor-pointer transition-colors ${
-                  selectedDay === day
-                    ? 'bg-accent-primary/10 text-accent-primary'
-                    : 'text-text-primary hover:bg-secondary'
-                }`}
-                onClick={() => onSelectDay(day)}
-                role="columnheader"
-                aria-label={`Select ${DAY_LABELS[day]}`}
-              >
-                {DAY_LABELS[day]}
-              </th>
-            ))}
+            <th style={{ ...cellBase, textAlign: 'left', background: 'transparent' }} />
+            {DAYS.map((day) => {
+              const on = selectedDay === day;
+              return (
+                <th
+                  key={day}
+                  onClick={() => onSelectDay(day)}
+                  role="columnheader"
+                  aria-label={`Select ${DAY_LABELS[day]}`}
+                  data-selected={on ? 'true' : 'false'}
+                  style={{
+                    ...cellBase, cursor: 'pointer', fontWeight: 600,
+                    color: on ? 'var(--accent)' : 'var(--text-2)',
+                    background: on ? 'var(--accent-soft)' : 'transparent',
+                    borderTopLeftRadius: 0, transition: 'background .15s, color .15s',
+                  }}
+                >
+                  {DAY_LABELS[day]}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
           {MEAL_TYPES.map((meal) => (
             <tr key={meal}>
-              <td className="text-text-secondary text-xs font-medium px-3 py-2 border-b border-border whitespace-nowrap">
+              <td style={{ ...cellBase, textAlign: 'left', color: 'var(--text-3)', fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
                 {MEAL_LABELS[meal]}
               </td>
               {DAYS.map((day) => {
                 const entry = entryMap.get(`${day}-${meal}`);
+                const on = selectedDay === day;
                 return (
                   <td
                     key={`${day}-${meal}`}
-                    className={`px-3 py-2 border-b border-border text-center ${
-                      selectedDay === day ? 'bg-accent-primary/5' : ''
-                    }`}
                     data-testid={`cell-${day}-${meal}`}
+                    style={{ ...cellBase, background: on ? 'var(--accent-soft)' : 'transparent' }}
                   >
                     {entry ? (
-                      <span className="text-text-primary text-xs">{entry.recipe.name}</span>
+                      <span style={{ color: 'var(--text)', fontSize: 11.5 }}>{entry.recipe.name}</span>
                     ) : (
-                      <span className="text-text-secondary text-xs opacity-40">—</span>
+                      <span style={{ color: 'var(--text-faint)', opacity: 0.5 }}>—</span>
                     )}
                   </td>
                 );
               })}
             </tr>
           ))}
-          {/* Daily calorie totals */}
           <tr>
-            <td className="text-text-secondary text-xs font-medium px-3 py-2 whitespace-nowrap">
+            <td style={{ padding: '9px 10px', textAlign: 'left', color: 'var(--text-3)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
               Total kcal
             </td>
-            {DAYS.map((day) => (
-              <td
-                key={`cal-${day}`}
-                className={`px-3 py-2 text-center ${selectedDay === day ? 'bg-accent-primary/5' : ''}`}
-                data-testid={`calories-${day}`}
-              >
-                <span className="text-accent-info text-xs font-semibold">{dailyCalories[day]}</span>
-              </td>
-            ))}
+            {DAYS.map((day) => {
+              const on = selectedDay === day;
+              return (
+                <td
+                  key={`cal-${day}`}
+                  data-testid={`calories-${day}`}
+                  style={{ padding: '9px 10px', textAlign: 'center', background: on ? 'var(--accent-soft)' : 'transparent' }}
+                >
+                  <span className="mono" style={{ color: 'var(--info)', fontSize: 11.5, fontWeight: 700 }}>{dailyCalories[day]}</span>
+                </td>
+              );
+            })}
           </tr>
         </tbody>
       </table>

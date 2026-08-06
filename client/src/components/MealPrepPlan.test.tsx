@@ -67,7 +67,7 @@ describe('MealPrepPlan', () => {
   it('highlights the selected day column', () => {
     render(<MealPrepPlan plan={samplePlan} onSelectDay={vi.fn()} selectedDay="mon" />);
     const monHeader = screen.getByLabelText('Select Mon');
-    expect(monHeader.className).toContain('text-accent-primary');
+    expect(monHeader.getAttribute('data-selected')).toBe('true');
   });
 
   it('renders all 7 day columns', () => {

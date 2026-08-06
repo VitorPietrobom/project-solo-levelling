@@ -72,13 +72,22 @@ export default function MealPrepForm({ recipes, onCreated }: MealPrepFormProps) 
     setSelections({});
   }
 
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)',
+    borderRadius: 'var(--r-sm)', padding: '7px 10px', fontSize: 13, outline: 'none',
+  };
+  const cellSelect: React.CSSProperties = {
+    width: '100%', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)',
+    borderRadius: 'var(--r-sm)', padding: '5px 6px', fontSize: 11.5, outline: 'none',
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="bg-card rounded-lg p-4 border border-border space-y-4">
-      <h3 className="text-text-primary font-semibold">New Meal Prep Plan</h3>
-      {error && <p className="text-accent-warning text-sm">{error}</p>}
+    <form onSubmit={handleSubmit} style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: 16, display: 'grid', gap: 14 }}>
+      <span className="eyebrow">New meal prep plan</span>
+      {error && <p style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}</p>}
 
       <div>
-        <label htmlFor="week-start" className="text-text-secondary text-xs block mb-1">
+        <label htmlFor="week-start" style={{ display: 'block', fontSize: 12, color: 'var(--text-3)', marginBottom: 5 }}>
           Week starting (Monday)
         </label>
         <input
@@ -86,21 +95,21 @@ export default function MealPrepForm({ recipes, onCreated }: MealPrepFormProps) 
           type="date"
           value={weekStartDate}
           onChange={(e) => setWeekStartDate(e.target.value)}
-          className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+          style={inputStyle}
           aria-label="Week start date"
         />
       </div>
 
       {recipes.length === 0 ? (
-        <p className="text-text-secondary text-sm">Create some recipes first to build a meal plan.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>Create some recipes first to build a meal plan by hand — or use “Build with AI” above.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th className="text-text-secondary text-xs font-medium px-2 py-1 text-left" />
+                <th style={{ padding: '4px 6px', textAlign: 'left' }} />
                 {DAYS.map((day) => (
-                  <th key={day} className="text-text-primary text-xs font-medium px-2 py-1 text-center">
+                  <th key={day} style={{ padding: '4px 6px', textAlign: 'center', fontSize: 11.5, fontWeight: 600, color: 'var(--text-3)' }}>
                     {DAY_LABELS[day]}
                   </th>
                 ))}
@@ -109,15 +118,15 @@ export default function MealPrepForm({ recipes, onCreated }: MealPrepFormProps) 
             <tbody>
               {MEAL_TYPES.map((meal) => (
                 <tr key={meal}>
-                  <td className="text-text-secondary text-xs px-2 py-1 whitespace-nowrap">
+                  <td style={{ padding: '4px 8px 4px 0', fontSize: 11.5, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
                     {MEAL_LABELS[meal]}
                   </td>
                   {DAYS.map((day) => (
-                    <td key={`${day}-${meal}`} className="px-1 py-1">
+                    <td key={`${day}-${meal}`} style={{ padding: 3 }}>
                       <select
                         value={selections[`${day}-${meal}`] || ''}
                         onChange={(e) => handleSelect(day, meal, e.target.value)}
-                        className="w-full bg-secondary text-text-primary border border-border rounded px-1 py-1 text-xs focus:outline-none focus:border-accent-primary"
+                        style={cellSelect}
                         aria-label={`${DAY_LABELS[day]} ${MEAL_LABELS[meal]} recipe`}
                       >
                         <option value="">—</option>
@@ -136,10 +145,7 @@ export default function MealPrepForm({ recipes, onCreated }: MealPrepFormProps) 
         </div>
       )}
 
-      <button
-        type="submit"
-        className="w-full bg-accent-primary text-primary font-semibold py-2 rounded hover:opacity-90 transition-opacity"
-      >
+      <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center' }}>
         Create Plan
       </button>
     </form>
