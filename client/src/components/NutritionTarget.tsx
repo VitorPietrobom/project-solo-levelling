@@ -9,6 +9,9 @@ interface Macro { calories: number; protein: number; carbs: number; fat: number 
 interface Adherence { proteinMet: boolean; caloriesOk: boolean; eligible: boolean; claimed: boolean; xp: number }
 interface TargetResponse {
   date: string;
+  weekStart: string;
+  weekEnd: string;
+  nextRecalibration: string;
   tdee: number | null;
   source: 'adaptive' | 'whoop' | 'fallback';
   daysOfData: number;
@@ -18,6 +21,12 @@ interface TargetResponse {
   target: Macro;
   adherence: Adherence;
   suggestion: string | null;
+}
+
+// "Aug 11" from a YYYY-MM-DD string, parsed as a plain calendar date (no TZ shift).
+function shortDate(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 interface SettingsResponse {
   goal: string; adjust: string; calorieDelta: number; proteinPerKg: number; fallbackCalories: number;
@@ -107,9 +116,14 @@ export default function NutritionTarget({ consumed, date }: Props) {
   return (
     <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h3 style={{ fontSize: 17 }}>Nutrition Target</h3>
-          <span className="chip" style={{ fontSize: 11 }}>{GOAL_LABEL[data.goal] ?? data.goal}</span>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h3 style={{ fontSize: 17 }}>Weekly Target</h3>
+            <span className="chip" style={{ fontSize: 11 }}>{GOAL_LABEL[data.goal] ?? data.goal}</span>
+          </div>
+          <p style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 4 }}>
+            {shortDate(data.weekStart)}–{shortDate(data.weekEnd)} · same every day · recalibrates {shortDate(data.nextRecalibration)}
+          </p>
         </div>
         <button className="btn btn-ghost" onClick={() => setShowSettings((v) => !v)}>
           <Settings2 size={14} />{showSettings ? 'Close' : 'Adjust'}
@@ -139,7 +153,7 @@ export default function NutritionTarget({ consumed, date }: Props) {
           </div>
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             <label style={{ fontSize: 12.5, color: 'var(--text-3)' }}>
-              Daily kcal adjustment
+              Goal kcal adjustment
               <input
                 type="number" step={50} defaultValue={settings.calorieDelta}
                 onBlur={(e) => saveSettings({ calorieDelta: Number(e.target.value) })}
@@ -221,12 +235,12 @@ export default function NutritionTarget({ consumed, date }: Props) {
         {data.source === 'adaptive' ? (
           <>
             <Brain size={13} style={{ color: 'var(--accent-2)' }} />
-            <span>Adaptive TDEE {data.tdee} kcal — learned from your intake + weight trend{data.weightKg ? ` · ${Math.round(data.weightKg)} kg` : ''}</span>
+            <span>Adaptive TDEE {data.tdee} kcal — calibrated from your logged days + weight trend over the prior weeks{data.weightKg ? ` · ${Math.round(data.weightKg)} kg` : ''}</span>
           </>
         ) : data.source === 'whoop' ? (
           <>
             <Activity size={13} style={{ color: 'var(--accent)' }} />
-            <span>Burn {data.tdee} kcal (WHOOP {data.daysOfData}-day avg){data.weightKg ? ` · ${Math.round(data.weightKg)} kg` : ''}</span>
+            <span>Burn {data.tdee} kcal (WHOOP, last week's {data.daysOfData}-day avg){data.weightKg ? ` · ${Math.round(data.weightKg)} kg` : ''}</span>
           </>
         ) : (
           <>

@@ -7,12 +7,53 @@ const ADJUST = new Set(['steady', 'reactive']);
 const KCAL_PER_KG = 7700; // energy in 1 kg of body mass
 const DAILY_XP = 40;
 
-function isoDaysAgo(base: Date, n: number): string {
-  const d = new Date(base);
-  d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
-}
+// Minimum logged/weight data before the energy-balance estimate is trusted.
+const MIN_LOGGED_DAYS = 7;
+const MIN_SPAN_DAYS = 10;
+const CALIBRATION_WINDOW_DAYS = 21; // trailing completed days feeding each week
+const MIN_LOGGED_KCAL = 500; // a day below this is "not really logged"
+
 function ymd(d: Date): string { return d.toISOString().slice(0, 10); }
+function dateFromStr(dateStr: string): Date { return new Date(`${dateStr}T00:00:00Z`); }
+function addDaysStr(dateStr: string, n: number): string {
+  const d = dateFromStr(dateStr);
+  d.setUTCDate(d.getUTCDate() + n);
+  return ymd(d);
+}
+
+/**
+ * The Monday (UTC) on or before `dateStr`. The target is keyed off this, so it
+ * stays identical every day of the week and only moves when a new week starts.
+ */
+export function weekStartOf(dateStr: string): string {
+  const d = dateFromStr(dateStr);
+  const dow = d.getUTCDay();            // 0 = Sunday … 6 = Saturday
+  const sinceMonday = (dow + 6) % 7;    // Monday → 0, Sunday → 6
+  d.setUTCDate(d.getUTCDate() - sinceMonday);
+  return ymd(d);
+}
+
+/**
+ * Energy-balance maintenance estimate from *completed* data:
+ *   maintenance = avgIntake − (weightChangeKg * 7700 / spanDays)
+ * (losing weight on X kcal means maintenance sits above X by the deficit the
+ * loss implies). Pure so it can be unit-tested without a database. Returns null
+ * until there's enough logged data to trust it.
+ */
+export function energyBalanceTdee(
+  loggedDayCalories: number[],
+  weightSpan: { startKg: number; endKg: number; spanDays: number } | null,
+): number | null {
+  if (!weightSpan || weightSpan.spanDays < MIN_SPAN_DAYS) return null;
+  if (loggedDayCalories.length < MIN_LOGGED_DAYS) return null;
+
+  const avgIntake = loggedDayCalories.reduce((s, c) => s + c, 0) / loggedDayCalories.length;
+  const change = weightSpan.endKg - weightSpan.startKg;
+  const tdee = avgIntake - (change * KCAL_PER_KG) / weightSpan.spanDays;
+  // Sanity clamp to avoid nonsense from sparse/noisy data.
+  if (tdee < 1200 || tdee > 5500) return null;
+  return Math.round(tdee);
+}
 
 function settingsPayload(user: { nutritionGoal: string; nutritionAdjust: string; calorieDelta: number; proteinPerKg: number; calorieGoal: number }) {
   return {
@@ -25,47 +66,41 @@ function settingsPayload(user: { nutritionGoal: string; nutritionAdjust: string;
 }
 
 /**
- * Adaptive TDEE: the truest maintenance estimate. Over a trailing window we
- * know average intake and the actual weight change, so:
- *   maintenance = avgIntake − (weightChangeKg * 7700 / spanDays)
- * (lose weight on X kcal → maintenance is above X by the deficit implied by
- * the loss). Returns null until there's enough logged data to trust it.
+ * Adaptive TDEE for a whole week. The window is the completed days *before* the
+ * week started, so nothing that happens during the week can shift the number —
+ * this week's logs feed next week's recalibration. Only distinct days with real
+ * food logged count toward the intake average.
  */
-async function computeAdaptiveTdee(userId: string, dateStr: string): Promise<number | null> {
-  const windowStart = new Date(`${dateStr}T00:00:00Z`);
-  windowStart.setUTCDate(windowStart.getUTCDate() - 21);
-  const end = new Date(`${dateStr}T23:59:59Z`);
+async function computeAdaptiveTdee(userId: string, weekStart: string): Promise<number | null> {
+  const windowStart = dateFromStr(addDaysStr(weekStart, -CALIBRATION_WINDOW_DAYS));
+  const windowEnd = dateFromStr(weekStart); // exclusive: the current week is still in progress
 
   const [weights, foods] = await Promise.all([
-    prisma.weightEntry.findMany({ where: { userId, date: { gte: windowStart, lte: end } }, orderBy: { date: 'asc' } }),
-    prisma.foodEntry.findMany({ where: { userId, date: { gte: windowStart, lte: end } } }),
+    prisma.weightEntry.findMany({ where: { userId, date: { gte: windowStart, lt: windowEnd } }, orderBy: { date: 'asc' } }),
+    prisma.foodEntry.findMany({ where: { userId, date: { gte: windowStart, lt: windowEnd } } }),
   ]);
   if (weights.length < 2) return null;
 
   const first = weights[0];
   const last = weights[weights.length - 1];
   const spanDays = (last.date.getTime() - first.date.getTime()) / 86400000;
-  if (spanDays < 10) return null;
 
-  // Average intake across DISTINCT logged days within the same window.
+  // Sum intake per DISTINCT logged day, dropping barely-logged days.
   const byDay = new Map<string, number>();
   for (const f of foods) {
     const key = ymd(f.date);
     byDay.set(key, (byDay.get(key) ?? 0) + f.calories);
   }
-  const loggedDays = [...byDay.values()].filter((c) => c > 500); // ignore barely-logged days
-  if (loggedDays.length < 7) return null;
-  const avgIntake = loggedDays.reduce((s, c) => s + c, 0) / loggedDays.length;
+  const loggedDays = [...byDay.values()].filter((c) => c > MIN_LOGGED_KCAL);
 
-  const weightChangeKg = last.weight - first.weight;
-  const adaptive = avgIntake - (weightChangeKg * KCAL_PER_KG) / spanDays;
-  // Sanity clamp to avoid nonsense from sparse/noisy data.
-  if (adaptive < 1200 || adaptive > 5500) return null;
-  return Math.round(adaptive);
+  return energyBalanceTdee(loggedDays, { startKg: first.weight, endKg: last.weight, spanDays });
 }
 
 interface DayNutrition {
   date: string;
+  weekStart: string;
+  weekEnd: string;
+  nextRecalibration: string;
   tdee: number;
   source: 'adaptive' | 'whoop' | 'fallback';
   daysOfData: number;
@@ -80,14 +115,22 @@ async function computeNutrition(userId: string, dateStr: string): Promise<DayNut
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return null;
 
+  // The target is a property of the WEEK, not the day: computed once from the
+  // completed weeks before it, then held constant Mon–Sun.
+  const weekStart = weekStartOf(dateStr);
+  const weekEnd = addDaysStr(weekStart, 6);
+  const nextRecalibration = addDaysStr(weekStart, 7);
+
   // --- TDEE: adaptive (best) > WHOOP burn > static fallback ---
-  const since = isoDaysAgo(new Date(`${dateStr}T00:00:00Z`), 7);
+  // WHOOP burn is averaged over the completed week before this one, so it too
+  // stays fixed across the current week.
+  const whoopWindowStart = addDaysStr(weekStart, -7);
   const dailies = await prisma.whoopDaily.findMany({
-    where: { userId, date: { gte: since, lte: dateStr } },
+    where: { userId, date: { gte: whoopWindowStart, lt: weekStart } },
     orderBy: { date: 'desc' },
   });
 
-  const adaptive = await computeAdaptiveTdee(userId, dateStr);
+  const adaptive = await computeAdaptiveTdee(userId, weekStart);
   let tdee: number;
   let source: 'adaptive' | 'whoop' | 'fallback';
 
@@ -95,24 +138,28 @@ async function computeNutrition(userId: string, dateStr: string): Promise<DayNut
     tdee = adaptive;
     source = 'adaptive';
   } else if (dailies.length > 0) {
-    if (user.nutritionAdjust === 'reactive') {
-      const today = dailies.find((d) => d.date === dateStr);
-      const avg = Math.round(dailies.reduce((s, d) => s + d.calories, 0) / dailies.length);
-      tdee = today ? today.calories : avg;
-    } else {
-      tdee = Math.round(dailies.reduce((s, d) => s + d.calories, 0) / dailies.length);
-    }
+    tdee = Math.round(dailies.reduce((s, d) => s + d.calories, 0) / dailies.length);
     source = 'whoop';
   } else {
     tdee = user.calorieGoal;
     source = 'fallback';
   }
 
-  // --- current body weight (for protein target) ---
-  const latestWeight = await prisma.weightEntry.findFirst({ where: { userId }, orderBy: { date: 'desc' } });
+  // --- body weight for the protein target, snapshotted at the week start so
+  //     the target doesn't shift mid-week when a new weigh-in lands ---
+  const weekStartDate = dateFromStr(weekStart);
+  const preWeekWeight = await prisma.weightEntry.findFirst({
+    where: { userId, date: { lte: weekStartDate } },
+    orderBy: { date: 'desc' },
+  });
+  // Brand-new user with no weigh-in before this week: fall back to their
+  // earliest logged weight, then WHOOP, so protein still has a basis.
+  const anyWeight = preWeekWeight
+    ? null
+    : await prisma.weightEntry.findFirst({ where: { userId }, orderBy: { date: 'asc' } });
   const conn = await prisma.whoopConnection.findUnique({ where: { userId } });
   const whoopWeight = (conn?.latest as any)?.body?.weightKg ?? null;
-  const weightKg: number | null = latestWeight?.weight ?? whoopWeight ?? null;
+  const weightKg: number | null = preWeekWeight?.weight ?? anyWeight?.weight ?? whoopWeight ?? null;
 
   // --- target ---
   const calorieTarget = Math.max(1200, Math.round(tdee + user.calorieDelta));
@@ -135,12 +182,12 @@ async function computeNutrition(userId: string, dateStr: string): Promise<DayNut
   const claim = await prisma.nutritionXpClaim.findUnique({ where: { userId_date: { userId, date: dateStr } } });
   const eligible = intake.meals > 0 && proteinMet && caloriesOk;
 
-  // --- weekly weight-trend suggestion ---
+  // --- weekly weight-trend suggestion (anchored to the week so the whole card
+  //     is stable Mon–Sun) — looks at the two weeks up to this week's start ---
   let suggestion: string | null = null;
   if (user.nutritionGoal === 'cut' || user.nutritionGoal === 'bulk') {
-    const twoWeeksAgo = new Date(`${dateStr}T00:00:00Z`);
-    twoWeeksAgo.setUTCDate(twoWeeksAgo.getUTCDate() - 14);
-    const weights = await prisma.weightEntry.findMany({ where: { userId, date: { gte: twoWeeksAgo } }, orderBy: { date: 'asc' } });
+    const twoWeeksAgo = dateFromStr(addDaysStr(weekStart, -14));
+    const weights = await prisma.weightEntry.findMany({ where: { userId, date: { gte: twoWeeksAgo, lt: dateFromStr(nextRecalibration) } }, orderBy: { date: 'asc' } });
     if (weights.length >= 2) {
       const f = weights[0], l = weights[weights.length - 1];
       const days = Math.max(1, (l.date.getTime() - f.date.getTime()) / 86400000);
@@ -159,6 +206,9 @@ async function computeNutrition(userId: string, dateStr: string): Promise<DayNut
 
   return {
     date: dateStr,
+    weekStart,
+    weekEnd,
+    nextRecalibration,
     tdee,
     source,
     daysOfData: dailies.length,
