@@ -15,6 +15,28 @@ const SCOPES = [
   'offline',
 ].join(' ');
 
+/**
+ * Decides what a sync should do with today's bodyweight, given the row already
+ * there (if any) and the fresh WHOOP reading. Pure, so the rule is testable:
+ * - no row yet            → create it (source: whoop)
+ * - our own row, changed  → update it (refresh to the latest reading)
+ * - our own row, same     → skip (nothing to do)
+ * - a manual weigh-in     → skip (never clobber what the user typed)
+ * - unusable reading      → skip
+ */
+export function reconcileWhoopWeight(
+  existing: { weight: number; source: string } | null,
+  whoopWeight: unknown,
+): { action: 'create' | 'update' | 'skip'; weight: number | null } {
+  if (typeof whoopWeight !== 'number' || !Number.isFinite(whoopWeight) || whoopWeight <= 0) {
+    return { action: 'skip', weight: null };
+  }
+  const rounded = Math.round(whoopWeight * 10) / 10;
+  if (!existing) return { action: 'create', weight: rounded };
+  if (existing.source === 'whoop' && existing.weight !== rounded) return { action: 'update', weight: rounded };
+  return { action: 'skip', weight: null };
+}
+
 function clientId(): string { return process.env.WHOOP_CLIENT_ID || ''; }
 function clientSecret(): string { return process.env.WHOOP_CLIENT_SECRET || ''; }
 function redirectUri(): string { return process.env.WHOOP_REDIRECT_URI || ''; }
@@ -216,14 +238,22 @@ export async function syncWhoop(req: Request, res: Response): Promise<void> {
     data: { latest, syncedAt: new Date(), whoopUserId: profile?.user_id ? String(profile.user_id) : undefined },
   });
 
-  // Auto-log today's bodyweight from WHOOP — but never clobber a manual entry.
+  // Auto-log today's bodyweight from WHOOP. Create today's row if missing, and
+  // otherwise REFRESH it when the value changed — but only if we were the ones
+  // who wrote it. A manual weigh-in is never touched.
+  //
+  // Without the refresh, the first sync of the day locked the value in and a
+  // later weigh-in didn't show until the next day's row was created.
   let weightLogged = false;
-  const whoopWeight = body?.weight_kilogram;
-  if (typeof whoopWeight === 'number' && whoopWeight > 0) {
+  {
     const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
     const existing = await prisma.weightEntry.findUnique({ where: { userId_date: { userId, date: today } } });
-    if (!existing) {
-      await prisma.weightEntry.create({ data: { userId, weight: Math.round(whoopWeight * 10) / 10, date: today } });
+    const decision = reconcileWhoopWeight(existing, body?.weight_kilogram);
+    if (decision.action === 'create') {
+      await prisma.weightEntry.create({ data: { userId, weight: decision.weight!, date: today, source: 'whoop' } });
+      weightLogged = true;
+    } else if (decision.action === 'update') {
+      await prisma.weightEntry.update({ where: { id: existing!.id }, data: { weight: decision.weight! } });
       weightLogged = true;
     }
   }
