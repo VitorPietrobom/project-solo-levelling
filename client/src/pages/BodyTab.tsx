@@ -16,6 +16,14 @@ import TrainingProgramForm from '../components/TrainingProgramForm';
 import WhoopCard from '../components/WhoopCard';
 import { apiClient } from '../lib/apiClient';
 
+// "Aug 3" from an ISO date/datetime string — the API returns full timestamps
+// (e.g. "2026-06-06T00:00:00.000Z"), which must never be shown to the user raw.
+function shortDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
 export default function BodyTab() {
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
   const [showWeightForm, setShowWeightForm] = useState(false);
@@ -133,7 +141,7 @@ export default function BodyTab() {
                       {parseFloat(weightChange) > 0 ? '▲' : '▼'} {Math.abs(parseFloat(weightChange))} kg
                     </span>
                   )}
-                  {first && <span style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>since {first.date}</span>}
+                  {first && <span style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>since {shortDate(first.date)}</span>}
                 </>
               )}
             </div>
