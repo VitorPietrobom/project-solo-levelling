@@ -20,6 +20,7 @@ export interface Quest {
   xpReward: number;
   priority: QuestPriority;
   dueDate: string | null;
+  linkedSkillId: string | null;
   completed: boolean;
   steps: QuestStep[];
 }

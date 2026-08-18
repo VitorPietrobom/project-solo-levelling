@@ -23,6 +23,11 @@ vi.mock('../lib/prisma', () => ({
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       upsert: vi.fn().mockResolvedValue({}),
     },
+    skill: {
+      findFirst: vi.fn(),
+      update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
   },
 }));
 
@@ -361,6 +366,143 @@ describe('Quest endpoints', () => {
       (prisma.quest.findFirst as any).mockResolvedValue(null);
       const res = await request(app).patch('/api/quests/q1').send({ priority: 'high' });
       expect(res.status).toBe(404);
+    });
+
+    it('links a skill after validating it belongs to the user', async () => {
+      (prisma.quest.findFirst as any).mockResolvedValue({ id: 'q1', userId: 'test-user-id' });
+      (prisma.skill.findFirst as any).mockResolvedValue({ id: 'sk1', userId: 'test-user-id' });
+      (prisma.quest.update as any).mockResolvedValue({ id: 'q1', linkedSkillId: 'sk1' });
+
+      const res = await request(app).patch('/api/quests/q1').send({ linkedSkillId: 'sk1' });
+
+      expect(res.status).toBe(200);
+      expect(prisma.quest.update).toHaveBeenCalledWith(expect.objectContaining({ data: { linkedSkillId: 'sk1' } }));
+    });
+
+    it('rejects linking a skill that is not the user\'s', async () => {
+      (prisma.quest.findFirst as any).mockResolvedValue({ id: 'q1', userId: 'test-user-id' });
+      (prisma.skill.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app).patch('/api/quests/q1').send({ linkedSkillId: 'someone-elses' });
+
+      expect(res.status).toBe(400);
+      expect(prisma.quest.update).not.toHaveBeenCalled();
+    });
+
+    it('unlinks a skill when sent an empty string', async () => {
+      (prisma.quest.findFirst as any).mockResolvedValue({ id: 'q1', userId: 'test-user-id' });
+      (prisma.quest.update as any).mockResolvedValue({ id: 'q1', linkedSkillId: null });
+
+      await request(app).patch('/api/quests/q1').send({ linkedSkillId: '' });
+
+      expect(prisma.quest.update).toHaveBeenCalledWith(expect.objectContaining({ data: { linkedSkillId: null } }));
+    });
+  });
+
+  describe('quest ↔ skill XP', () => {
+    it('grants the linked skill XP when the last step completes the quest', async () => {
+      const quest = {
+        id: 'q1', userId: 'test-user-id', title: 'Quest', xpReward: 100, completed: false, linkedSkillId: 'sk1',
+        steps: [{ id: 's1', description: 'Step 1', sortOrder: 0, completed: false }],
+      };
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+      (prisma.questStep.update as any).mockResolvedValue({});
+      (prisma.quest.update as any).mockResolvedValue({});
+      (prisma.user.update as any).mockResolvedValue({ totalXP: 100 });
+      (prisma.quest.findUnique as any).mockResolvedValue({ ...quest, completed: true, steps: [{ ...quest.steps[0], completed: true }] });
+
+      await request(app).patch('/api/quests/q1/steps/s1');
+
+      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: { totalXP: { increment: 100 } } });
+    });
+
+    it('claws back skill XP when a step is unchecked on a completed linked quest', async () => {
+      const quest = {
+        id: 'q1', userId: 'test-user-id', title: 'Quest', xpReward: 100, completed: true, linkedSkillId: 'sk1',
+        steps: [{ id: 's1', description: 'Step 1', sortOrder: 0, completed: true }],
+      };
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+      (prisma.questStep.update as any).mockResolvedValue({});
+      (prisma.quest.update as any).mockResolvedValue({});
+      (prisma.user.update as any).mockResolvedValue({});
+      (prisma.quest.findUnique as any).mockResolvedValue({ ...quest, completed: false, steps: [{ ...quest.steps[0], completed: false }] });
+
+      await request(app).patch('/api/quests/q1/steps/s1');
+
+      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: { totalXP: { decrement: 100 } } });
+    });
+
+    it('does not touch a skill when the quest has none linked', async () => {
+      const quest = {
+        id: 'q1', userId: 'test-user-id', title: 'Quest', xpReward: 100, completed: false, linkedSkillId: null,
+        steps: [{ id: 's1', description: 'Step 1', sortOrder: 0, completed: false }],
+      };
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+      (prisma.questStep.update as any).mockResolvedValue({});
+      (prisma.quest.update as any).mockResolvedValue({});
+      (prisma.user.update as any).mockResolvedValue({});
+      (prisma.quest.findUnique as any).mockResolvedValue({ ...quest, completed: true, steps: [{ ...quest.steps[0], completed: true }] });
+
+      await request(app).patch('/api/quests/q1/steps/s1');
+
+      expect(prisma.skill.update).not.toHaveBeenCalled();
+    });
+
+    it('grants skill XP on bulk-complete (drag to Done)', async () => {
+      const quest = {
+        id: 'q1', userId: 'test-user-id', xpReward: 60, completed: false, linkedSkillId: 'sk1',
+        steps: [{ id: 's1', completed: false }],
+      };
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+      (prisma.quest.update as any).mockResolvedValue({});
+      (prisma.user.update as any).mockResolvedValue({});
+      (prisma.quest.findUnique as any).mockResolvedValue({ ...quest, completed: true });
+
+      await request(app).patch('/api/quests/q1/complete');
+
+      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: { totalXP: { increment: 60 } } });
+    });
+
+    it('claws back skill XP on reset (drag to To Do) when the quest was completed', async () => {
+      const quest = {
+        id: 'q1', userId: 'test-user-id', xpReward: 60, completed: true, linkedSkillId: 'sk1',
+        steps: [{ id: 's1', description: 'Step 1', sortOrder: 0, completed: true }],
+      };
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+      (prisma.quest.update as any).mockResolvedValue({});
+      (prisma.user.update as any).mockResolvedValue({});
+      (prisma.quest.findUnique as any).mockResolvedValue({ ...quest, completed: false, steps: [{ ...quest.steps[0], completed: false }] });
+
+      await request(app).patch('/api/quests/q1/reset');
+
+      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: { totalXP: { decrement: 60 } } });
+    });
+  });
+
+  describe('POST /api/quests with linkedSkillId', () => {
+    it('creates a quest linked to a skill after validating ownership', async () => {
+      (prisma.skill.findFirst as any).mockResolvedValue({ id: 'sk1', userId: 'test-user-id' });
+      (prisma.quest.create as any).mockResolvedValue({ id: 'q1', linkedSkillId: 'sk1', steps: [] });
+
+      const res = await request(app)
+        .post('/api/quests')
+        .send({ title: 'Quest', description: 'Desc', xpReward: 10, steps: ['s'], linkedSkillId: 'sk1' });
+
+      expect(res.status).toBe(201);
+      expect(prisma.quest.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ linkedSkillId: 'sk1' }),
+      }));
+    });
+
+    it('rejects a linkedSkillId that does not belong to the user', async () => {
+      (prisma.skill.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app)
+        .post('/api/quests')
+        .send({ title: 'Quest', description: 'Desc', xpReward: 10, steps: ['s'], linkedSkillId: 'ghost' });
+
+      expect(res.status).toBe(400);
+      expect(prisma.quest.create).not.toHaveBeenCalled();
     });
   });
 });
