@@ -31,11 +31,33 @@ describe('QuestForm', () => {
         title: 'My Quest',
         description: 'A description',
         xpReward: 50,
+        priority: 'medium',
+        dueDate: null,
         completed: false,
         steps: [expect.objectContaining({ description: 'First step', completed: false })],
       }),
       ['First step'],
       50,
+      'medium',
+      null,
+    );
+  });
+
+  it('submits the chosen priority and due date', async () => {
+    render(<QuestForm onCreated={onCreated} />);
+
+    await userEvent.type(screen.getByLabelText('Quest title'), 'My Quest');
+    await userEvent.type(screen.getByLabelText('Quest description'), 'A description');
+    await userEvent.type(screen.getByLabelText('Step 1'), 'First step');
+    await userEvent.click(screen.getByRole('radio', { name: 'High' }));
+    await userEvent.click(screen.getByText('Create Quest'));
+
+    expect(onCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ priority: 'high' }),
+      ['First step'],
+      50,
+      'high',
+      null,
     );
   });
 

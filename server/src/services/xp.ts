@@ -46,17 +46,27 @@ export function getProgressToNextLevel(totalXP: number): {
 
 /**
  * Awards XP to a user, persists the new total, and returns the updated
- * level and progress info.
+ * level and progress info. Also marks today as an active day — the only
+ * data the streak stat runs on — so any XP-earning action keeps the streak
+ * alive, not just one specific feature.
  */
 export async function awardXP(
   userId: string,
   amount: number,
   _source: string,
 ): Promise<XPResult> {
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: { totalXP: { increment: amount } },
-  });
+  const today = new Date().toISOString().slice(0, 10);
+  const [user] = await Promise.all([
+    prisma.user.update({
+      where: { id: userId },
+      data: { totalXP: { increment: amount } },
+    }),
+    prisma.dailyActivity.upsert({
+      where: { userId_date: { userId, date: today } },
+      create: { userId, date: today },
+      update: {},
+    }),
+  ]);
 
   const totalXP = user.totalXP;
   const level = getCurrentLevel(totalXP);

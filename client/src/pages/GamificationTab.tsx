@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
-  Flame, Zap, Check, Trophy, Plus, CheckSquare,
+  Flame, Zap, Check, Trophy, Plus, X,
 } from 'lucide-react';
 import Ring from '../components/ui/Ring';
 import XPBar from '../components/ui/XPBar';
 import RadarChart, { niceMax } from '../components/ui/RadarChart';
 import QuestForm from '../components/QuestForm';
-import type { Quest } from '../components/QuestList';
+import QuestCard from '../components/QuestCard';
+import type { Quest, QuestPriority } from '../components/QuestList';
 import TaskForm from '../components/TaskForm';
 import type { Task } from '../components/TaskList';
 import SkillForm from '../components/SkillForm';
@@ -19,6 +20,7 @@ interface GamificationStatus {
   level: number;
   totalXP: number;
   streak?: number;
+  hunterName?: string;
   progress: { current: number; required: number; percentage: number };
 }
 
@@ -27,8 +29,7 @@ interface OutletCtx {
   addXP: (amount: number, label: string) => void;
 }
 
-// Hunter rank by level — the chip used to read "E-Rank" forever regardless of
-// how far you'd got.
+// Hunter rank by level.
 const RANKS: { from: number; label: string; color: string }[] = [
   { from: 60, label: 'S-Rank', color: 'var(--warn)' },
   { from: 40, label: 'A-Rank', color: 'var(--bad)' },
@@ -40,6 +41,21 @@ const RANKS: { from: number; label: string; color: string }[] = [
 
 export function rankForLevel(level: number): { label: string; color: string } {
   return RANKS.find((r) => level >= r.from) ?? RANKS[RANKS.length - 1]!;
+}
+
+// A small pool of flavor lines, picked deterministically by level so the
+// card isn't the same static sentence forever, but also doesn't reshuffle
+// on every reload.
+const MOTTOS = [
+  'The journey of a thousand miles begins beneath your feet.',
+  'Strength is the only justice this world remembers.',
+  'Every rank was once someone refusing to stay where they were.',
+  'Small quests, repeated, are how a legend is actually built.',
+  'The grind doesn’t care how you feel about it today.',
+  'Discipline is a debt that always pays interest.',
+];
+function mottoForLevel(level: number): string {
+  return MOTTOS[level % MOTTOS.length]!;
 }
 
 function StatCard({
@@ -79,11 +95,13 @@ export default function GamificationTab() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [localStatus, setLocalStatus] = useState<GamificationStatus | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<{ type: 'quest' | 'skill'; id: string; name: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'quest' | 'skill' | 'task'; id: string; name: string } | null>(null);
   const [dragQuestId, setDragQuestId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   // Shared highlight between the skill list and the radar.
   const [hoveredSkill, setHoveredSkill] = useState<number | null>(null);
+  // Custom XP amount being typed per skill row (skillId -> raw text).
+  const [skillXpInput, setSkillXpInput] = useState<Record<string, string>>({});
 
   const fetchQuests = useCallback(async () => {
     try { setQuests((await apiClient.get('/api/quests')) as Quest[]); } catch { /* silently fail */ }
@@ -112,17 +130,25 @@ export default function GamificationTab() {
   // value which is only loaded once on mount and doesn't reflect level changes.
   const currentStatus = localStatus ?? status;
 
-  // Quests categorized
+  // Quests categorized. "In Progress" and "Done" are DERIVED from step
+  // completion, not an independent status you can drag into directly — see
+  // handleDrop for why that used to be a confusing, half-working mechanism.
   const activeQuests = quests.filter((q) => !q.completed);
   const doneQuests = quests.filter((q) => q.completed);
   const inProgressQuests = activeQuests.filter((q) => q.steps.some((s) => s.completed));
-  const todoQuests = activeQuests.filter((q) => q.steps.every((s) => !s.completed));
+  const todoQuests = activeQuests.filter((q) => !q.steps.some((s) => s.completed));
 
-  function handleQuestCreated(optimistic: Quest, validSteps: string[], xpReward: number) {
+  function handleQuestCreated(
+    optimistic: Quest,
+    validSteps: string[],
+    xpReward: number,
+    priority: QuestPriority,
+    dueDate: string | null,
+  ) {
     setQuests((prev) => [optimistic, ...prev]);
     setShowForm(false);
     apiClient
-      .post('/api/quests', { body: { title: optimistic.title, description: optimistic.description, xpReward, steps: validSteps } })
+      .post('/api/quests', { body: { title: optimistic.title, description: optimistic.description, xpReward, steps: validSteps, priority, dueDate } })
       .then((data) => setQuests((prev) => prev.map((q) => (q.id === optimistic.id ? (data as Quest) : q))))
       .catch(() => setQuests((prev) => prev.filter((q) => q.id !== optimistic.id)));
   }
@@ -152,16 +178,28 @@ export default function GamificationTab() {
       .catch(() => fetchTasks());
   }
 
-  function handleStepToggle(questId: string, stepId: string) {
+  function handleTaskDelete(taskId: string, title: string) {
+    setConfirmDelete({ type: 'task', id: taskId, name: title });
+  }
+
+  // Any step, any direction — the checklist inside an expanded quest card.
+  function handleToggleStep(questId: string, stepId: string, completed: boolean) {
     setQuests((prev) =>
       prev.map((q) => {
         if (q.id !== questId) return q;
-        const updatedSteps = q.steps.map((s) => (s.id === stepId ? { ...s, completed: true } : s));
-        const allDone = updatedSteps.every((s) => s.completed);
-        return { ...q, steps: updatedSteps, completed: allDone };
+        const steps = q.steps.map((s) => (s.id === stepId ? { ...s, completed } : s));
+        return { ...q, steps, completed: steps.every((s) => s.completed) };
       }),
     );
-    apiClient.patch(`/api/quests/${questId}/steps/${stepId}`).catch(() => fetchQuests());
+    apiClient.patch(`/api/quests/${questId}/steps/${stepId}`, { body: { completed } })
+      .then(() => fetchStatus())
+      .catch(() => fetchQuests());
+  }
+
+  // Inline priority / due-date edit from inside an expanded quest card.
+  function handleQuestUpdate(questId: string, patch: { priority?: QuestPriority; dueDate?: string | null }) {
+    setQuests((prev) => prev.map((q) => (q.id === questId ? { ...q, ...patch } : q)));
+    apiClient.patch(`/api/quests/${questId}`, { body: patch }).catch(() => fetchQuests());
   }
 
   function handleQuestDelete(questId: string, questTitle: string) {
@@ -172,36 +210,32 @@ export default function GamificationTab() {
     setConfirmDelete({ type: 'skill', id: skillId, name: skillName });
   }
 
-  function handleDrop(targetCol: string) {
+  // Dragging is now a coarse shortcut on top of the real per-step checklist:
+  // drop on Done = complete every step; drop on To Do = reset every step.
+  // "In Progress" isn't a droppable target — that state only ever comes from
+  // checking some-but-not-all steps, which you do inside the card itself.
+  function handleDrop(targetCol: 'To Do' | 'Done') {
     setDragOverCol(null);
     if (!dragQuestId) return;
     const quest = quests.find((q) => q.id === dragQuestId);
+    setDragQuestId(null);
     if (!quest) return;
 
-    const currentCol = quest.completed ? 'Done' : quest.steps.some((s) => s.completed) ? 'In Progress' : 'Todo';
-    if (currentCol === targetCol) return;
-
     if (targetCol === 'Done') {
-      // Complete all steps + quest
+      if (quest.completed) return;
       setQuests((prev) => prev.map((q) =>
-        q.id === dragQuestId
-          ? { ...q, completed: true, steps: q.steps.map((s) => ({ ...s, completed: true })) }
-          : q,
+        q.id === quest.id ? { ...q, completed: true, steps: q.steps.map((s) => ({ ...s, completed: true })) } : q,
       ));
       if (addXP) addXP(quest.xpReward, quest.title);
-      apiClient.patch(`/api/quests/${dragQuestId}/complete`).catch(() => fetchQuests());
-    } else if (targetCol === 'In Progress' && currentCol === 'Todo') {
-      // Complete the first step
-      const firstStep = quest.steps.find((s) => !s.completed);
-      if (!firstStep) return;
+      apiClient.patch(`/api/quests/${quest.id}/complete`).then(() => fetchStatus()).catch(() => fetchQuests());
+    } else {
+      const alreadyEmpty = quest.steps.every((s) => !s.completed) && !quest.completed;
+      if (alreadyEmpty) return;
       setQuests((prev) => prev.map((q) =>
-        q.id === dragQuestId
-          ? { ...q, steps: q.steps.map((s) => s.id === firstStep.id ? { ...s, completed: true } : s) }
-          : q,
+        q.id === quest.id ? { ...q, completed: false, steps: q.steps.map((s) => ({ ...s, completed: false })) } : q,
       ));
-      apiClient.patch(`/api/quests/${dragQuestId}/steps/${firstStep.id}`).catch(() => fetchQuests());
+      apiClient.patch(`/api/quests/${quest.id}/reset`).then(() => fetchStatus()).catch(() => fetchQuests());
     }
-    setDragQuestId(null);
   }
 
   function confirmDeleteAction() {
@@ -210,6 +244,9 @@ export default function GamificationTab() {
     if (type === 'quest') {
       setQuests((prev) => prev.filter((q) => q.id !== id));
       apiClient.delete(`/api/quests/${id}`).catch(() => fetchQuests());
+    } else if (type === 'task') {
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+      apiClient.delete(`/api/tasks/${id}`).catch(() => fetchTasks());
     } else {
       setSkills((prev) => prev.filter((s) => s.id !== id));
       apiClient.delete(`/api/skills/${id}`).catch(() => fetchSkills());
@@ -227,6 +264,7 @@ export default function GamificationTab() {
   }
 
   function handleSkillLog(skillId: string, xp: number) {
+    if (!Number.isFinite(xp) || xp <= 0) return;
     setSkills((prev) => prev.map((s) => (s.id === skillId ? { ...s, totalXP: s.totalXP + xp } : s)));
     if (addXP) addXP(xp, 'Skill XP');
     apiClient
@@ -238,7 +276,16 @@ export default function GamificationTab() {
       .catch(() => fetchSkills());
   }
 
+  function handleSkillLogCustom(skillId: string) {
+    const raw = skillXpInput[skillId];
+    const xp = Math.round(Number(raw));
+    if (!Number.isFinite(xp) || xp <= 0) return;
+    handleSkillLog(skillId, xp);
+    setSkillXpInput((prev) => ({ ...prev, [skillId]: '' }));
+  }
+
   const rank = rankForLevel(currentStatus?.level ?? 1);
+  const hunterName = currentStatus?.hunterName || 'Hunter';
 
   const daily = tasks.filter((t) => t.recurrence === 'daily');
   const weekly = tasks.filter((t) => t.recurrence === 'weekly');
@@ -249,17 +296,16 @@ export default function GamificationTab() {
   const radarData = [...skills]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((s) => ({
-      // Level plus progress into the next one, so the shape moves between levels.
       name: s.name,
       axis: s.level + s.progress.percentage / 100,
       detail: `Lv ${s.level}`,
     }));
   const radarMax = niceMax(radarData.map((d) => d.axis));
 
-  const questCols: [string, string, Quest[]][] = [
-    ['To Do', 'todo', todoQuests],
-    ['In Progress', 'doing', inProgressQuests],
-    ['Done', 'done', doneQuests],
+  const questCols: [string, Quest[]][] = [
+    ['To Do', todoQuests],
+    ['In Progress', inProgressQuests],
+    ['Done', doneQuests],
   ];
 
   return (
@@ -279,12 +325,12 @@ export default function GamificationTab() {
               {currentStatus?.level ?? 1}
             </span>
           </Ring>
-          <div style={{ flex: 1, position: 'relative' }}>
+          <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <h2 style={{ fontSize: 26 }}>Hunter</h2>
-              <span className="chip" style={{ borderColor: rank.color, color: rank.color }}>{rank.label}</span>
+              <h2 style={{ fontSize: 26, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hunterName}</h2>
+              <span className="chip" style={{ borderColor: rank.color, color: rank.color, flexShrink: 0 }}>{rank.label}</span>
             </div>
-            <div style={{ color: 'var(--text-3)', fontSize: 14, marginBottom: 16 }}>"The journey of a thousand miles begins beneath your feet."</div>
+            <div style={{ color: 'var(--text-3)', fontSize: 14, marginBottom: 16 }}>"{mottoForLevel(currentStatus?.level ?? 0)}"</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-3)', marginBottom: 7 }}>
               <span className="mono" style={{ whiteSpace: 'nowrap' }}>
                 {currentStatus?.progress.current ?? 0} / {currentStatus?.progress.required ?? 1000} XP
@@ -320,84 +366,41 @@ export default function GamificationTab() {
           </div>
         )}
         <div className="grid-3-col">
-          {questCols.map(([label, , items]) => {
-            const isOver = dragOverCol === label && dragQuestId !== null;
-            const canDrop = dragQuestId !== null && (() => {
-              const q = quests.find((q) => q.id === dragQuestId);
-              if (!q) return false;
-              const col = q.completed ? 'Done' : q.steps.some((s) => s.completed) ? 'In Progress' : 'Todo';
-              return col !== label && label !== 'To Do';
-            })();
+          {questCols.map(([label, items]) => {
+            const droppable = label === 'To Do' || label === 'Done';
+            const isOver = dragOverCol === label && dragQuestId !== null && droppable;
             return (
               <div
                 key={label}
-                onDragOver={(e) => { e.preventDefault(); setDragOverCol(label); }}
+                onDragOver={(e) => { if (droppable) { e.preventDefault(); setDragOverCol(label); } }}
                 onDragLeave={() => setDragOverCol(null)}
-                onDrop={() => handleDrop(label)}
+                onDrop={() => { if (droppable) handleDrop(label as 'To Do' | 'Done'); }}
                 style={{
-                  background: isOver && canDrop ? 'var(--accent-soft)' : 'var(--surface-inset)',
+                  background: isOver ? 'var(--accent-soft)' : 'var(--surface-inset)',
                   borderRadius: 'var(--r)',
                   padding: 12,
                   minHeight: 180,
-                  border: `2px solid ${isOver && canDrop ? 'var(--accent)' : 'transparent'}`,
+                  border: `2px solid ${isOver ? 'var(--accent)' : 'transparent'}`,
                   transition: 'background .15s, border-color .15s',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 4px' }}>
                   <span className="eyebrow">{label}</span>
-                  <span className="mono" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{(items as Quest[]).length}</span>
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{items.length}</span>
                 </div>
                 <div style={{ display: 'grid', gap: 10 }}>
-                  {(items as Quest[]).map((q) => {
-                    const done = q.steps.filter((s) => s.completed).length;
-                    const total = q.steps.length || 1;
-                    const isDone = q.completed;
-                    const isDragging = dragQuestId === q.id;
-                    return (
-                      <div
-                        key={q.id}
-                        draggable
-                        onDragStart={() => setDragQuestId(q.id)}
-                        onDragEnd={() => { setDragQuestId(null); setDragOverCol(null); }}
-                        onClick={() => !isDone && q.steps.find((s) => !s.completed) && handleStepToggle(q.id, q.steps.find((s) => !s.completed)!.id)}
-                        style={{
-                          background: 'var(--surface)',
-                          border: '1px solid var(--line-soft)',
-                          borderRadius: 'var(--r-sm)',
-                          padding: 13,
-                          cursor: isDragging ? 'grabbing' : 'grab',
-                          transition: 'border-color .16s, transform .16s, opacity .16s',
-                          opacity: isDragging ? 0.45 : 1,
-                          userSelect: 'none',
-                        }}
-                        onMouseEnter={(e) => { if (!isDragging) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line-soft)'; e.currentTarget.style.transform = 'none'; }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                          <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}>{q.title}</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span className="mono" style={{ fontSize: 11, color: 'var(--accent)', whiteSpace: 'nowrap' }}>+{q.xpReward}</span>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleQuestDelete(q.id, q.title); }}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', lineHeight: 1, padding: '0 2px', fontSize: 13 }}
-                              title="Delete quest"
-                              aria-label={`Delete quest "${q.title}"`}
-                            >✕</button>
-                          </div>
-                        </div>
-                        {q.description && (
-                          <div style={{ color: 'var(--text-3)', fontSize: 12.5, marginBottom: 11 }}>{q.description}</div>
-                        )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ width: 7, height: 7, borderRadius: 99, background: isDone ? 'var(--good)' : done > 0 ? 'var(--accent)' : 'var(--text-faint)' }} />
-                          <div style={{ flex: 1 }}>
-                            <XPBar value={done} max={total} height={5} color={isDone ? 'var(--good)' : 'var(--accent)'} />
-                          </div>
-                          <span className="mono" style={{ fontSize: 11, color: 'var(--text-faint)' }}>{done}/{total}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {items.map((q) => (
+                    <QuestCard
+                      key={q.id}
+                      quest={q}
+                      dragging={dragQuestId === q.id}
+                      onDragStart={() => setDragQuestId(q.id)}
+                      onDragEnd={() => { setDragQuestId(null); setDragOverCol(null); }}
+                      onToggleStep={handleToggleStep}
+                      onDelete={handleQuestDelete}
+                      onUpdate={handleQuestUpdate}
+                    />
+                  ))}
                 </div>
               </div>
             );
@@ -405,7 +408,7 @@ export default function GamificationTab() {
         </div>
         {(todoQuests.length + inProgressQuests.length) > 0 && (
           <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-faint)', textAlign: 'center' }}>
-            Tip — click a quest card to complete its next step.
+            Tip — click a quest to check off steps. Drag to "Done" or back to "To Do" to set them all at once.
           </div>
         )}
       </section>
@@ -433,48 +436,46 @@ export default function GamificationTab() {
                   {(items as Task[]).map((t) => {
                     const linkedSkill = t.linkedSkillId ? skills.find((s) => s.id === t.linkedSkillId) : null;
                     return (
-                      <button
+                      <div
                         key={t.id}
-                        onClick={() => t.completedToday ? handleTaskUncomplete(t.id) : handleTaskToggle(t.id)}
-                        title={t.completedToday ? 'Click to undo' : 'Mark complete'}
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12,
-                          padding: '11px 14px',
-                          borderRadius: 'var(--r-sm)',
-                          border: '1px solid var(--line-soft)',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '11px 14px', borderRadius: 'var(--r-sm)', border: '1px solid var(--line-soft)',
                           background: t.completedToday ? 'var(--accent-soft)' : 'var(--surface-inset)',
-                          textAlign: 'left',
-                          transition: 'all .16s',
-                          cursor: 'pointer',
-                          width: '100%',
                         }}
                       >
-                        <span
+                        <button
+                          onClick={() => t.completedToday ? handleTaskUncomplete(t.id) : handleTaskToggle(t.id)}
+                          title={t.completedToday ? 'Click to undo' : 'Mark complete'}
                           style={{
-                            width: 22,
-                            height: 22,
-                            borderRadius: 7,
-                            border: `2px solid ${t.completedToday ? 'var(--accent)' : 'var(--line)'}`,
-                            background: t.completedToday ? 'var(--accent)' : 'transparent',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'var(--bg-0)',
-                            flexShrink: 0,
+                            display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0,
+                            background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', padding: 0,
                           }}
                         >
-                          {t.completedToday && <Check size={13} strokeWidth={3} />}
-                        </span>
-                        <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: t.completedToday ? 'var(--text-3)' : 'var(--text)', textDecoration: t.completedToday ? 'line-through' : 'none' }}>
-                          {t.title}
-                          {linkedSkill && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--accent-2)', opacity: 0.8 }}>· {linkedSkill.name}</span>}
-                        </span>
-                        <span className="mono" style={{ fontSize: 12, color: t.completedToday ? 'var(--text-faint)' : 'var(--accent)' }}>
+                          <span
+                            style={{
+                              width: 22, height: 22, borderRadius: 7, flexShrink: 0,
+                              border: `2px solid ${t.completedToday ? 'var(--accent)' : 'var(--line)'}`,
+                              background: t.completedToday ? 'var(--accent)' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--bg-0)',
+                            }}
+                          >
+                            {t.completedToday && <Check size={13} strokeWidth={3} />}
+                          </span>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, color: t.completedToday ? 'var(--text-3)' : 'var(--text)', textDecoration: t.completedToday ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {t.title}
+                            {linkedSkill && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--accent-2)', opacity: 0.8 }}>· {linkedSkill.name}</span>}
+                          </span>
+                        </button>
+                        <span className="mono" style={{ fontSize: 12, color: t.completedToday ? 'var(--text-faint)' : 'var(--accent)', flexShrink: 0 }}>
                           +{t.xpReward}
                         </span>
-                      </button>
+                        <button
+                          onClick={() => handleTaskDelete(t.id, t.title)}
+                          aria-label={`Delete task "${t.title}"`}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', flexShrink: 0, padding: 2 }}
+                        ><X size={13} /></button>
+                      </div>
                     );
                   })}
                   {(items as Task[]).length === 0 && (
@@ -513,12 +514,12 @@ export default function GamificationTab() {
                     key={s.id}
                     onPointerEnter={() => setHoveredSkill(radarIndex >= 0 ? radarIndex : null)}
                     onPointerLeave={() => setHoveredSkill(null)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                   >
                     <span
                       title={s.name}
                       style={{
-                        flex: '0 1 108px', minWidth: 0, fontSize: 13, fontWeight: 600,
+                        flex: '0 1 92px', minWidth: 0, fontSize: 13, fontWeight: 600,
                         color: on ? 'var(--accent)' : 'var(--text)',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}
@@ -526,18 +527,27 @@ export default function GamificationTab() {
                     <div style={{ flex: 1 }}>
                       <XPBar value={axisVal} max={100} height={6} color={on ? 'var(--accent)' : 'var(--accent-2)'} />
                     </div>
-                    <span className="mono" style={{ fontSize: 12, color: 'var(--text-3)', width: 42, textAlign: 'right' }}>Lv {level}</span>
+                    <span className="mono" style={{ fontSize: 12, color: 'var(--text-3)', width: 38, textAlign: 'right', flexShrink: 0 }}>Lv {level}</span>
+                    <input
+                      type="number" min={1} placeholder="XP"
+                      value={skillXpInput[s.id] ?? ''}
+                      onChange={(e) => setSkillXpInput((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSkillLogCustom(s.id); }}
+                      aria-label={`Log custom XP for ${s.name}`}
+                      style={{ width: 46, background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '3px 5px', fontSize: 11, flexShrink: 0 }}
+                    />
                     <button
                       className="btn btn-ghost"
-                      style={{ padding: '4px 8px', fontSize: 11 }}
-                      onClick={() => handleSkillLog(s.id, 100)}
-                      title="Log 100 XP"
+                      style={{ padding: '4px 8px', fontSize: 11, flexShrink: 0 }}
+                      onClick={() => handleSkillLogCustom(s.id)}
+                      title="Log XP"
+                      aria-label={`Log XP for ${s.name}`}
                     >
-                      <CheckSquare size={12} />
+                      <Zap size={12} />
                     </button>
                     <button
                       className="btn btn-ghost"
-                      style={{ padding: '4px 8px', fontSize: 11, color: 'var(--bad)' }}
+                      style={{ padding: '4px 8px', fontSize: 11, color: 'var(--bad)', flexShrink: 0 }}
                       onClick={() => handleSkillDelete(s.id, s.name)}
                       title="Delete skill"
                       aria-label={`Delete skill "${s.name}"`}

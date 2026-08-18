@@ -4,6 +4,9 @@ import app from '../index';
 
 vi.mock('../lib/prisma', () => ({
   default: {
+    dailyActivity: {
+      upsert: vi.fn().mockResolvedValue({}),
+    },
     book: {
       findMany: vi.fn(),
       findFirst: vi.fn(),

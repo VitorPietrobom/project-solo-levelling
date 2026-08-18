@@ -4,11 +4,15 @@ import app from '../index';
 
 vi.mock('../lib/prisma', () => ({
   default: {
+    dailyActivity: {
+      upsert: vi.fn().mockResolvedValue({}),
+    },
     task: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
     user: {
       update: vi.fn(),
@@ -228,6 +232,27 @@ describe('Task endpoints', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Task is already completed for this period');
+    });
+  });
+
+  describe('DELETE /api/tasks/:id', () => {
+    it('deletes a task the user owns', async () => {
+      (prisma.task.findFirst as any).mockResolvedValue({ id: 't1', userId: 'test-user-id' });
+      (prisma.task.delete as any).mockResolvedValue({});
+
+      const res = await request(app).delete('/api/tasks/t1');
+
+      expect(res.status).toBe(204);
+      expect(prisma.task.delete).toHaveBeenCalledWith({ where: { id: 't1' } });
+    });
+
+    it('returns 404 for a task that does not belong to the user', async () => {
+      (prisma.task.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app).delete('/api/tasks/ghost');
+
+      expect(res.status).toBe(404);
+      expect(prisma.task.delete).not.toHaveBeenCalled();
     });
   });
 });
