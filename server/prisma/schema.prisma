@@ -178,18 +178,33 @@ model WhoopConnection {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// A Quest is either a one-time goal (recurrence null — completion is
+// permanent, optionally broken into steps) or a recurring habit (recurrence
+// set — completion resets every day/week, mirrors the old Task model, which
+// this absorbed). The two behave differently but share one form, one set of
+// endpoints, and one skill link, instead of being two separate systems.
 model Quest {
-  id            String        @id @default(uuid())
-  userId        String
-  title         String
-  description   String
-  xpReward      Int
-  priority      QuestPriority @default(medium)
-  dueDate       DateTime?     @db.Date
-  linkedSkillId String?
-  completed     Boolean       @default(false)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id              String        @id @default(uuid())
+  userId          String
+  title           String
+  // Optional — a recurring habit usually doesn't need one.
+  description     String?
+  xpReward        Int
+  priority        QuestPriority @default(medium)
+  dueDate         DateTime?     @db.Date
+  linkedSkillId   String?
+  recurrence      Recurrence?
+  // One-time quests: true once permanently done.
+  completed       Boolean       @default(false)
+  // Recurring quests: when the current period was last completed; the
+  // "completed for today/this week" state is derived from this, the same
+  // way the old Task model worked.
+  lastCompletedAt DateTime?
+  // Set only on rows created by the one-time "import my tasks" migration,
+  // so re-running it is idempotent and never double-imports.
+  legacyTaskId    String?       @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   steps QuestStep[]

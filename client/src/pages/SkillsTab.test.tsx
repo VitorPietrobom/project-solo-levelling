@@ -14,12 +14,6 @@ vi.mock('../lib/apiClient', () => ({
   },
 }));
 
-const addXP = vi.fn();
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react-router-dom')>();
-  return { ...actual, useOutletContext: () => ({ addXP }) };
-});
-
 const skill = (id: string, name: string, level: number) => ({
   id, name, totalXP: level * 100, level, progress: { current: 20, required: 100, percentage: 20 },
 });
@@ -56,27 +50,12 @@ describe('SkillsTab', () => {
     expect(screen.getByText(/more skill/)).toBeInTheDocument();
   });
 
-  it('logs custom XP for a skill', async () => {
-    mockGet.mockResolvedValue([skill('a', 'Guitar', 2)]);
-    mockPost.mockResolvedValue({ id: 'a', name: 'Guitar', totalXP: 250, level: 2, progress: { current: 50, required: 300, percentage: 16.6 } });
-
-    render(<SkillsTab />);
-    await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
-
-    await userEvent.type(screen.getByLabelText('Log custom XP for Guitar'), '30');
-    await userEvent.click(screen.getByLabelText('Log XP for Guitar'));
-
-    expect(mockPost).toHaveBeenCalledWith('/api/skills/a/log', { body: { xp: 30 } });
-    expect(addXP).toHaveBeenCalledWith(30, 'Skill XP');
-  });
-
-  it('ignores a zero or blank XP log attempt', async () => {
+  it('has no manual XP-log input anywhere on the page', async () => {
     mockGet.mockResolvedValue([skill('a', 'Guitar', 2)]);
     render(<SkillsTab />);
     await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
-
-    await userEvent.click(screen.getByLabelText('Log XP for Guitar'));
-    expect(mockPost).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/Log custom XP/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Log XP for/)).not.toBeInTheDocument();
   });
 
   it('deletes a skill after confirmation', async () => {

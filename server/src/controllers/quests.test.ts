@@ -12,7 +12,11 @@ vi.mock('../lib/prisma', () => ({
       findFirst: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn(),
+    },
+    task: {
+      findMany: vi.fn().mockResolvedValue([]),
     },
     questStep: {
       update: vi.fn(),
@@ -503,6 +507,116 @@ describe('Quest endpoints', () => {
 
       expect(res.status).toBe(400);
       expect(prisma.quest.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recurring quests (unified with the old Task model)', () => {
+    it('creates a recurring quest without a description or steps', async () => {
+      (prisma.quest.create as any).mockResolvedValue({ id: 'q1', recurrence: 'daily', completed: false, lastCompletedAt: null, steps: [] });
+
+      const res = await request(app).post('/api/quests').send({ title: 'Drink water', xpReward: 10, recurrence: 'daily' });
+
+      expect(res.status).toBe(201);
+      expect(prisma.quest.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ recurrence: 'daily', description: null }),
+      }));
+    });
+
+    it('rejects steps on a recurring quest', async () => {
+      const res = await request(app).post('/api/quests').send({ title: 'Drink water', xpReward: 10, recurrence: 'daily', steps: ['a step'] });
+      expect(res.status).toBe(400);
+      expect(prisma.quest.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invalid recurrence value', async () => {
+      const res = await request(app).post('/api/quests').send({ title: 'Drink water', xpReward: 10, recurrence: 'monthly' });
+      expect(res.status).toBe(400);
+    });
+
+    it('lists a recurring quest as completed once done today, not completed the next day', async () => {
+      const today = new Date();
+      const yesterday = new Date(today.getTime() - 25 * 60 * 60 * 1000); // > 24h ago, crosses midnight
+      (prisma.quest.findMany as any).mockResolvedValue([
+        { id: 'q1', recurrence: 'daily', completed: false, lastCompletedAt: today, steps: [] },
+        { id: 'q2', recurrence: 'daily', completed: false, lastCompletedAt: yesterday, steps: [] },
+      ]);
+
+      const res = await request(app).get('/api/quests');
+
+      expect(res.body.find((q: any) => q.id === 'q1').completed).toBe(true);
+      expect(res.body.find((q: any) => q.id === 'q2').completed).toBe(false);
+    });
+
+    it('completing a recurring quest sets lastCompletedAt and awards XP', async () => {
+      const quest = { id: 'q1', userId: 'test-user-id', xpReward: 20, recurrence: 'daily', completed: false, lastCompletedAt: null, linkedSkillId: null, steps: [] };
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+      (prisma.quest.update as any).mockResolvedValue({});
+      (prisma.user.update as any).mockResolvedValue({});
+      (prisma.quest.findUnique as any).mockResolvedValue({ ...quest, lastCompletedAt: new Date() });
+
+      const res = await request(app).patch('/api/quests/q1/complete');
+
+      expect(res.status).toBe(200);
+      expect(res.body.completed).toBe(true);
+      expect(prisma.quest.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { lastCompletedAt: expect.any(Date) } });
+    });
+
+    it('is a no-op completing a recurring quest already done this period', async () => {
+      const quest = { id: 'q1', userId: 'test-user-id', xpReward: 20, recurrence: 'daily', completed: false, lastCompletedAt: new Date(), linkedSkillId: null, steps: [] };
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+
+      await request(app).patch('/api/quests/q1/complete');
+
+      expect(prisma.quest.update).not.toHaveBeenCalled();
+    });
+
+    it('reset uncompletes the current period and claws back XP', async () => {
+      const quest = { id: 'q1', userId: 'test-user-id', xpReward: 20, recurrence: 'daily', completed: false, lastCompletedAt: new Date(), linkedSkillId: null, steps: [] };
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+      (prisma.quest.update as any).mockResolvedValue({});
+      (prisma.user.update as any).mockResolvedValue({});
+      (prisma.quest.findUnique as any).mockResolvedValue({ ...quest, lastCompletedAt: null });
+
+      const res = await request(app).patch('/api/quests/q1/reset');
+
+      expect(res.status).toBe(200);
+      expect(res.body.completed).toBe(false);
+      expect(prisma.quest.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { lastCompletedAt: null } });
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: 20 } } });
+    });
+  });
+
+  describe('POST /api/quests/import-tasks', () => {
+    it('imports every legacy task as a recurring quest', async () => {
+      (prisma.task.findMany as any).mockResolvedValue([
+        { id: 't1', title: 'Beber água', recurrence: 'daily', xpReward: 25, lastCompletedAt: null, linkedSkillId: null },
+        { id: 't2', title: 'Weekly review', recurrence: 'weekly', xpReward: 50, lastCompletedAt: null, linkedSkillId: 'sk1' },
+      ]);
+      (prisma.quest.findMany as any).mockResolvedValue([]);
+
+      const res = await request(app).post('/api/quests/import-tasks');
+
+      expect(res.status).toBe(200);
+      expect(res.body.imported).toBe(2);
+      expect(prisma.quest.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ title: 'Beber água', recurrence: 'daily', legacyTaskId: 't1' }),
+          expect.objectContaining({ title: 'Weekly review', recurrence: 'weekly', legacyTaskId: 't2', linkedSkillId: 'sk1' }),
+        ],
+      });
+    });
+
+    it('is idempotent — skips tasks already imported', async () => {
+      (prisma.task.findMany as any).mockResolvedValue([
+        { id: 't1', title: 'Beber água', recurrence: 'daily', xpReward: 25, lastCompletedAt: null, linkedSkillId: null },
+      ]);
+      (prisma.quest.findMany as any).mockResolvedValue([{ legacyTaskId: 't1' }]);
+
+      const res = await request(app).post('/api/quests/import-tasks');
+
+      expect(res.status).toBe(200);
+      expect(res.body.imported).toBe(0);
+      expect(prisma.quest.createMany).not.toHaveBeenCalled();
     });
   });
 });

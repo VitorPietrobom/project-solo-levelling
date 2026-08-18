@@ -12,6 +12,7 @@ const baseQuest: Quest = {
   priority: 'medium',
   dueDate: null,
   linkedSkillId: null,
+  recurrence: null,
   completed: false,
   steps: [
     { id: 's1', description: 'Buy a guitar', sortOrder: 0, completed: true },

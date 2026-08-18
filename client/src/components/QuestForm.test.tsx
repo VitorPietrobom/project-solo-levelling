@@ -10,7 +10,7 @@ describe('QuestForm', () => {
     vi.clearAllMocks();
   });
 
-  it('renders form fields', () => {
+  it('renders one-time quest fields by default', () => {
     render(<QuestForm onCreated={onCreated} />);
     expect(screen.getByLabelText('Quest title')).toBeInTheDocument();
     expect(screen.getByLabelText('Quest description')).toBeInTheDocument();
@@ -18,7 +18,7 @@ describe('QuestForm', () => {
     expect(screen.getByText('Create Quest')).toBeInTheDocument();
   });
 
-  it('calls onCreated with optimistic quest on submit', async () => {
+  it('calls onCreated with the optimistic quest and body on submit', async () => {
     render(<QuestForm onCreated={onCreated} />);
 
     await userEvent.type(screen.getByLabelText('Quest title'), 'My Quest');
@@ -33,15 +33,19 @@ describe('QuestForm', () => {
         xpReward: 50,
         priority: 'medium',
         dueDate: null,
+        recurrence: null,
         completed: false,
         linkedSkillId: null,
         steps: [expect.objectContaining({ description: 'First step', completed: false })],
       }),
-      ['First step'],
-      50,
-      'medium',
-      null,
-      null,
+      expect.objectContaining({
+        title: 'My Quest',
+        description: 'A description',
+        steps: ['First step'],
+        xpReward: 50,
+        priority: 'medium',
+        recurrence: null,
+      }),
     );
   });
 
@@ -56,11 +60,7 @@ describe('QuestForm', () => {
 
     expect(onCreated).toHaveBeenCalledWith(
       expect.objectContaining({ priority: 'high' }),
-      ['First step'],
-      50,
-      'high',
-      null,
-      null,
+      expect.objectContaining({ priority: 'high' }),
     );
   });
 
@@ -76,11 +76,7 @@ describe('QuestForm', () => {
 
     expect(onCreated).toHaveBeenCalledWith(
       expect.objectContaining({ linkedSkillId: 'sk1' }),
-      ['First step'],
-      50,
-      'medium',
-      null,
-      'sk1',
+      expect.objectContaining({ linkedSkillId: 'sk1' }),
     );
   });
 
@@ -89,7 +85,16 @@ describe('QuestForm', () => {
     await userEvent.type(screen.getByLabelText('Step 1'), 'A step');
     await userEvent.click(screen.getByText('Create Quest'));
 
-    expect(screen.getByText('Title, description, and at least one step are required')).toBeInTheDocument();
+    expect(screen.getByText('Title is required')).toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+
+  it('shows validation error when a one-time quest has no steps', async () => {
+    render(<QuestForm onCreated={onCreated} />);
+    await userEvent.type(screen.getByLabelText('Quest title'), 'My Quest');
+    await userEvent.click(screen.getByText('Create Quest'));
+
+    expect(screen.getByText('One-time quests need a description and at least one step')).toBeInTheDocument();
     expect(onCreated).not.toHaveBeenCalled();
   });
 
@@ -102,5 +107,32 @@ describe('QuestForm', () => {
 
     await userEvent.click(screen.getByLabelText('Remove step 2'));
     expect(screen.queryByLabelText('Step 2')).not.toBeInTheDocument();
+  });
+
+  describe('recurring (habit) mode', () => {
+    it('hides description, steps, priority, and due date once Daily/Weekly is picked', async () => {
+      render(<QuestForm onCreated={onCreated} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'Daily' }));
+
+      expect(screen.queryByLabelText('Quest description')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Step 1')).not.toBeInTheDocument();
+      expect(screen.queryByRole('radiogroup', { name: 'Priority' })).not.toBeInTheDocument();
+      expect(screen.getByText('Create Habit')).toBeInTheDocument();
+    });
+
+    it('creates a recurring habit with no description or steps required', async () => {
+      render(<QuestForm onCreated={onCreated} />);
+      await userEvent.type(screen.getByLabelText('Quest title'), 'Drink water');
+      await userEvent.click(screen.getByRole('radio', { name: 'Weekly' }));
+      await userEvent.click(screen.getByText('Create Habit'));
+
+      expect(onCreated).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Drink water', recurrence: 'weekly', description: null, steps: [] }),
+        expect.objectContaining({ title: 'Drink water', recurrence: 'weekly' }),
+      );
+      const body = onCreated.mock.calls[0][1];
+      expect(body.description).toBeUndefined();
+      expect(body.steps).toBeUndefined();
+    });
   });
 });

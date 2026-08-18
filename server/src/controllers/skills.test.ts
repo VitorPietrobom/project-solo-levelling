@@ -115,71 +115,14 @@ describe('Skill endpoints', () => {
     });
   });
 
-  describe('POST /api/skills/:id/log', () => {
-    it('logs activity and increments skill XP', async () => {
-      const skill = {
-        id: 's1',
-        userId: 'test-user-id',
-        name: 'Guitar',
-        totalXP: 50,
-        createdAt: new Date(),
-      };
-      (prisma.skill.findFirst as any).mockResolvedValue(skill);
-      (prisma.skill.update as any).mockResolvedValue({
-        ...skill,
-        totalXP: 75,
-      });
-
-      const res = await request(app)
-        .post('/api/skills/s1/log')
-        .send({ xp: 25 });
-
-      expect(res.status).toBe(200);
-      expect(res.body.totalXP).toBe(75);
-      expect(res.body.level).toBeDefined();
-      expect(res.body.progress).toBeDefined();
-      expect(prisma.skill.update).toHaveBeenCalledWith({
-        where: { id: 's1' },
-        data: { totalXP: { increment: 25 } },
-      });
-    });
-
-    it('returns 404 when skill not found', async () => {
-      (prisma.skill.findFirst as any).mockResolvedValue(null);
-
-      const res = await request(app)
-        .post('/api/skills/bad-id/log')
-        .send({ xp: 10 });
-
-      expect(res.status).toBe(404);
-      expect(res.body.error).toBe('Skill not found');
-    });
-
-    it('returns 400 when xp is missing', async () => {
-      const res = await request(app)
-        .post('/api/skills/s1/log')
-        .send({});
-
-      expect(res.status).toBe(400);
-      expect(res.body.error).toBe('XP must be a positive number');
-    });
-
-    it('returns 400 when xp is zero', async () => {
-      const res = await request(app)
-        .post('/api/skills/s1/log')
-        .send({ xp: 0 });
-
-      expect(res.status).toBe(400);
-      expect(res.body.error).toBe('XP must be a positive number');
-    });
-
-    it('returns 400 when xp is negative', async () => {
-      const res = await request(app)
-        .post('/api/skills/s1/log')
-        .send({ xp: -5 });
-
-      expect(res.status).toBe(400);
-      expect(res.body.error).toBe('XP must be a positive number');
-    });
+  // Manual XP logging (POST /api/skills/:id/log) was removed — it let anyone
+  // type an arbitrary number straight into a skill's totalXP with no cap and
+  // without going through awardXP, so it never actually moved the user's
+  // overall level despite showing an XP toast that claimed it did. Skills
+  // now only grow by linking a quest, so completing something real is the
+  // only way to gain skill XP.
+  it('no longer exposes a manual XP-log endpoint', async () => {
+    const res = await request(app).post('/api/skills/s1/log').send({ xp: 25 });
+    expect(res.status).toBe(404);
   });
 });

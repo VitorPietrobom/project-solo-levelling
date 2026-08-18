@@ -12,15 +12,22 @@ export interface QuestStep {
 }
 
 export type QuestPriority = 'low' | 'medium' | 'high';
+export type QuestRecurrence = 'daily' | 'weekly';
 
+// A Quest is either one-time (recurrence null — permanent completion,
+// optionally with steps) or a recurring habit (recurrence set — completion
+// resets every period, no steps). This absorbed what used to be a separate
+// Task model, so both live behind one type and one set of endpoints.
 export interface Quest {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   xpReward: number;
   priority: QuestPriority;
   dueDate: string | null;
   linkedSkillId: string | null;
+  recurrence: QuestRecurrence | null;
+  /** Permanent for one-time quests; "completed for the current period" for recurring ones. */
   completed: boolean;
   steps: QuestStep[];
 }
