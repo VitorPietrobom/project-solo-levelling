@@ -18,6 +18,19 @@ const skill = (id: string, name: string, level: number) => ({
   id, name, totalXP: level * 100, level, progress: { current: 20, required: 100, percentage: 20 },
 });
 
+const quest = (id: string, title: string, linkedSkillId: string | null, opts: Partial<{ recurrence: 'daily' | 'weekly' | null; completed: boolean }> = {}) => ({
+  id, title, description: null, xpReward: 20, priority: 'medium', dueDate: null,
+  linkedSkillId, recurrence: opts.recurrence ?? null, completed: opts.completed ?? false, steps: [],
+});
+
+function mockData(skills: any[], quests: any[] = []) {
+  mockGet.mockImplementation((url: string) => {
+    if (url === '/api/skills') return Promise.resolve(skills);
+    if (url === '/api/quests') return Promise.resolve(quests);
+    return Promise.resolve([]);
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockPost.mockResolvedValue({});
@@ -27,23 +40,22 @@ beforeEach(() => {
 describe('SkillsTab', () => {
   it('lists every skill, unlike the old cramped shared card', async () => {
     const many = Array.from({ length: 11 }, (_, i) => skill(`sk${i}`, `Skill ${i}`, i));
-    mockGet.mockResolvedValue(many);
+    mockData(many);
 
     render(<SkillsTab />);
 
     await waitFor(() => expect(screen.getAllByText('Skill 0').length).toBeGreaterThan(0));
-    // Each name appears at least once (list row); some also appear on the radar.
     for (const s of many) expect(screen.getAllByText(s.name).length).toBeGreaterThan(0);
   });
 
   it('shows the radar once there are 3+ skills', async () => {
-    mockGet.mockResolvedValue([skill('a', 'A', 1), skill('b', 'B', 2), skill('c', 'C', 3)]);
+    mockData([skill('a', 'A', 1), skill('b', 'B', 2), skill('c', 'C', 3)]);
     render(<SkillsTab />);
     await waitFor(() => expect(screen.getByLabelText(/Skill radar/)).toBeInTheDocument());
   });
 
   it('hides the radar and explains why below 3 skills', async () => {
-    mockGet.mockResolvedValue([skill('a', 'A', 1)]);
+    mockData([skill('a', 'A', 1)]);
     render(<SkillsTab />);
     await waitFor(() => expect(screen.getByText('A')).toBeInTheDocument());
     expect(screen.queryByLabelText(/Skill radar/)).not.toBeInTheDocument();
@@ -51,7 +63,7 @@ describe('SkillsTab', () => {
   });
 
   it('has no manual XP-log input anywhere on the page', async () => {
-    mockGet.mockResolvedValue([skill('a', 'Guitar', 2)]);
+    mockData([skill('a', 'Guitar', 2)]);
     render(<SkillsTab />);
     await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
     expect(screen.queryByLabelText(/Log custom XP/)).not.toBeInTheDocument();
@@ -59,7 +71,7 @@ describe('SkillsTab', () => {
   });
 
   it('deletes a skill after confirmation', async () => {
-    mockGet.mockResolvedValue([skill('a', 'Guitar', 2)]);
+    mockData([skill('a', 'Guitar', 2)]);
     render(<SkillsTab />);
     await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
 
@@ -67,5 +79,55 @@ describe('SkillsTab', () => {
     await userEvent.click(screen.getByText('Delete'));
 
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('/api/skills/a'));
+  });
+
+  it('shows a rank badge derived from the skill level', async () => {
+    mockData([skill('a', 'Guitar', 45)]); // A-Rank
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
+    expect(screen.getByText('A-Rank')).toBeInTheDocument();
+  });
+
+  it('flags a skill with nothing linked to it', async () => {
+    mockData([skill('a', 'Guitar', 2)], []);
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
+    expect(screen.getByLabelText(/Not linked to any quest or habit/)).toBeInTheDocument();
+    expect(screen.getByText(/1 skill isn't linked/)).toBeInTheDocument();
+  });
+
+  it('does not flag a skill that has a linked quest', async () => {
+    mockData([skill('a', 'Guitar', 2)], [quest('q1', 'Practice scales', 'a')]);
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
+    expect(screen.queryByLabelText(/Not linked to any quest or habit/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/isn't linked/)).not.toBeInTheDocument();
+  });
+
+  it('expands a skill to show the quests and habits feeding it', async () => {
+    mockData(
+      [skill('a', 'Guitar', 2)],
+      [quest('q1', 'Practice scales', 'a'), quest('h1', 'Daily warmup', 'a', { recurrence: 'daily' })],
+    );
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
+
+    expect(screen.queryByText('Practice scales')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByText('Guitar'));
+
+    expect(screen.getByText('Practice scales')).toBeInTheDocument();
+    expect(screen.getByText('Daily warmup')).toBeInTheDocument();
+  });
+
+  it('shows overview stats: total skills, highest level, most active', async () => {
+    mockData(
+      [skill('a', 'Guitar', 5), skill('b', 'Coding', 8)],
+      [quest('q1', 'Q1', 'b'), quest('q2', 'Q2', 'b')],
+    );
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Total skills')).toBeInTheDocument());
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('Coding · Lv 8')).toBeInTheDocument();
+    expect(screen.getByText('Coding · 2 linked')).toBeInTheDocument();
   });
 });
