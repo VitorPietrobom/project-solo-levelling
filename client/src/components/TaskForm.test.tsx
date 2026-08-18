@@ -68,4 +68,38 @@ describe('TaskForm', () => {
 
     expect((screen.getByLabelText('Task title') as HTMLInputElement).value).toBe('');
   });
+
+  describe('edit mode', () => {
+    const existing = {
+      id: 't1', title: 'Morning run', recurrence: 'daily' as const, xpReward: 25,
+      completedToday: false, lastCompletedAt: null, linkedSkillId: null,
+    };
+
+    it('prefills the fields from the given task', () => {
+      render(<TaskForm task={existing} onSave={vi.fn()} onCancel={vi.fn()} />);
+      expect((screen.getByLabelText('Task title') as HTMLInputElement).value).toBe('Morning run');
+      expect(screen.getByLabelText('Daily')).toBeChecked();
+      expect(screen.getByText('Save')).toBeInTheDocument();
+    });
+
+    it('calls onSave with the edited fields, not onCreated', async () => {
+      const onSave = vi.fn();
+      render(<TaskForm task={existing} onSave={onSave} onCancel={vi.fn()} onCreated={onCreated} />);
+
+      const input = screen.getByLabelText('Task title');
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Evening run');
+      await userEvent.click(screen.getByText('Save'));
+
+      expect(onSave).toHaveBeenCalledWith('t1', { title: 'Evening run', recurrence: 'daily', xpReward: 25, linkedSkillId: null });
+      expect(onCreated).not.toHaveBeenCalled();
+    });
+
+    it('calls onCancel', async () => {
+      const onCancel = vi.fn();
+      render(<TaskForm task={existing} onSave={vi.fn()} onCancel={onCancel} />);
+      await userEvent.click(screen.getByText('Cancel'));
+      expect(onCancel).toHaveBeenCalled();
+    });
+  });
 });

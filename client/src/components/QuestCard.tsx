@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { ChevronDown, Calendar, Flag, Trash2 } from 'lucide-react';
+import { ChevronDown, Calendar, Flag, Trash2, Sparkles } from 'lucide-react';
 import type { Quest, QuestPriority } from './QuestList';
+import type { Skill } from './SkillList';
 
 interface Props {
   quest: Quest;
+  /** All skills, so the expanded card can offer a link picker. */
+  skills?: Skill[];
   dragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
   onToggleStep: (questId: string, stepId: string, completed: boolean) => void;
   onDelete: (questId: string, title: string) => void;
-  onUpdate: (questId: string, patch: { priority?: QuestPriority; dueDate?: string | null }) => void;
+  onUpdate: (questId: string, patch: { priority?: QuestPriority; dueDate?: string | null; linkedSkillId?: string | null }) => void;
 }
 
 const PRIORITY_META: Record<QuestPriority, { label: string; color: string }> = {
@@ -31,13 +34,14 @@ function isOverdue(dueDate: string | null, completed: boolean): boolean {
   return dueDate.slice(0, 10) < today;
 }
 
-export default function QuestCard({ quest, dragging, onDragStart, onDragEnd, onToggleStep, onDelete, onUpdate }: Props) {
+export default function QuestCard({ quest, skills = [], dragging, onDragStart, onDragEnd, onToggleStep, onDelete, onUpdate }: Props) {
   const [expanded, setExpanded] = useState(false);
   const done = quest.steps.filter((s) => s.completed).length;
   const total = quest.steps.length || 1;
   const isDone = quest.completed;
   const overdue = isOverdue(quest.dueDate, isDone);
   const priorityMeta = PRIORITY_META[quest.priority] ?? PRIORITY_META.medium;
+  const linkedSkill = quest.linkedSkillId ? skills.find((s) => s.id === quest.linkedSkillId) : null;
 
   return (
     <div
@@ -84,6 +88,11 @@ export default function QuestCard({ quest, dragging, onDragStart, onDragEnd, onT
           {quest.dueDate && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: overdue ? 'var(--bad)' : 'var(--text-faint)' }}>
               <Calendar size={10} />{overdue ? 'Overdue' : shortDate(quest.dueDate)}
+            </span>
+          )}
+          {linkedSkill && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--accent-2)' }}>
+              <Sparkles size={10} />{linkedSkill.name}
             </span>
           )}
         </div>
@@ -152,6 +161,22 @@ export default function QuestCard({ quest, dragging, onDragStart, onDragEnd, onT
                 style={{ background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '3px 7px', fontSize: 11.5 }}
               />
             </label>
+            {skills.length > 0 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text-faint)' }}>
+                Skill
+                <select
+                  value={quest.linkedSkillId ?? ''}
+                  onChange={(e) => onUpdate(quest.id, { linkedSkillId: e.target.value || null })}
+                  aria-label="Linked skill"
+                  style={{ background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '3px 7px', fontSize: 11.5 }}
+                >
+                  <option value="">None</option>
+                  {skills.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
         </div>
       )}

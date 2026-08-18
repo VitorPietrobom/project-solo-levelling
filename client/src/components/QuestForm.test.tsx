@@ -34,11 +34,13 @@ describe('QuestForm', () => {
         priority: 'medium',
         dueDate: null,
         completed: false,
+        linkedSkillId: null,
         steps: [expect.objectContaining({ description: 'First step', completed: false })],
       }),
       ['First step'],
       50,
       'medium',
+      null,
       null,
     );
   });
@@ -58,6 +60,27 @@ describe('QuestForm', () => {
       50,
       'high',
       null,
+      null,
+    );
+  });
+
+  it('submits a linked skill when one is chosen', async () => {
+    const skills = [{ id: 'sk1', name: 'Guitar', totalXP: 0, level: 0, progress: { current: 0, required: 100, percentage: 0 } }];
+    render(<QuestForm onCreated={onCreated} skills={skills} />);
+
+    await userEvent.type(screen.getByLabelText('Quest title'), 'My Quest');
+    await userEvent.type(screen.getByLabelText('Quest description'), 'A description');
+    await userEvent.type(screen.getByLabelText('Step 1'), 'First step');
+    await userEvent.selectOptions(screen.getByLabelText(/Link to skill/), 'sk1');
+    await userEvent.click(screen.getByText('Create Quest'));
+
+    expect(onCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ linkedSkillId: 'sk1' }),
+      ['First step'],
+      50,
+      'medium',
+      null,
+      'sk1',
     );
   });
 

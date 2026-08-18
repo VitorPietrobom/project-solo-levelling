@@ -18,6 +18,9 @@ vi.mock('../lib/prisma', () => ({
       update: vi.fn(),
       upsert: vi.fn().mockResolvedValue({}),
     },
+    skill: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -253,6 +256,61 @@ describe('Task endpoints', () => {
 
       expect(res.status).toBe(404);
       expect(prisma.task.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('PATCH /api/tasks/:id', () => {
+    it('edits title, recurrence, and xpReward', async () => {
+      (prisma.task.findFirst as any).mockResolvedValue({ id: 't1', userId: 'test-user-id' });
+      (prisma.task.update as any).mockResolvedValue({ id: 't1', title: 'New title', recurrence: 'weekly', xpReward: 40, lastCompletedAt: null });
+
+      const res = await request(app).patch('/api/tasks/t1').send({ title: 'New title', recurrence: 'weekly', xpReward: 40 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.title).toBe('New title');
+      expect(prisma.task.update).toHaveBeenCalledWith({
+        where: { id: 't1' },
+        data: { title: 'New title', recurrence: 'weekly', xpReward: 40 },
+      });
+    });
+
+    it('links a skill after validating ownership', async () => {
+      (prisma.task.findFirst as any).mockResolvedValue({ id: 't1', userId: 'test-user-id' });
+      (prisma.skill.findFirst as any).mockResolvedValue({ id: 'sk1', userId: 'test-user-id' });
+      (prisma.task.update as any).mockResolvedValue({ id: 't1', linkedSkillId: 'sk1', lastCompletedAt: null, recurrence: 'daily' });
+
+      const res = await request(app).patch('/api/tasks/t1').send({ linkedSkillId: 'sk1' });
+
+      expect(res.status).toBe(200);
+      expect(prisma.task.update).toHaveBeenCalledWith(expect.objectContaining({ data: { linkedSkillId: 'sk1' } }));
+    });
+
+    it('rejects a skill that does not belong to the user', async () => {
+      (prisma.task.findFirst as any).mockResolvedValue({ id: 't1', userId: 'test-user-id' });
+      (prisma.skill.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app).patch('/api/tasks/t1').send({ linkedSkillId: 'ghost' });
+
+      expect(res.status).toBe(400);
+      expect(prisma.task.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an empty title', async () => {
+      (prisma.task.findFirst as any).mockResolvedValue({ id: 't1', userId: 'test-user-id' });
+      const res = await request(app).patch('/api/tasks/t1').send({ title: '   ' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects an invalid recurrence', async () => {
+      (prisma.task.findFirst as any).mockResolvedValue({ id: 't1', userId: 'test-user-id' });
+      const res = await request(app).patch('/api/tasks/t1').send({ recurrence: 'monthly' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 for a task that does not belong to the user', async () => {
+      (prisma.task.findFirst as any).mockResolvedValue(null);
+      const res = await request(app).patch('/api/tasks/ghost').send({ title: 'x' });
+      expect(res.status).toBe(404);
     });
   });
 });

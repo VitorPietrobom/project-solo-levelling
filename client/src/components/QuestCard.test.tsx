@@ -11,6 +11,7 @@ const baseQuest: Quest = {
   xpReward: 100,
   priority: 'medium',
   dueDate: null,
+  linkedSkillId: null,
   completed: false,
   steps: [
     { id: 's1', description: 'Buy a guitar', sortOrder: 0, completed: true },
@@ -73,5 +74,26 @@ describe('QuestCard', () => {
     const done = { ...baseQuest, dueDate: '2020-01-01', completed: true };
     render(<QuestCard quest={done} dragging={false} onDragStart={noop} onDragEnd={noop} onToggleStep={noop} onDelete={noop} onUpdate={noop} />);
     expect(screen.queryByText('Overdue')).not.toBeInTheDocument();
+  });
+
+  const skills = [{ id: 'sk1', name: 'Guitar', totalXP: 0, level: 0, progress: { current: 0, required: 100, percentage: 0 } }];
+
+  it('shows the linked skill name on the collapsed card', () => {
+    const linked = { ...baseQuest, linkedSkillId: 'sk1' };
+    render(<QuestCard quest={linked} skills={skills} dragging={false} onDragStart={noop} onDragEnd={noop} onToggleStep={noop} onDelete={noop} onUpdate={noop} />);
+    expect(screen.getByText('Guitar')).toBeInTheDocument();
+  });
+
+  it('shows no skill badge when nothing is linked', () => {
+    render(<QuestCard quest={baseQuest} skills={skills} dragging={false} onDragStart={noop} onDragEnd={noop} onToggleStep={noop} onDelete={noop} onUpdate={noop} />);
+    expect(screen.queryByText('Guitar')).not.toBeInTheDocument();
+  });
+
+  it('calls onUpdate when a skill is linked from the expanded picker', async () => {
+    const onUpdate = vi.fn();
+    render(<QuestCard quest={baseQuest} skills={skills} dragging={false} onDragStart={noop} onDragEnd={noop} onToggleStep={noop} onDelete={noop} onUpdate={onUpdate} />);
+    await userEvent.click(screen.getByLabelText('Expand quest "Learn Guitar"'));
+    await userEvent.selectOptions(screen.getByLabelText('Linked skill'), 'sk1');
+    expect(onUpdate).toHaveBeenCalledWith('q1', { linkedSkillId: 'sk1' });
   });
 });

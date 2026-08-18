@@ -16,6 +16,15 @@ function parseDueDate(value: unknown): { ok: true; date: Date | null } | { ok: f
   return { ok: true, date: d };
 }
 
+async function grantSkillXP(skillId: string, xp: number): Promise<void> {
+  await prisma.skill.update({ where: { id: skillId }, data: { totalXP: { increment: xp } } });
+}
+
+async function revokeSkillXP(skillId: string, xp: number): Promise<void> {
+  await prisma.skill.update({ where: { id: skillId }, data: { totalXP: { decrement: xp } } });
+  await prisma.skill.updateMany({ where: { id: skillId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+}
+
 export async function listQuests(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
@@ -34,7 +43,7 @@ export async function listQuests(req: Request, res: Response): Promise<void> {
 export async function createQuest(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
-    const { title, description, steps, xpReward, priority, dueDate } = req.body;
+    const { title, description, steps, xpReward, priority, dueDate, linkedSkillId } = req.body;
 
     if (!title || !description || !Array.isArray(steps) || steps.length === 0) {
       res.status(400).json({ error: 'Title, description, and at least one step are required' });
@@ -61,6 +70,11 @@ export async function createQuest(req: Request, res: Response): Promise<void> {
       parsedDueDate = parsedDue.date;
     }
 
+    if (linkedSkillId) {
+      const skill = await prisma.skill.findFirst({ where: { id: linkedSkillId, userId } });
+      if (!skill) { res.status(400).json({ error: 'Skill not found' }); return; }
+    }
+
     const quest = await prisma.quest.create({
       data: {
         userId,
@@ -69,6 +83,7 @@ export async function createQuest(req: Request, res: Response): Promise<void> {
         xpReward,
         priority: (priority as QuestPriority) ?? 'medium',
         dueDate: parsedDueDate,
+        linkedSkillId: linkedSkillId || null,
         steps: {
           create: steps.map((desc: string, i: number) => ({
             description: desc,
@@ -96,7 +111,7 @@ export async function updateQuest(req: Request, res: Response): Promise<void> {
     const existing = await prisma.quest.findFirst({ where: { id, userId } });
     if (!existing) { res.status(404).json({ error: 'Quest not found' }); return; }
 
-    const { title, description, xpReward, priority, dueDate } = req.body;
+    const { title, description, xpReward, priority, dueDate, linkedSkillId } = req.body;
     const data: Record<string, unknown> = {};
 
     if (title !== undefined) {
@@ -119,6 +134,13 @@ export async function updateQuest(req: Request, res: Response): Promise<void> {
       const parsed = parseDueDate(dueDate);
       if (!parsed.ok) { res.status(400).json({ error: 'dueDate must be a valid date' }); return; }
       data.dueDate = parsed.date;
+    }
+    if (linkedSkillId !== undefined) {
+      if (linkedSkillId) {
+        const skill = await prisma.skill.findFirst({ where: { id: linkedSkillId, userId } });
+        if (!skill) { res.status(400).json({ error: 'Skill not found' }); return; }
+      }
+      data.linkedSkillId = linkedSkillId || null;
     }
 
     const updated = await prisma.quest.update({ where: { id }, data, include: questInclude });
@@ -169,10 +191,12 @@ export async function toggleStep(req: Request, res: Response): Promise<void> {
     if (allDone && !wasCompleted) {
       await prisma.quest.update({ where: { id: questId }, data: { completed: true } });
       await awardXP(userId, quest.xpReward, `quest:${questId}`);
+      if (quest.linkedSkillId) await grantSkillXP(quest.linkedSkillId, quest.xpReward);
     } else if (!allDone && wasCompleted) {
       await prisma.quest.update({ where: { id: questId }, data: { completed: false } });
       await prisma.user.update({ where: { id: userId }, data: { totalXP: { decrement: quest.xpReward } } });
       await prisma.user.updateMany({ where: { id: userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+      if (quest.linkedSkillId) await revokeSkillXP(quest.linkedSkillId, quest.xpReward);
     }
 
     const updated = await prisma.quest.findUnique({ where: { id: questId }, include: questInclude });
@@ -201,6 +225,7 @@ export async function resetQuest(req: Request, res: Response): Promise<void> {
     if (quest.completed) {
       await prisma.user.update({ where: { id: userId }, data: { totalXP: { decrement: quest.xpReward } } });
       await prisma.user.updateMany({ where: { id: userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+      if (quest.linkedSkillId) await revokeSkillXP(quest.linkedSkillId, quest.xpReward);
     }
     await prisma.quest.update({ where: { id }, data: { completed: false } });
 
@@ -242,6 +267,7 @@ export async function completeQuestAll(req: Request, res: Response): Promise<voi
     await prisma.questStep.updateMany({ where: { questId: id }, data: { completed: true } });
     await prisma.quest.update({ where: { id }, data: { completed: true } });
     await awardXP(userId, quest.xpReward, `quest:${id}`);
+    if (quest.linkedSkillId) await grantSkillXP(quest.linkedSkillId, quest.xpReward);
 
     const updated = await prisma.quest.findUnique({ where: { id }, include: questInclude });
     res.json(updated);

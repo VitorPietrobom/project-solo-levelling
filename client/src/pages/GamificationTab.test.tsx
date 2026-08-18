@@ -87,4 +87,28 @@ describe('GamificationTab', () => {
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/complete'));
   });
+
+  it('has no Skills section anymore — that moved to its own page', async () => {
+    render(<GamificationTab />);
+    await waitFor(() => expect(screen.getByText('Learn Guitar')).toBeInTheDocument());
+    expect(screen.queryByText('Skills')).not.toBeInTheDocument();
+  });
+
+  it('editing a task swaps the row for a prefilled form and saves via PATCH', async () => {
+    render(<GamificationTab />);
+    await waitFor(() => expect(screen.getByText('Morning run')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByLabelText('Edit task "Morning run"'));
+    const input = await screen.findByLabelText('Task title');
+    expect((input as HTMLInputElement).value).toBe('Morning run');
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Evening run');
+    await userEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(mockPatch).toHaveBeenCalledWith(
+      '/api/tasks/t1',
+      { body: { title: 'Evening run', recurrence: 'daily', xpReward: 25, linkedSkillId: null } },
+    ));
+  });
 });

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   Zap,
   LayoutDashboard,
+  Sparkles,
   Activity,
   Salad,
   ChefHat,
@@ -31,6 +32,7 @@ interface Toast {
 
 const NAV = [
   { path: '/', label: 'Status', icon: LayoutDashboard, sub: 'Level & quests' },
+  { path: '/skills', label: 'Skills', icon: Sparkles, sub: 'Growth & progress' },
   { path: '/body', label: 'Body', icon: Activity, sub: 'Training & health' },
   { path: '/diet', label: 'Diet', icon: Salad, sub: 'Calories & meals' },
   { path: '/recipes', label: 'Recipes', icon: ChefHat, sub: 'Cook & meal prep' },

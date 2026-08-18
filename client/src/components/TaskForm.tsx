@@ -3,15 +3,21 @@ import type { Task } from './TaskList';
 import type { Skill } from './SkillList';
 
 interface TaskFormProps {
-  onCreated: (optimistic: Task, body: { title: string; recurrence: string; xpReward: number; linkedSkillId?: string }) => void;
+  /** Creation mode (default). Ignored when `task` is set. */
+  onCreated?: (optimistic: Task, body: { title: string; recurrence: string; xpReward: number; linkedSkillId?: string }) => void;
   skills?: Skill[];
+  /** When set, the form edits this task instead of creating a new one. */
+  task?: Task | null;
+  onSave?: (taskId: string, patch: { title: string; recurrence: 'daily' | 'weekly'; xpReward: number; linkedSkillId: string | null }) => void;
+  onCancel?: () => void;
 }
 
-export default function TaskForm({ onCreated, skills = [] }: TaskFormProps) {
-  const [title, setTitle] = useState('');
-  const [recurrence, setRecurrence] = useState<'daily' | 'weekly'>('daily');
-  const [xpReward, setXpReward] = useState(25);
-  const [linkedSkillId, setLinkedSkillId] = useState('');
+export default function TaskForm({ onCreated, skills = [], task = null, onSave, onCancel }: TaskFormProps) {
+  const editing = task !== null;
+  const [title, setTitle] = useState(task?.title ?? '');
+  const [recurrence, setRecurrence] = useState<'daily' | 'weekly'>(task?.recurrence ?? 'daily');
+  const [xpReward, setXpReward] = useState(task?.xpReward ?? 25);
+  const [linkedSkillId, setLinkedSkillId] = useState(task?.linkedSkillId ?? '');
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
@@ -20,6 +26,11 @@ export default function TaskForm({ onCreated, skills = [] }: TaskFormProps) {
 
     if (!title.trim()) {
       setError('Title is required');
+      return;
+    }
+
+    if (editing && task) {
+      onSave?.(task.id, { title: title.trim(), recurrence, xpReward, linkedSkillId: linkedSkillId || null });
       return;
     }
 
@@ -33,7 +44,7 @@ export default function TaskForm({ onCreated, skills = [] }: TaskFormProps) {
       linkedSkillId: linkedSkillId || null,
     };
 
-    onCreated(optimistic, {
+    onCreated?.(optimistic, {
       title: optimistic.title,
       recurrence,
       xpReward,
@@ -53,7 +64,7 @@ export default function TaskForm({ onCreated, skills = [] }: TaskFormProps) {
 
   return (
     <form onSubmit={handleSubmit} style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: 16, display: 'grid', gap: 12 }}>
-      <span className="eyebrow">New task</span>
+      <span className="eyebrow">{editing ? 'Edit task' : 'New task'}</span>
       {error && <p style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}</p>}
       <input
         type="text" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)}
@@ -82,7 +93,7 @@ export default function TaskForm({ onCreated, skills = [] }: TaskFormProps) {
           <label htmlFor="task-skill" style={{ fontSize: 11.5, color: 'var(--text-3)', flex: 1, minWidth: 160 }}>
             Link to skill
             <select
-              id="task-skill" value={linkedSkillId} onChange={(e) => setLinkedSkillId(e.target.value)}
+              id="task-skill" value={linkedSkillId ?? ''} onChange={(e) => setLinkedSkillId(e.target.value)}
               style={{ ...inputStyle, display: 'block', marginTop: 6, width: '100%' }}
             >
               <option value="">None</option>
@@ -93,9 +104,14 @@ export default function TaskForm({ onCreated, skills = [] }: TaskFormProps) {
           </label>
         )}
       </div>
-      <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center' }}>
-        Create Task
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+          {editing ? 'Save' : 'Create Task'}
+        </button>
+        {editing && (
+          <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+        )}
+      </div>
     </form>
   );
 }

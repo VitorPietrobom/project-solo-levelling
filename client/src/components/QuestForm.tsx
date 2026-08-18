@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Flag } from 'lucide-react';
 import type { Quest, QuestPriority } from './QuestList';
+import type { Skill } from './SkillList';
 
 interface QuestFormProps {
   onCreated: (
@@ -9,7 +10,9 @@ interface QuestFormProps {
     xpReward: number,
     priority: QuestPriority,
     dueDate: string | null,
+    linkedSkillId: string | null,
   ) => void;
+  skills?: Skill[];
 }
 
 const PRIORITIES: { value: QuestPriority; label: string; color: string }[] = [
@@ -18,12 +21,13 @@ const PRIORITIES: { value: QuestPriority; label: string; color: string }[] = [
   { value: 'high', label: 'High', color: 'var(--bad)' },
 ];
 
-export default function QuestForm({ onCreated }: QuestFormProps) {
+export default function QuestForm({ onCreated, skills = [] }: QuestFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [xpReward, setXpReward] = useState(50);
   const [priority, setPriority] = useState<QuestPriority>('medium');
   const [dueDate, setDueDate] = useState('');
+  const [linkedSkillId, setLinkedSkillId] = useState('');
   const [steps, setSteps] = useState<string[]>(['']);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +62,7 @@ export default function QuestForm({ onCreated }: QuestFormProps) {
       xpReward,
       priority,
       dueDate: dueDate || null,
+      linkedSkillId: linkedSkillId || null,
       completed: false,
       steps: validSteps.map((desc, i) => ({
         id: `temp-step-${i}`,
@@ -67,12 +72,13 @@ export default function QuestForm({ onCreated }: QuestFormProps) {
       })),
     };
 
-    onCreated(optimistic, validSteps, xpReward, priority, dueDate || null);
+    onCreated(optimistic, validSteps, xpReward, priority, dueDate || null, linkedSkillId || null);
     setTitle('');
     setDescription('');
     setXpReward(50);
     setPriority('medium');
     setDueDate('');
+    setLinkedSkillId('');
     setSteps(['']);
   }
 
@@ -136,6 +142,21 @@ export default function QuestForm({ onCreated }: QuestFormProps) {
             style={{ display: 'block', marginTop: 6, width: 90, background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '7px 9px', fontSize: 13 }}
           />
         </label>
+
+        {skills.length > 0 && (
+          <label htmlFor="quest-skill" style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
+            Link to skill <span style={{ color: 'var(--text-faint)' }}>(optional)</span>
+            <select
+              id="quest-skill" value={linkedSkillId} onChange={(e) => setLinkedSkillId(e.target.value)}
+              style={{ display: 'block', marginTop: 6, background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '7px 9px', fontSize: 13, minWidth: 140 }}
+            >
+              <option value="">None</option>
+              {skills.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div>

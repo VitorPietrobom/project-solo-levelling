@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './components/Dashboard';
 import LoginPage from './pages/LoginPage';
 import GamificationTab from './pages/GamificationTab';
+import SkillsTab from './pages/SkillsTab';
 import BodyTab from './pages/BodyTab';
 import DietTab from './pages/DietTab';
 import LearningTab from './pages/LearningTab';
@@ -28,6 +29,7 @@ function App() {
             }
           >
             <Route index element={<GamificationTab />} />
+            <Route path="skills" element={<SkillsTab />} />
             <Route path="body" element={<BodyTab />} />
             <Route path="diet" element={<DietTab />} />
             <Route path="learning" element={<LearningTab />} />

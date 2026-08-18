@@ -172,6 +172,48 @@ export async function uncompleteTask(req: Request, res: Response): Promise<void>
   }
 }
 
+// PATCH /api/tasks/:id — edit title/recurrence/xpReward/linkedSkillId. Never
+// touches completedToday/lastCompletedAt; use complete/uncomplete for that.
+// A changed xpReward only applies going forward — it does not retroactively
+// adjust XP already awarded for the current period, same as quest edits.
+export async function updateTask(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const id = req.params.id as string;
+    const existing = await prisma.task.findFirst({ where: { id, userId } });
+    if (!existing) { res.status(404).json({ error: 'Task not found' }); return; }
+
+    const { title, recurrence, xpReward, linkedSkillId } = req.body;
+    const data: Record<string, unknown> = {};
+
+    if (title !== undefined) {
+      if (typeof title !== 'string' || title.trim() === '') { res.status(400).json({ error: 'Title cannot be empty' }); return; }
+      data.title = title.trim();
+    }
+    if (recurrence !== undefined) {
+      if (recurrence !== 'daily' && recurrence !== 'weekly') { res.status(400).json({ error: 'Recurrence must be daily or weekly' }); return; }
+      data.recurrence = recurrence;
+    }
+    if (xpReward !== undefined) {
+      if (typeof xpReward !== 'number' || xpReward < 0) { res.status(400).json({ error: 'xpReward must be a non-negative number' }); return; }
+      data.xpReward = xpReward;
+    }
+    if (linkedSkillId !== undefined) {
+      if (linkedSkillId) {
+        const skill = await prisma.skill.findFirst({ where: { id: linkedSkillId, userId } });
+        if (!skill) { res.status(400).json({ error: 'Skill not found' }); return; }
+      }
+      data.linkedSkillId = linkedSkillId || null;
+    }
+
+    const updated = await prisma.task.update({ where: { id }, data });
+    res.json({ ...updated, completedToday: isCompletedForPeriod(updated.recurrence, updated.lastCompletedAt) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export async function deleteTask(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
