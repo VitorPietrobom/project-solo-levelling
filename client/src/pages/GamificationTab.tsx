@@ -13,6 +13,7 @@ import type { HabitPatch } from '../components/HabitRow';
 import type { Quest, QuestPriority } from '../components/QuestList';
 import type { Skill } from '../components/SkillList';
 import { apiClient } from '../lib/apiClient';
+import { rankForLevel } from '../lib/rank';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 interface GamificationStatus {
@@ -26,20 +27,6 @@ interface GamificationStatus {
 interface OutletCtx {
   status: GamificationStatus | null;
   addXP: (amount: number, label: string) => void;
-}
-
-// Hunter rank by level.
-const RANKS: { from: number; label: string; color: string }[] = [
-  { from: 60, label: 'S-Rank', color: 'var(--warn)' },
-  { from: 40, label: 'A-Rank', color: 'var(--bad)' },
-  { from: 25, label: 'B-Rank', color: 'var(--accent-2)' },
-  { from: 15, label: 'C-Rank', color: 'var(--info)' },
-  { from: 7, label: 'D-Rank', color: 'var(--accent)' },
-  { from: 0, label: 'E-Rank', color: 'var(--text-3)' },
-];
-
-export function rankForLevel(level: number): { label: string; color: string } {
-  return RANKS.find((r) => level >= r.from) ?? RANKS[RANKS.length - 1]!;
 }
 
 // A small pool of flavor lines, picked deterministically by level so the
