@@ -46,56 +46,54 @@ export default function TaskForm({ onCreated, skills = [] }: TaskFormProps) {
     setLinkedSkillId('');
   }
 
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)',
+    borderRadius: 'var(--r-sm)', padding: '9px 11px', fontSize: 13.5, outline: 'none',
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="bg-card rounded-lg p-4 border border-border space-y-3">
-      <h3 className="text-text-primary font-semibold">New Task</h3>
-      {error && <p className="text-accent-warning text-sm">{error}</p>}
+    <form onSubmit={handleSubmit} style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: 16, display: 'grid', gap: 12 }}>
+      <span className="eyebrow">New task</span>
+      {error && <p style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}</p>}
       <input
-        type="text"
-        placeholder="Task title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="w-full bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
-        aria-label="Task title"
+        type="text" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)}
+        style={{ ...inputStyle, width: '100%' }} aria-label="Task title"
       />
-      <div className="flex items-center gap-4">
-        <label className="text-text-secondary text-sm flex items-center gap-2">
-          <input type="radio" name="recurrence" value="daily" checked={recurrence === 'daily'} onChange={() => setRecurrence('daily')} className="accent-accent-primary" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+        <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}>
+          <input type="radio" name="recurrence" value="daily" checked={recurrence === 'daily'} onChange={() => setRecurrence('daily')} style={{ accentColor: 'var(--accent)' }} />
           Daily
         </label>
-        <label className="text-text-secondary text-sm flex items-center gap-2">
-          <input type="radio" name="recurrence" value="weekly" checked={recurrence === 'weekly'} onChange={() => setRecurrence('weekly')} className="accent-accent-primary" />
+        <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}>
+          <input type="radio" name="recurrence" value="weekly" checked={recurrence === 'weekly'} onChange={() => setRecurrence('weekly')} style={{ accentColor: 'var(--accent)' }} />
           Weekly
         </label>
       </div>
-      <div className="flex items-center gap-2">
-        <label htmlFor="task-xp-reward" className="text-text-secondary text-sm">XP Reward:</label>
-        <input
-          id="task-xp-reward"
-          type="number"
-          min={0}
-          value={xpReward}
-          onChange={(e) => setXpReward(Number(e.target.value))}
-          className="w-24 bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
-        />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+        <label style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
+          XP reward
+          <input
+            id="task-xp-reward" type="number" min={0} value={xpReward}
+            onChange={(e) => setXpReward(Number(e.target.value))}
+            style={{ ...inputStyle, display: 'block', marginTop: 6, width: 90 }}
+          />
+        </label>
+        {skills.length > 0 && (
+          <label htmlFor="task-skill" style={{ fontSize: 11.5, color: 'var(--text-3)', flex: 1, minWidth: 160 }}>
+            Link to skill
+            <select
+              id="task-skill" value={linkedSkillId} onChange={(e) => setLinkedSkillId(e.target.value)}
+              style={{ ...inputStyle, display: 'block', marginTop: 6, width: '100%' }}
+            >
+              <option value="">None</option>
+              {skills.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
-      {skills.length > 0 && (
-        <div className="flex items-center gap-2">
-          <label htmlFor="task-skill" className="text-text-secondary text-sm">Link to Skill:</label>
-          <select
-            id="task-skill"
-            value={linkedSkillId}
-            onChange={(e) => setLinkedSkillId(e.target.value)}
-            className="flex-1 bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
-          >
-            <option value="">None</option>
-            {skills.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-      <button type="submit" className="w-full bg-accent-primary text-primary font-semibold py-2 rounded hover:opacity-90 transition-opacity">
+      <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center' }}>
         Create Task
       </button>
     </form>

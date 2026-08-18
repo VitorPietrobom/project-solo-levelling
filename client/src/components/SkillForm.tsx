@@ -31,21 +31,18 @@ export default function SkillForm({ onCreated }: SkillFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-card rounded-lg p-4 border border-border space-y-3">
-      <h3 className="text-text-primary font-semibold">New Skill</h3>
-      {error && <p className="text-accent-warning text-sm">{error}</p>}
+    <form onSubmit={handleSubmit} style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', padding: 16, display: 'grid', gap: 12 }}>
+      <span className="eyebrow">New skill</span>
+      {error && <p style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}</p>}
       <input
         type="text"
         placeholder="Skill name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="w-full bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+        style={{ width: '100%', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '9px 11px', fontSize: 13.5, outline: 'none' }}
         aria-label="Skill name"
       />
-      <button
-        type="submit"
-        className="w-full bg-accent-primary text-primary font-semibold py-2 rounded hover:opacity-90 transition-opacity"
-      >
+      <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center' }}>
         Create Skill
       </button>
     </form>

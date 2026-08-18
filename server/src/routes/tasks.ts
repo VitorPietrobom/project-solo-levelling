@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { listTasks, createTask, completeTask, uncompleteTask } from '../controllers/tasks';
+import { listTasks, createTask, completeTask, uncompleteTask, deleteTask } from '../controllers/tasks';
 import { authMiddleware } from '../middleware/auth';
 import { ensureUser } from '../middleware/ensureUser';
 
@@ -9,5 +9,6 @@ router.get('/', authMiddleware, ensureUser, listTasks);
 router.post('/', authMiddleware, ensureUser, createTask);
 router.patch('/:id/complete', authMiddleware, ensureUser, completeTask);
 router.patch('/:id/uncomplete', authMiddleware, ensureUser, uncompleteTask);
+router.delete('/:id', authMiddleware, ensureUser, deleteTask);
 
 export default router;
