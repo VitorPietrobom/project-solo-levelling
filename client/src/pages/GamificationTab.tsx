@@ -12,9 +12,10 @@ import HabitRow from '../components/HabitRow';
 import type { HabitPatch } from '../components/HabitRow';
 import type { Quest, QuestPriority } from '../components/QuestList';
 import type { Skill } from '../components/SkillList';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
 import { rankForLevel } from '../lib/rank';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { useToast } from '../contexts/ToastContext';
 
 interface GamificationStatus {
   level: number;
@@ -73,6 +74,8 @@ function StatCard({
 
 export default function GamificationTab() {
   const { status, addXP } = (useOutletContext() ?? {}) as Partial<OutletCtx>;
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(true);
 
   // Quests and habits are the same underlying entity (Quest.recurrence set
   // vs null) — one fetch, split client-side for the two very different UIs
@@ -99,9 +102,7 @@ export default function GamificationTab() {
   }, []);
 
   useEffect(() => {
-    fetchQuests();
-    fetchSkills();
-    fetchStatus();
+    Promise.all([fetchQuests(), fetchSkills(), fetchStatus()]).finally(() => setLoading(false));
   }, [fetchQuests, fetchSkills, fetchStatus]);
 
   // Prefer localStatus (fetched directly from DB) over the Dashboard context
@@ -129,7 +130,10 @@ export default function GamificationTab() {
     apiClient
       .post('/api/quests', { body })
       .then((data) => setQuests((prev) => prev.map((q) => (q.id === optimistic.id ? (data as Quest) : q))))
-      .catch(() => setQuests((prev) => prev.filter((q) => q.id !== optimistic.id)));
+      .catch((err) => {
+        setQuests((prev) => prev.filter((q) => q.id !== optimistic.id));
+        showToast(errorMessage(err, 'Failed to create quest'));
+      });
   }
 
   function handleHabitToggle(id: string, completed: boolean) {
@@ -138,12 +142,18 @@ export default function GamificationTab() {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, completed } : q)));
     apiClient.patch(`/api/quests/${id}/${completed ? 'complete' : 'reset'}`)
       .then(() => fetchStatus())
-      .catch(() => fetchQuests());
+      .catch((err) => {
+        fetchQuests();
+        showToast(errorMessage(err, 'Failed to update habit'));
+      });
   }
 
   function handleHabitSave(id: string, patch: HabitPatch) {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
-    apiClient.patch(`/api/quests/${id}`, { body: patch }).catch(() => fetchQuests());
+    apiClient.patch(`/api/quests/${id}`, { body: patch }).catch((err) => {
+      fetchQuests();
+      showToast(errorMessage(err, 'Failed to save habit'));
+    });
   }
 
   function handleHabitDelete(id: string, title: string) {
@@ -161,14 +171,20 @@ export default function GamificationTab() {
     );
     apiClient.patch(`/api/quests/${questId}/steps/${stepId}`, { body: { completed } })
       .then(() => fetchStatus())
-      .catch(() => fetchQuests());
+      .catch((err) => {
+        fetchQuests();
+        showToast(errorMessage(err, 'Failed to update step'));
+      });
   }
 
   // Inline priority / due-date / linked-skill edit from inside an expanded
   // quest card.
   function handleQuestUpdate(questId: string, patch: { title?: string; description?: string | null; priority?: QuestPriority; dueDate?: string | null; linkedSkillId?: string | null }) {
     setQuests((prev) => prev.map((q) => (q.id === questId ? { ...q, ...patch } : q)));
-    apiClient.patch(`/api/quests/${questId}`, { body: patch }).catch(() => fetchQuests());
+    apiClient.patch(`/api/quests/${questId}`, { body: patch }).catch((err) => {
+      fetchQuests();
+      showToast(errorMessage(err, 'Failed to update quest'));
+    });
   }
 
   function handleQuestDelete(questId: string, questTitle: string) {
@@ -192,14 +208,20 @@ export default function GamificationTab() {
         q.id === quest.id ? { ...q, completed: true, steps: q.steps.map((s) => ({ ...s, completed: true })) } : q,
       ));
       if (addXP) addXP(quest.xpReward, quest.title);
-      apiClient.patch(`/api/quests/${quest.id}/complete`).then(() => fetchStatus()).catch(() => fetchQuests());
+      apiClient.patch(`/api/quests/${quest.id}/complete`).then(() => fetchStatus()).catch((err) => {
+        fetchQuests();
+        showToast(errorMessage(err, 'Failed to complete quest'));
+      });
     } else {
       const alreadyEmpty = quest.steps.every((s) => !s.completed) && !quest.completed;
       if (alreadyEmpty) return;
       setQuests((prev) => prev.map((q) =>
         q.id === quest.id ? { ...q, completed: false, steps: q.steps.map((s) => ({ ...s, completed: false })) } : q,
       ));
-      apiClient.patch(`/api/quests/${quest.id}/reset`).then(() => fetchStatus()).catch(() => fetchQuests());
+      apiClient.patch(`/api/quests/${quest.id}/reset`).then(() => fetchStatus()).catch((err) => {
+        fetchQuests();
+        showToast(errorMessage(err, 'Failed to reset quest'));
+      });
     }
   }
 
@@ -207,7 +229,10 @@ export default function GamificationTab() {
     if (!confirmDelete) return;
     const { id } = confirmDelete;
     setQuests((prev) => prev.filter((q) => q.id !== id));
-    apiClient.delete(`/api/quests/${id}`).catch(() => fetchQuests());
+    apiClient.delete(`/api/quests/${id}`).catch((err) => {
+      fetchQuests();
+      showToast(errorMessage(err, 'Failed to delete quest'));
+    });
     setConfirmDelete(null);
   }
 
@@ -219,6 +244,10 @@ export default function GamificationTab() {
     ['In Progress', inProgressQuests],
     ['Done', doneQuests],
   ];
+
+  if (loading) {
+    return <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Loading…</p>;
+  }
 
   return (
     <>

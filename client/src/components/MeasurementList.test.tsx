@@ -24,6 +24,11 @@ describe('MeasurementList', () => {
     expect(screen.getByText('80')).toBeInTheDocument();
   });
 
+  it('labels the latest entry by its UTC date, not the browser\'s local timezone', () => {
+    render(<MeasurementList measurements={[{ id: 'm1', type: 'chest', value: 100, date: '2026-08-19T00:00:00.000Z' }]} />);
+    expect(screen.getByText('Aug 19')).toBeInTheDocument();
+  });
+
   it('shows change indicator for types with multiple entries', () => {
     render(<MeasurementList measurements={sampleMeasurements} />);
     // Chest change: 102 - 100 = +2.0

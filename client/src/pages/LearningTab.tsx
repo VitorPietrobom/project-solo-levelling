@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
 import { useAriseAddXP } from '../components/Dashboard';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { useToast } from '../contexts/ToastContext';
 import BookList from '../components/BookList';
 import type { Book } from '../components/BookList';
 import BookForm from '../components/BookForm';
@@ -15,6 +16,7 @@ const BOOK_FINISH_XP = 80;
 
 export default function LearningTab() {
   const addXP = useAriseAddXP();
+  const { showToast } = useToast();
 
   const [skills, setSkills] = useState<Skill[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
@@ -44,34 +46,49 @@ export default function LearningTab() {
     setBooks((prev) => [optimistic, ...prev]); setShowBookForm(false); bumpStats();
     apiClient.post('/api/books', { body })
       .then((data) => setBooks((prev) => prev.map((b) => (b.id === optimistic.id ? (data as Book) : b))))
-      .catch(() => setBooks((prev) => prev.filter((b) => b.id !== optimistic.id)));
+      .catch((err) => {
+        setBooks((prev) => prev.filter((b) => b.id !== optimistic.id));
+        showToast(errorMessage(err, 'Failed to add book'));
+      });
   }
   function handleBookUpdateStatus(id: string, status: Book['status']) {
     const wasFinished = books.find((b) => b.id === id)?.status === 'finished';
     setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     if (status === 'finished' && !wasFinished) addXP(BOOK_FINISH_XP, 'Finished a book');
     bumpStats();
-    apiClient.patch(`/api/books/${id}`, { body: { status } }).catch(() => fetchBooks());
+    apiClient.patch(`/api/books/${id}`, { body: { status } }).catch((err) => {
+      fetchBooks();
+      showToast(errorMessage(err, 'Failed to update book status'));
+    });
   }
   function handleBookUpdateProgress(id: string, currentPage: number) {
     setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, currentPage } : b)));
-    apiClient.patch(`/api/books/${id}`, { body: { currentPage } }).catch(() => fetchBooks());
+    apiClient.patch(`/api/books/${id}`, { body: { currentPage } }).catch((err) => {
+      fetchBooks();
+      showToast(errorMessage(err, 'Failed to update reading progress'));
+    });
   }
   function handleBookUpdateRating(id: string, rating: number | null) {
     setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, rating } : b)));
-    apiClient.patch(`/api/books/${id}`, { body: { rating } }).catch(() => fetchBooks());
+    apiClient.patch(`/api/books/${id}`, { body: { rating } }).catch((err) => {
+      fetchBooks();
+      showToast(errorMessage(err, 'Failed to update rating'));
+    });
   }
   function handleBookRefreshCover(id: string) {
     apiClient.post(`/api/books/${id}/cover`)
       .then((data) => setBooks((prev) => prev.map((b) => (b.id === id ? (data as Book) : b))))
-      .catch(() => { /* ignore */ });
+      .catch((err) => showToast(errorMessage(err, 'Failed to refresh cover')));
   }
   function deleteBook() {
     if (!confirmDeleteBook) return;
     const { id } = confirmDeleteBook;
     const prev = books;
     setBooks((b) => b.filter((x) => x.id !== id));
-    apiClient.delete(`/api/books/${id}`).catch(() => setBooks(prev));
+    apiClient.delete(`/api/books/${id}`).catch((err) => {
+      setBooks(prev);
+      showToast(errorMessage(err, 'Failed to delete book'));
+    });
     setConfirmDeleteBook(null);
     bumpStats();
   }

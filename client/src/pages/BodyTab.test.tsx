@@ -35,6 +35,12 @@ vi.mock('../lib/apiClient', () => ({
     delete: vi.fn().mockResolvedValue({}),
   },
   ApiError,
+  errorMessage: (err: any, fallback: string) => (err instanceof ApiError ? err.message : fallback),
+}));
+
+const mockShowToast = vi.fn();
+vi.mock('../contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 describe('BodyTab weight card', () => {
@@ -68,6 +74,6 @@ describe('BodyTab weight card', () => {
     await userEvent.type(screen.getByLabelText('Weight in kg'), '80');
     await userEvent.click(screen.getByText('Log Entry'));
 
-    await waitFor(() => expect(screen.getByText('Weight entry already exists for this date')).toBeInTheDocument());
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('Weight entry already exists for this date'));
   });
 });

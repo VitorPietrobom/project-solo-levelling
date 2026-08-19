@@ -14,6 +14,12 @@ vi.mock('../lib/apiClient', () => ({
     patch: (...args: any[]) => mockPatch(...args),
     delete: (...args: any[]) => mockDelete(...args),
   },
+  errorMessage: (_err: any, fallback: string) => fallback,
+}));
+
+const mockShowToast = vi.fn();
+vi.mock('../contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 const addXP = vi.fn();

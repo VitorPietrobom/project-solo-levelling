@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { SkillAction } from './SkillList';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
+import { useToast } from '../contexts/ToastContext';
 
 interface Props {
   skillId: string;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function SkillActionList({ skillId, onLogged }: Props) {
+  const { showToast } = useToast();
   const [actions, setActions] = useState<SkillAction[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -36,14 +38,18 @@ export default function SkillActionList({ skillId, onLogged }: Props) {
     try {
       const created = (await apiClient.post('/api/skill-actions', { body: { skillId, name: optimistic.name, xpReward } })) as SkillAction;
       setActions((prev) => prev.map((a) => (a.id === optimistic.id ? created : a)));
-    } catch {
+    } catch (err) {
       setActions((prev) => prev.filter((a) => a.id !== optimistic.id));
+      showToast(errorMessage(err, 'Failed to create practice action'));
     }
   }
 
   function deleteAction(id: string) {
     setActions((prev) => prev.filter((a) => a.id !== id));
-    apiClient.delete(`/api/skill-actions/${id}`).catch(() => fetchActions());
+    apiClient.delete(`/api/skill-actions/${id}`).catch((err) => {
+      fetchActions();
+      showToast(errorMessage(err, 'Failed to delete practice action'));
+    });
   }
 
   async function logAction(action: SkillAction) {
@@ -56,7 +62,9 @@ export default function SkillActionList({ skillId, onLogged }: Props) {
         text: res.multiplier < 1 ? `+${res.xpAwarded} XP (×${res.multiplier} today)` : `+${res.xpAwarded} XP`,
       });
       setTimeout(() => setFlash((f) => (f?.actionId === action.id ? null : f)), 2200);
-    } catch { /* leave it loggable so it can be retried */ }
+    } catch (err) {
+      showToast(errorMessage(err, 'Failed to log practice'));
+    }
     setLogging(null);
   }
 

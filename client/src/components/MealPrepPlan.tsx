@@ -84,7 +84,9 @@ export default function MealPrepPlan({ plan, onSelectDay, selectedDay }: MealPre
                 <th
                   key={day}
                   onClick={() => onSelectDay(day)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDay(day); } }}
                   role="columnheader"
+                  tabIndex={0}
                   aria-label={`Select ${DAY_LABELS[day]}`}
                   data-selected={on ? 'true' : 'false'}
                   style={{

@@ -77,7 +77,7 @@ export default function LearningStats({ refreshKey }: { refreshKey: number }) {
                 aria-label="Reading goal (books/year)"
                 style={{ width: 70, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '5px 8px', fontSize: 13 }}
               />
-              <button className="btn btn-ghost" onClick={saveGoal} style={{ padding: '5px 8px' }}><Check size={14} /></button>
+              <button className="btn btn-ghost" onClick={saveGoal} aria-label="Save reading goal" style={{ padding: '5px 8px' }}><Check size={14} /></button>
             </div>
           ) : (
             <button className="btn btn-ghost" onClick={() => setEditing(true)}><Pencil size={13} />Set goal</button>

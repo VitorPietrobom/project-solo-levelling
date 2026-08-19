@@ -3,6 +3,16 @@ import { render, screen } from '@testing-library/react';
 import GymSessionLog from './GymSessionLog';
 import type { GymSession } from './GymSessionLog';
 
+describe('GymSessionLog date label', () => {
+  it('labels a session by its UTC date, not the browser\'s local timezone', () => {
+    const session: GymSession = {
+      id: 's1', date: '2026-08-19T00:00:00.000Z', notes: null, exercises: [],
+    };
+    render(<GymSessionLog sessions={[session]} />);
+    expect(screen.getByText(/Aug 19/)).toBeInTheDocument();
+  });
+});
+
 const sampleSessions: GymSession[] = [
   {
     id: 's1',

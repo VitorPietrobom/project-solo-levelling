@@ -33,7 +33,7 @@ export default function GymSessionLog({ sessions, onDelete }: GymSessionLogProps
           <div className="flex items-center justify-between mb-2">
             <span className="text-text-primary font-semibold">
               {new Date(session.date).toLocaleDateString('en-US', {
-                weekday: 'short', month: 'short', day: 'numeric',
+                weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC',
               })}
             </span>
             <div className="flex items-center gap-3">

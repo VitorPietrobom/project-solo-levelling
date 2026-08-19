@@ -94,5 +94,10 @@ export const apiClient = {
   delete: (url: string, options?: RequestOptions) => request(url, 'DELETE', options),
 };
 
+/** Extracts a user-showable message from a failed request, falling back for non-ApiErrors. */
+export function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof ApiError ? err.message : fallback;
+}
+
 export { ApiError };
 export type { RequestOptions };
