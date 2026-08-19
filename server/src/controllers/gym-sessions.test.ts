@@ -136,6 +136,24 @@ describe('Gym session endpoints', () => {
       expect(res.body.error).toBe('At least one exercise is required');
     });
 
+    it('returns 400 for a negative sets value', async () => {
+      const res = await request(app)
+        .post('/api/gym-sessions')
+        .send({ date: '2024-01-15', exercises: [{ name: 'Bench Press', sets: -3, reps: 10, weight: 80 }] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('sets must be a positive integer');
+    });
+
+    it('returns 400 for a negative weight value', async () => {
+      const res = await request(app)
+        .post('/api/gym-sessions')
+        .send({ date: '2024-01-15', exercises: [{ name: 'Bench Press', sets: 3, reps: 10, weight: -80 }] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('weight must be a non-negative number');
+    });
+
     it('returns 400 when exercises array is empty', async () => {
       const res = await request(app)
         .post('/api/gym-sessions')

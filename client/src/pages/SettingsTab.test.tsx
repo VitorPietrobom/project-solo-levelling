@@ -10,6 +10,12 @@ vi.mock('../lib/apiClient', () => ({
     get: (...args: any[]) => mockGet(...args),
     put: (...args: any[]) => mockPut(...args),
   },
+  errorMessage: (_err: any, fallback: string) => fallback,
+}));
+
+const mockShowToast = vi.fn();
+vi.mock('../contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 vi.mock('../contexts/AuthContext', () => ({

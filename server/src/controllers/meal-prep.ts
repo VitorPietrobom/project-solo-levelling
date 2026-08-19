@@ -75,6 +75,16 @@ export async function createOrUpdateMealPrepPlan(req: Request, res: Response): P
       }
     }
 
+    // Every recipeId must belong to this user — otherwise someone else's
+    // recipe (name, ingredients, macros) could be linked into this plan and
+    // read back via getMealPrepPlan/getGroceryList.
+    const recipeIds = [...new Set(entries.map((e: { recipeId: string }) => e.recipeId))];
+    const ownedCount = await prisma.recipe.count({ where: { id: { in: recipeIds }, userId } });
+    if (ownedCount !== recipeIds.length) {
+      res.status(400).json({ error: 'One or more recipes not found' });
+      return;
+    }
+
     // Upsert: find existing plan for this week, delete old entries, create new ones
     const existing = await prisma.mealPrepPlan.findFirst({
       where: { userId, weekStartDate: date },

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 
+const VALID_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
 export async function listTrainingPrograms(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
@@ -40,6 +42,31 @@ export async function createTrainingProgram(req: Request, res: Response): Promis
     if (!Array.isArray(days) || days.length === 0) {
       res.status(400).json({ error: 'At least one day is required' });
       return;
+    }
+
+    for (const day of days) {
+      if (!VALID_DAYS.includes(day.dayOfWeek)) {
+        res.status(400).json({ error: `Invalid dayOfWeek: ${day.dayOfWeek}` });
+        return;
+      }
+      for (const ex of day.exercises || []) {
+        if (!ex.name || typeof ex.name !== 'string' || ex.name.trim() === '') {
+          res.status(400).json({ error: 'Each exercise needs a name' });
+          return;
+        }
+        if (typeof ex.sets !== 'number' || !Number.isInteger(ex.sets) || ex.sets <= 0) {
+          res.status(400).json({ error: 'sets must be a positive integer' });
+          return;
+        }
+        if (typeof ex.reps !== 'number' || !Number.isInteger(ex.reps) || ex.reps <= 0) {
+          res.status(400).json({ error: 'reps must be a positive integer' });
+          return;
+        }
+        if (typeof ex.targetWeight !== 'number' || !Number.isFinite(ex.targetWeight) || ex.targetWeight < 0) {
+          res.status(400).json({ error: 'targetWeight must be a non-negative number' });
+          return;
+        }
+      }
     }
 
     const program = await prisma.trainingProgram.create({

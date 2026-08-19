@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Zap, Clock, X, Sparkles, Share2 } from 'lucide-react';
 import { shareRecipe } from '../lib/recipeShare';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
+import { useToast } from '../contexts/ToastContext';
 import type { Recipe, Ingredient } from '../components/RecipeList';
 import XPBar from '../components/ui/XPBar';
 import RecipeForm from '../components/RecipeForm';
@@ -254,6 +255,8 @@ function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: (
 }
 
 export default function RecipesTab() {
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(true);
   const [recipes, setRecipes] = useState<RecipeWithMacros[]>([]);
   const [cat, setCat] = useState('All');
   const [open, setOpen] = useState<RecipeWithMacros | null>(null);
@@ -266,8 +269,12 @@ export default function RecipesTab() {
       const url = searchTerm ? `/api/recipes?search=${encodeURIComponent(searchTerm)}` : '/api/recipes';
       const data = (await apiClient.get(url)) as RecipeWithMacros[];
       setRecipes(data);
-    } catch { /* silently fail */ }
-  }, [searchTerm]);
+    } catch (err) {
+      showToast(errorMessage(err, 'Failed to load recipes'));
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, showToast]);
 
   useEffect(() => { fetchRecipes(); }, [fetchRecipes]);
 
@@ -280,8 +287,11 @@ export default function RecipesTab() {
     try {
       await apiClient.post('/api/recipes', { body });
       fetchRecipes();
-    } catch { fetchRecipes(); }
-  }, [fetchRecipes]);
+    } catch (err) {
+      fetchRecipes();
+      showToast(errorMessage(err, 'Failed to create recipe'));
+    }
+  }, [fetchRecipes, showToast]);
 
   const handleRecipeImported = useCallback(async (optimistic: Recipe, body: unknown) => {
     setRecipes((prev) => [optimistic as RecipeWithMacros, ...prev]);
@@ -289,8 +299,11 @@ export default function RecipesTab() {
     try {
       await apiClient.post('/api/recipes', { body });
       fetchRecipes();
-    } catch { fetchRecipes(); }
-  }, [fetchRecipes]);
+    } catch (err) {
+      fetchRecipes();
+      showToast(errorMessage(err, 'Failed to import recipe'));
+    }
+  }, [fetchRecipes, showToast]);
 
   const filtered = recipes.filter((r) => {
     if (cat === 'All') return true;
@@ -304,6 +317,10 @@ export default function RecipesTab() {
   const c = featured?.carbs ?? 0;
   const f = featured?.fat ?? 0;
   const total = p + c + f || 1;
+
+  if (loading) {
+    return <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Loading…</p>;
+  }
 
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>

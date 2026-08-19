@@ -53,6 +53,13 @@ export async function createFoodEntry(req: Request, res: Response): Promise<void
       return;
     }
 
+    for (const [label, value] of [['protein', protein], ['carbs', carbs], ['fat', fat]] as const) {
+      if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
+        res.status(400).json({ error: `${label} must be a non-negative number` });
+        return;
+      }
+    }
+
     const entry = await prisma.foodEntry.create({
       data: {
         userId,

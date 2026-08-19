@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import DataExport from '../components/DataExport';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
+import { useToast } from '../contexts/ToastContext';
 
 function HunterNameField() {
+  const { showToast } = useToast();
   const [name, setName] = useState('');
   const [saved, setSaved] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -23,6 +25,8 @@ function HunterNameField() {
       const res = (await apiClient.put('/api/gamification/profile', { body: { hunterName: name } })) as { hunterName: string };
       setName(res.hunterName);
       setSaved(res.hunterName);
+    } catch (err) {
+      showToast(errorMessage(err, 'Failed to save hunter name'));
     } finally { setSaving(false); }
   }
 
@@ -50,6 +54,7 @@ function HunterNameField() {
 }
 
 function PracticeReminderField() {
+  const { showToast } = useToast();
   const [days, setDays] = useState(14);
   const [saved, setSaved] = useState(14);
   const [saving, setSaving] = useState(false);
@@ -70,6 +75,8 @@ function PracticeReminderField() {
       const res = (await apiClient.put('/api/gamification/profile', { body: { practiceReminderDays: days } })) as { practiceReminderDays: number };
       setDays(res.practiceReminderDays);
       setSaved(res.practiceReminderDays);
+    } catch (err) {
+      showToast(errorMessage(err, 'Failed to save practice reminder'));
     } finally { setSaving(false); }
   }
 
