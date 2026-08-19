@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FoodEntry } from '../components/CalorieTracker';
 import FoodEntryForm from '../components/FoodEntryForm';
 import FoodEntryImport from '../components/FoodEntryImport';
@@ -42,12 +42,20 @@ export default function DietTab() {
   const [showMealPrepForm, setShowMealPrepForm] = useState(false);
   const [showMealPrepAi, setShowMealPrepAi] = useState(false);
 
+  // Guards against a slower response for an older date landing after a
+  // faster response for a newer one and overwriting it with stale data —
+  // only the most recently requested date's response is ever applied.
+  const latestRequestedDate = useRef<string | null>(null);
+
   const fetchFoodEntries = useCallback(async (date: string) => {
+    latestRequestedDate.current = date;
     try {
       const data = (await apiClient.get(`/api/food-entries?date=${date}`)) as FoodEntry[];
-      setFoodEntries(data);
-    } catch { /* silently fail */ }
-  }, []);
+      if (latestRequestedDate.current === date) setFoodEntries(data);
+    } catch (err) {
+      if (latestRequestedDate.current === date) showToast(errorMessage(err, 'Failed to load food entries'));
+    }
+  }, [showToast]);
 
   const fetchRecipes = useCallback(async () => {
     try {

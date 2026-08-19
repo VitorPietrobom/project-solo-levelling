@@ -12,6 +12,9 @@ vi.mock('../lib/prisma', () => ({
     mealPrepEntry: {
       deleteMany: vi.fn(),
     },
+    recipe: {
+      count: vi.fn(),
+    },
     user: {
       upsert: vi.fn().mockResolvedValue({}),
     },
@@ -49,6 +52,7 @@ const mockRecipe2 = {
 describe('Meal Prep endpoints', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (prisma.recipe.count as any).mockResolvedValue(1);
   });
 
   describe('GET /api/meal-prep', () => {
@@ -129,6 +133,20 @@ describe('Meal Prep endpoints', () => {
       expect(res.status).toBe(201);
       expect(prisma.mealPrepEntry.deleteMany).toHaveBeenCalledWith({ where: { planId: 'p1' } });
       expect(res.body.entries[0].recipe.name).toBe('Salad');
+    });
+
+    it('rejects a recipeId the user does not own', async () => {
+      (prisma.recipe.count as any).mockResolvedValue(0);
+
+      const res = await request(app)
+        .post('/api/meal-prep')
+        .send({
+          weekStartDate: '2025-01-06',
+          entries: [{ dayOfWeek: 'mon', mealType: 'breakfast', recipeId: 'someone-elses-recipe' }],
+        });
+
+      expect(res.status).toBe(400);
+      expect(prisma.mealPrepPlan.create).not.toHaveBeenCalled();
     });
 
     it('returns 400 when weekStartDate is missing', async () => {

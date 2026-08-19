@@ -17,6 +17,7 @@ const BOOK_FINISH_XP = 80;
 export default function LearningTab() {
   const addXP = useAriseAddXP();
   const { showToast } = useToast();
+  const [loading, setLoading] = useState(true);
 
   const [skills, setSkills] = useState<Skill[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
@@ -33,7 +34,9 @@ export default function LearningTab() {
   const fetchSkills = useCallback(async () => { try { setSkills((await apiClient.get('/api/skills')) as Skill[]); } catch { /* */ } }, []);
   const fetchBooks = useCallback(async () => { try { setBooks((await apiClient.get('/api/books')) as Book[]); } catch { /* */ } }, []);
 
-  useEffect(() => { fetchSkills(); fetchBooks(); }, [fetchSkills, fetchBooks]);
+  useEffect(() => {
+    Promise.all([fetchSkills(), fetchBooks()]).finally(() => setLoading(false));
+  }, [fetchSkills, fetchBooks]);
 
   // Drop any active tag that no longer exists in the graph.
   const handleTags = useCallback((tags: string[]) => {
@@ -98,6 +101,10 @@ export default function LearningTab() {
 
   function toggleTag(t: string) {
     setActiveTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  }
+
+  if (loading) {
+    return <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Loading…</p>;
   }
 
   return (
