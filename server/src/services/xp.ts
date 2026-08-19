@@ -74,3 +74,23 @@ export async function awardXP(
 
   return { totalXP, level, progress };
 }
+
+/** Grants a skill XP and marks it as practiced right now. */
+export async function grantSkillXP(skillId: string, xp: number): Promise<void> {
+  await prisma.skill.update({
+    where: { id: skillId },
+    data: { totalXP: { increment: xp }, lastActivityAt: new Date() },
+  });
+}
+
+/** Undoes a skill XP grant (e.g. un-completing a linked quest/habit). */
+export async function revokeSkillXP(skillId: string, xp: number): Promise<void> {
+  await prisma.skill.update({ where: { id: skillId }, data: { totalXP: { decrement: xp } } });
+  await prisma.skill.updateMany({ where: { id: skillId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+}
+
+/** Midnight UTC for "today" — the boundary every daily/streak/reminder calc uses. */
+export function getStartOfTodayUTC(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}

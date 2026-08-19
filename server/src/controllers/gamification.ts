@@ -11,7 +11,7 @@ export async function getStatus(req: Request, res: Response): Promise<void> {
     const userId = req.user!.id;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { totalXP: true, hunterName: true, email: true },
+      select: { totalXP: true, hunterName: true, email: true, practiceReminderDays: true },
     });
 
     if (!user) {
@@ -40,32 +40,43 @@ export async function getStatus(req: Request, res: Response): Promise<void> {
       progress,
       streak,
       hunterName,
+      practiceReminderDays: user.practiceReminderDays,
     });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
 }
 
-// PUT /api/gamification/profile — { hunterName }
+// PUT /api/gamification/profile — { hunterName?, practiceReminderDays? }
 export async function updateProfile(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
-    const { hunterName } = req.body ?? {};
+    const { hunterName, practiceReminderDays } = req.body ?? {};
 
     if (hunterName !== undefined && hunterName !== null && typeof hunterName !== 'string') {
       res.status(400).json({ error: 'hunterName must be a string' });
       return;
     }
+    if (practiceReminderDays !== undefined && (typeof practiceReminderDays !== 'number' || practiceReminderDays < 1 || practiceReminderDays > 365)) {
+      res.status(400).json({ error: 'practiceReminderDays must be a number between 1 and 365' });
+      return;
+    }
     const trimmed = typeof hunterName === 'string' ? hunterName.trim().slice(0, 40) : null;
+
+    const data: Record<string, unknown> = {};
+    if (hunterName !== undefined) data.hunterName = trimmed || null;
+    if (practiceReminderDays !== undefined) data.practiceReminderDays = Math.round(practiceReminderDays);
 
     const user = await prisma.user.update({
       where: { id: userId },
-      // An empty string clears back to the email-derived default.
-      data: { hunterName: trimmed || null },
-      select: { hunterName: true, email: true },
+      data,
+      select: { hunterName: true, email: true, practiceReminderDays: true },
     });
 
-    res.json({ hunterName: user.hunterName?.trim() || user.email.split('@')[0] });
+    res.json({
+      hunterName: user.hunterName?.trim() || user.email.split('@')[0],
+      practiceReminderDays: user.practiceReminderDays,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

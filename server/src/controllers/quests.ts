@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { QuestPriority, Recurrence } from '@prisma/client';
 import prisma from '../lib/prisma';
-import { awardXP } from '../services/xp';
+import { awardXP, grantSkillXP, revokeSkillXP } from '../services/xp';
 
 const PRIORITIES = new Set(['low', 'medium', 'high']);
 const RECURRENCES = new Set(['daily', 'weekly']);
@@ -41,15 +41,6 @@ function parseDueDate(value: unknown): { ok: true; date: Date | null } | { ok: f
   const d = new Date(`${value.slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return { ok: false };
   return { ok: true, date: d };
-}
-
-async function grantSkillXP(skillId: string, xp: number): Promise<void> {
-  await prisma.skill.update({ where: { id: skillId }, data: { totalXP: { increment: xp } } });
-}
-
-async function revokeSkillXP(skillId: string, xp: number): Promise<void> {
-  await prisma.skill.update({ where: { id: skillId }, data: { totalXP: { decrement: xp } } });
-  await prisma.skill.updateMany({ where: { id: skillId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
 }
 
 export async function listQuests(req: Request, res: Response): Promise<void> {

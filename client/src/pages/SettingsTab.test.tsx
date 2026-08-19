@@ -20,7 +20,7 @@ vi.mock('../components/DataExport', () => ({ default: () => <div /> }));
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGet.mockResolvedValue({ hunterName: 'Shadow Monarch' });
+  mockGet.mockResolvedValue({ hunterName: 'Shadow Monarch', practiceReminderDays: 14 });
 });
 
 describe('SettingsTab hunter name', () => {
@@ -32,10 +32,10 @@ describe('SettingsTab hunter name', () => {
   it('Save is disabled until the value changes', async () => {
     render(<SettingsTab />);
     await waitFor(() => expect(screen.getByLabelText('Hunter name')).toHaveValue('Shadow Monarch'));
-    expect(screen.getByText('Save')).toBeDisabled();
+    expect(screen.getAllByText('Save')[0]).toBeDisabled();
 
     await userEvent.type(screen.getByLabelText('Hunter name'), '!');
-    expect(screen.getByText('Save')).not.toBeDisabled();
+    expect(screen.getAllByText('Save')[0]).not.toBeDisabled();
   });
 
   it('saves the new name via PUT /api/gamification/profile', async () => {
@@ -46,8 +46,28 @@ describe('SettingsTab hunter name', () => {
     const input = screen.getByLabelText('Hunter name');
     await userEvent.clear(input);
     await userEvent.type(input, 'New Name');
-    await userEvent.click(screen.getByText('Save'));
+    await userEvent.click(screen.getAllByText('Save')[0]);
 
     await waitFor(() => expect(mockPut).toHaveBeenCalledWith('/api/gamification/profile', { body: { hunterName: 'New Name' } }));
+  });
+});
+
+describe('SettingsTab practice reminder', () => {
+  it('loads the current reminder window', async () => {
+    render(<SettingsTab />);
+    await waitFor(() => expect(screen.getByLabelText('Skill practice reminder days')).toHaveValue(14));
+  });
+
+  it('saves the new window via PUT /api/gamification/profile', async () => {
+    mockPut.mockResolvedValue({ practiceReminderDays: 7 });
+    render(<SettingsTab />);
+    await waitFor(() => expect(screen.getByLabelText('Skill practice reminder days')).toHaveValue(14));
+
+    const input = screen.getByLabelText('Skill practice reminder days');
+    await userEvent.clear(input);
+    await userEvent.type(input, '7');
+    await userEvent.click(screen.getAllByText('Save')[1]);
+
+    await waitFor(() => expect(mockPut).toHaveBeenCalledWith('/api/gamification/profile', { body: { practiceReminderDays: 7 } }));
   });
 });

@@ -10,4 +10,12 @@ export interface Skill {
   totalXP: number;
   level: number;
   progress: { current: number; required: number; percentage: number };
+  lastActivityAt?: string | null;
+}
+
+export interface SkillAction {
+  id: string;
+  skillId: string;
+  name: string;
+  xpReward: number;
 }

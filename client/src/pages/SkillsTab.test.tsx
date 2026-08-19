@@ -25,10 +25,12 @@ const quest = (id: string, title: string, linkedSkillId: string | null, opts: Pa
   linkedSkillId, recurrence: opts.recurrence ?? null, completed: opts.completed ?? false, steps: [],
 });
 
-function mockData(skills: any[], quests: any[] = []) {
+function mockData(skills: any[], quests: any[] = [], practiceReminderDays = 14) {
   mockGet.mockImplementation((url: string) => {
     if (url === '/api/skills') return Promise.resolve(skills);
     if (url === '/api/quests') return Promise.resolve(quests);
+    if (url === '/api/gamification/status') return Promise.resolve({ practiceReminderDays });
+    if (url.startsWith('/api/skill-actions')) return Promise.resolve([]);
     return Promise.resolve([]);
   });
 }
@@ -135,6 +137,29 @@ describe('SkillsTab', () => {
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/skills/a', { body: { name: 'Piano' } }));
     expect(screen.getAllByText('Piano').length).toBeGreaterThan(0);
+  });
+
+  it('flags a skill untouched longer than the configured reminder window', async () => {
+    const stale = new Date(Date.now() - 20 * 86_400_000).toISOString();
+    mockData([{ ...skill('a', 'Guitar', 5), lastActivityAt: stale }], [], 14);
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Needs practice')).toBeInTheDocument());
+    expect(screen.getByText(/Untouched for 14\+ days: Guitar/)).toBeInTheDocument();
+  });
+
+  it('does not flag a skill practiced within the reminder window', async () => {
+    const recent = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    mockData([{ ...skill('a', 'Guitar', 5), lastActivityAt: recent }], [], 14);
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
+    expect(screen.queryByText('Needs practice')).not.toBeInTheDocument();
+  });
+
+  it('separately flags a skill that has never been practiced', async () => {
+    mockData([{ ...skill('a', 'Painting', 0), lastActivityAt: null }]);
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Needs practice')).toBeInTheDocument());
+    expect(screen.getByText(/Never practiced yet: Painting/)).toBeInTheDocument();
   });
 
   it('shows overview stats: total skills, highest level, most active', async () => {

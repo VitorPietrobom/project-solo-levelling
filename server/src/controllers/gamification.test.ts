@@ -78,6 +78,14 @@ describe('GET /api/gamification/status', () => {
     expect(res.body.hunterName).toBe('Shadow Monarch');
   });
 
+  it('includes practiceReminderDays in the status payload', async () => {
+    (prisma.user.findUnique as any).mockResolvedValue({ totalXP: 0, hunterName: null, email: 'test@example.com', practiceReminderDays: 21 });
+
+    const res = await request(app).get('/api/gamification/status');
+
+    expect(res.body.practiceReminderDays).toBe(21);
+  });
+
   it('derives the streak from recent daily-activity rows', async () => {
     (prisma.user.findUnique as any).mockResolvedValue({ totalXP: 100, hunterName: null, email: 'test@example.com' });
     const today = new Date().toISOString().slice(0, 10);
@@ -127,5 +135,22 @@ describe('PUT /api/gamification/profile', () => {
     await request(app).put('/api/gamification/profile').send({ hunterName: 'a'.repeat(200) });
 
     expect((prisma.user.update as any).mock.calls[0][0].data.hunterName).toHaveLength(40);
+  });
+
+  it('sets practiceReminderDays without touching hunterName', async () => {
+    (prisma.user.update as any).mockResolvedValue({ hunterName: null, email: 'test@example.com', practiceReminderDays: 7 });
+
+    const res = await request(app).put('/api/gamification/profile').send({ practiceReminderDays: 7 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.practiceReminderDays).toBe(7);
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: { practiceReminderDays: 7 } }));
+  });
+
+  it('rejects an out-of-range practiceReminderDays', async () => {
+    const res = await request(app).put('/api/gamification/profile').send({ practiceReminderDays: 0 });
+
+    expect(res.status).toBe(400);
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
