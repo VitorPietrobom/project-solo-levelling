@@ -75,6 +75,12 @@ export async function awardXP(
   return { totalXP, level, progress };
 }
 
+/** Undoes an awardXP grant (e.g. un-completing a quest/habit), clamped at 0. */
+export async function revokeXP(userId: string, amount: number): Promise<void> {
+  await prisma.user.update({ where: { id: userId }, data: { totalXP: { decrement: amount } } });
+  await prisma.user.updateMany({ where: { id: userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+}
+
 /** Grants a skill XP and marks it as practiced right now. */
 export async function grantSkillXP(skillId: string, xp: number): Promise<void> {
   await prisma.skill.update({
