@@ -53,7 +53,7 @@ describe('WeeklyNutritionChart', () => {
     render(<WeeklyNutritionChart selectedDate={WED} onSelectDate={onSelectDate} />);
     await waitFor(() => expect(mockGet).toHaveBeenCalled());
 
-    await userEvent.click(screen.getByLabelText('Select Aug 17 (Calories)'));
+    await userEvent.click(screen.getByLabelText('Select Aug 17'));
     expect(onSelectDate).toHaveBeenCalledWith('2026-08-17');
   });
 

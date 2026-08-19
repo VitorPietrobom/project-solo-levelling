@@ -6,9 +6,10 @@ interface Macro { calories: number; protein: number; carbs: number; fat: number 
 interface FoodEntry { calories: number; protein: number; carbs: number; fat: number }
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-// Headroom above 100% so the goal tick doesn't sit at the very top of the track.
+// Headroom above 100% so the goal tick doesn't sit at the very top of the bar.
 const TRACK_HEADROOM = 1.2;
-const TRACK_HEIGHT = 64;
+const BAR_HEIGHT = 34;
+const BAR_WIDTH = 14;
 
 const ROWS: { key: keyof Macro; label: string; unit: string; color: string }[] = [
   { key: 'calories', label: 'Calories', unit: '', color: 'var(--info)' },
@@ -85,66 +86,66 @@ export default function WeeklyNutritionChart({ selectedDate, onSelectDate }: Pro
       <h3 style={{ fontSize: 17, marginBottom: 16 }}>Weekly Nutrition</h3>
 
       <div style={{ display: 'flex', gap: 18 }}>
-        <div style={{ flex: 1, display: 'grid', gap: 10, minWidth: 0 }}>
-          {ROWS.map((row) => (
-            <div key={row.key} style={{ display: 'flex', gap: 6 }}>
-              {days.map((d) => {
-                const macro = byDay[d];
-                const hasData = macro !== undefined && macro.calories > 0;
-                const value = macro?.[row.key] ?? 0;
-                const goal = target?.[row.key] ?? 0;
-                const trackMax = goal > 0 ? goal * TRACK_HEADROOM : 1;
-                const fillPct = Math.min(100, (value / trackMax) * 100);
-                const tickPct = goal > 0 ? 100 / TRACK_HEADROOM : 0;
-                const isSelected = d === selectedDate;
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => onSelectDate(d)}
-                    aria-label={`Select ${shortDay(d)} (${row.label})`}
-                    title={shortDay(d)}
-                    style={{
-                      flex: 1, position: 'relative', height: TRACK_HEIGHT,
-                      background: 'var(--surface-inset)', borderRadius: 6,
-                      border: isSelected ? '1.5px solid var(--text)' : '1px solid transparent',
-                      cursor: 'pointer', padding: 0, overflow: 'hidden',
-                    }}
-                  >
-                    {hasData ? (
-                      <>
+        <div style={{ flex: 1, display: 'flex', gap: 6, minWidth: 0 }}>
+          {days.map((d, dayIndex) => {
+            const macro = byDay[d];
+            const hasData = macro !== undefined && macro.calories > 0;
+            const isSelected = d === selectedDate;
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => onSelectDate(d)}
+                aria-label={`Select ${shortDay(d)}`}
+                title={shortDay(d)}
+                style={{
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                  padding: '5px 2px', borderRadius: 10, cursor: 'pointer',
+                  background: 'transparent',
+                  border: `1.5px solid ${isSelected ? 'var(--text)' : 'transparent'}`,
+                }}
+              >
+                {ROWS.map((row) => {
+                  const value = macro?.[row.key] ?? 0;
+                  const goal = target?.[row.key] ?? 0;
+                  const trackMax = goal > 0 ? goal * TRACK_HEADROOM : 1;
+                  const fillPct = Math.min(100, (value / trackMax) * 100);
+                  const tickPct = goal > 0 ? 100 / TRACK_HEADROOM : 0;
+                  return (
+                    <div
+                      key={row.key}
+                      style={{
+                        position: 'relative', width: BAR_WIDTH, height: BAR_HEIGHT,
+                        background: 'var(--surface-inset)', borderRadius: 999, overflow: 'hidden', flexShrink: 0,
+                      }}
+                    >
+                      {hasData && (
                         <div style={{
                           position: 'absolute', left: 0, right: 0, bottom: 0, height: `${fillPct}%`,
-                          background: row.color, transition: 'height .2s',
+                          background: row.color, opacity: 0.85, borderRadius: 999, transition: 'height .2s',
                         }} />
-                        {goal > 0 && (
-                          <div style={{ position: 'absolute', left: 2, right: 2, bottom: `${tickPct}%`, height: 2, background: 'var(--text)', opacity: 0.6 }} />
-                        )}
-                      </>
-                    ) : (
-                      <span style={{ position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)', width: 12, height: 2, background: 'var(--text-faint)', opacity: 0.5 }} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 6 }}>
-            {days.map((d, i) => (
-              <span key={d} className="eyebrow" style={{ flex: 1, textAlign: 'center', fontSize: 10.5, color: d === selectedDate ? 'var(--text)' : 'var(--text-faint)' }}>
-                {DAY_LABELS[i]}
-              </span>
-            ))}
-          </div>
+                      )}
+                      {goal > 0 && (
+                        <div style={{ position: 'absolute', left: 3, right: 3, bottom: `${tickPct}%`, height: 1.5, background: 'var(--text)', opacity: 0.45, borderRadius: 1 }} />
+                      )}
+                    </div>
+                  );
+                })}
+                <span className="eyebrow" style={{ fontSize: 10.5, color: isSelected ? 'var(--text)' : 'var(--text-faint)' }}>
+                  {DAY_LABELS[dayIndex]}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        <div style={{ display: 'grid', gap: 10, minWidth: 84 }}>
+        <div style={{ display: 'grid', gap: 6, minWidth: 84, alignContent: 'center' }}>
           {ROWS.map((row) => {
             const goal = target?.[row.key] ?? 0;
             const value = view === 'consumed' ? selected[row.key] : Math.max(0, goal - selected[row.key]);
             return (
-              <div key={row.key} style={{ minHeight: TRACK_HEIGHT, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div className="mono" style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <div key={row.key} style={{ height: BAR_HEIGHT, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <div className="mono" style={{ fontSize: 17, fontWeight: 700, display: 'flex', alignItems: 'baseline', gap: 4 }}>
                   {Math.round(value)}
                   {row.key === 'calories' && <Flame size={13} style={{ color: 'var(--warn)' }} />}
                   {row.unit && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{row.unit}</span>}
