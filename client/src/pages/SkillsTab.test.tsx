@@ -14,6 +14,12 @@ vi.mock('../lib/apiClient', () => ({
     patch: (...args: any[]) => mockPatch(...args),
     delete: (...args: any[]) => mockDelete(...args),
   },
+  errorMessage: (_err: any, fallback: string) => fallback,
+}));
+
+const mockShowToast = vi.fn();
+vi.mock('../contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 const skill = (id: string, name: string, level: number) => ({
@@ -84,6 +90,18 @@ describe('SkillsTab', () => {
     await userEvent.click(screen.getByText('Delete'));
 
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('/api/skills/a'));
+  });
+
+  it('shows a toast and re-fetches when deleting a skill fails', async () => {
+    mockData([skill('a', 'Guitar', 2)]);
+    mockDelete.mockRejectedValue(new Error('nope'));
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByLabelText('Delete skill "Guitar"'));
+    await userEvent.click(screen.getByText('Delete'));
+
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('Failed to delete skill'));
   });
 
   it('shows a rank badge derived from the skill level', async () => {

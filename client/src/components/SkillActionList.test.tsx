@@ -12,6 +12,12 @@ vi.mock('../lib/apiClient', () => ({
     post: (...args: any[]) => mockPost(...args),
     delete: (...args: any[]) => mockDelete(...args),
   },
+  errorMessage: (_err: any, fallback: string) => fallback,
+}));
+
+const mockShowToast = vi.fn();
+vi.mock('../contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 const action = { id: 'a1', skillId: 'sk1', name: 'Play drums', xpReward: 30 };

@@ -11,7 +11,8 @@ import GroceryList from '../components/GroceryList';
 import type { GroceryListData } from '../components/GroceryList';
 import NutritionTarget from '../components/NutritionTarget';
 import NutritionAiPrompt from '../components/NutritionAiPrompt';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
+import { useToast } from '../contexts/ToastContext';
 
 // The Monday that opens the current week, YYYY-MM-DD (local).
 function getCurrentMonday(): string {
@@ -24,6 +25,8 @@ function getCurrentMonday(): string {
 }
 
 export default function DietTab() {
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
   const [showFoodForm, setShowFoodForm] = useState(false);
@@ -68,8 +71,7 @@ export default function DietTab() {
   }, []);
 
   useEffect(() => {
-    fetchFoodEntries(selectedDate);
-    fetchMealPrepPlan();
+    Promise.all([fetchFoodEntries(selectedDate), fetchMealPrepPlan()]).finally(() => setLoading(false));
   }, [fetchFoodEntries, fetchMealPrepPlan, selectedDate]);
 
   useEffect(() => {
@@ -97,9 +99,10 @@ export default function DietTab() {
           prev.map((e) => (e.id === optimistic.id ? (data as FoodEntry) : e)),
         ),
       )
-      .catch(() =>
-        setFoodEntries((prev) => prev.filter((e) => e.id !== optimistic.id)),
-      );
+      .catch((err) => {
+        setFoodEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
+        showToast(errorMessage(err, 'Failed to log food entry'));
+      });
   }
 
   function handleFoodImport(entries: { optimistic: FoodEntry; body: any }[]) {
@@ -109,13 +112,19 @@ export default function DietTab() {
     entries.forEach(({ optimistic, body }) => {
       apiClient.post('/api/food-entries', { body })
         .then((data) => setFoodEntries((prev) => prev.map((e) => (e.id === optimistic.id ? (data as FoodEntry) : e))))
-        .catch(() => setFoodEntries((prev) => prev.filter((e) => e.id !== optimistic.id)));
+        .catch((err) => {
+          setFoodEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
+          showToast(errorMessage(err, 'Failed to import a food entry'));
+        });
     });
   }
 
   function handleFoodEntryDeleted(entryId: string) {
     setFoodEntries((prev) => prev.filter((e) => e.id !== entryId));
-    apiClient.delete(`/api/food-entries/${entryId}`).catch(() => fetchFoodEntries(selectedDate));
+    apiClient.delete(`/api/food-entries/${entryId}`).catch((err) => {
+      fetchFoodEntries(selectedDate);
+      showToast(errorMessage(err, 'Failed to delete food entry'));
+    });
   }
 
 
@@ -127,7 +136,7 @@ export default function DietTab() {
     apiClient
       .post('/api/meal-prep', { body })
       .then((data) => setMealPrepPlan(data as MealPrepPlanData))
-      .catch(() => { /* silently fail */ });
+      .catch((err) => showToast(errorMessage(err, 'Failed to create meal prep plan')));
   }
 
   function handleMealPrepDeleted() {
@@ -135,7 +144,10 @@ export default function DietTab() {
     setSelectedMealPrepDay(null);
     setGroceryList(null);
     if (mealPrepPlan) {
-      apiClient.delete(`/api/meal-prep/${mealPrepPlan.id}`).catch(() => fetchMealPrepPlan());
+      apiClient.delete(`/api/meal-prep/${mealPrepPlan.id}`).catch((err) => {
+        fetchMealPrepPlan();
+        showToast(errorMessage(err, 'Failed to delete meal prep plan'));
+      });
     }
   }
 
@@ -148,6 +160,10 @@ export default function DietTab() {
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   );
+
+  if (loading) {
+    return <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Loading…</p>;
+  }
 
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>

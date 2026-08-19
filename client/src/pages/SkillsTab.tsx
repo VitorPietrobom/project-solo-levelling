@@ -6,9 +6,10 @@ import SkillForm from '../components/SkillForm';
 import SkillActionList from '../components/SkillActionList';
 import type { Skill } from '../components/SkillList';
 import type { Quest } from '../components/QuestList';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
 import { rankForLevel } from '../lib/rank';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { useToast } from '../contexts/ToastContext';
 
 function OverviewStat({ icon: IconComp, label, value, accent }: {
   icon: React.ElementType; label: string; value: string; accent: string;
@@ -154,6 +155,8 @@ function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhove
 }
 
 export default function SkillsTab() {
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(true);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [showSkillForm, setShowSkillForm] = useState(false);
@@ -178,7 +181,9 @@ export default function SkillsTab() {
     } catch { /* silently fail */ }
   }, []);
 
-  useEffect(() => { fetchSkills(); fetchQuests(); fetchReminderSetting(); }, [fetchSkills, fetchQuests, fetchReminderSetting]);
+  useEffect(() => {
+    Promise.all([fetchSkills(), fetchQuests(), fetchReminderSetting()]).finally(() => setLoading(false));
+  }, [fetchSkills, fetchQuests, fetchReminderSetting]);
 
   function handleSkillCreated(optimistic: Skill, body: { name: string }) {
     setSkills((prev) => [optimistic, ...prev]);
@@ -186,7 +191,10 @@ export default function SkillsTab() {
     apiClient
       .post('/api/skills', { body })
       .then((data) => setSkills((prev) => prev.map((s) => (s.id === optimistic.id ? (data as Skill) : s))))
-      .catch(() => setSkills((prev) => prev.filter((s) => s.id !== optimistic.id)));
+      .catch((err) => {
+        setSkills((prev) => prev.filter((s) => s.id !== optimistic.id));
+        showToast(errorMessage(err, 'Failed to create skill'));
+      });
   }
 
   function handleSkillDelete(skillId: string, skillName: string) {
@@ -195,13 +203,19 @@ export default function SkillsTab() {
 
   function handleSkillRename(skillId: string, name: string) {
     setSkills((prev) => prev.map((s) => (s.id === skillId ? { ...s, name } : s)));
-    apiClient.patch(`/api/skills/${skillId}`, { body: { name } }).catch(() => fetchSkills());
+    apiClient.patch(`/api/skills/${skillId}`, { body: { name } }).catch((err) => {
+      fetchSkills();
+      showToast(errorMessage(err, 'Failed to rename skill'));
+    });
   }
 
   function confirmDeleteAction() {
     if (!confirmDelete) return;
     setSkills((prev) => prev.filter((s) => s.id !== confirmDelete.id));
-    apiClient.delete(`/api/skills/${confirmDelete.id}`).catch(() => fetchSkills());
+    apiClient.delete(`/api/skills/${confirmDelete.id}`).catch((err) => {
+      fetchSkills();
+      showToast(errorMessage(err, 'Failed to delete skill'));
+    });
     setConfirmDelete(null);
   }
 
@@ -238,6 +252,10 @@ export default function SkillsTab() {
   const topSkill = sortedSkills[0] ?? null;
   const mostActive = [...skills].sort((a, b) => (linkedByskill.get(b.id)?.length ?? 0) - (linkedByskill.get(a.id)?.length ?? 0))[0] ?? null;
   const mostActiveCount = mostActive ? (linkedByskill.get(mostActive.id)?.length ?? 0) : 0;
+
+  if (loading) {
+    return <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Loading…</p>;
+  }
 
   return (
     <>

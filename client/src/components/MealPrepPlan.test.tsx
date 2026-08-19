@@ -64,6 +64,15 @@ describe('MealPrepPlan', () => {
     expect(onSelectDay).toHaveBeenCalledWith('mon');
   });
 
+  it('calls onSelectDay via keyboard (Enter) on a focused day header', async () => {
+    const onSelectDay = vi.fn();
+    render(<MealPrepPlan plan={samplePlan} onSelectDay={onSelectDay} selectedDay={null} />);
+    const header = screen.getByLabelText('Select Mon');
+    header.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onSelectDay).toHaveBeenCalledWith('mon');
+  });
+
   it('highlights the selected day column', () => {
     render(<MealPrepPlan plan={samplePlan} onSelectDay={vi.fn()} selectedDay="mon" />);
     const monHeader = screen.getByLabelText('Select Mon');

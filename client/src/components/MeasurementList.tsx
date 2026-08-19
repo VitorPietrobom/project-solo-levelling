@@ -80,6 +80,7 @@ export default function MeasurementList({ measurements }: MeasurementListProps) 
               {new Date(latest.date).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
+                timeZone: 'UTC',
               })}
             </p>
           </div>

@@ -14,7 +14,8 @@ import TrainingProgramView from '../components/TrainingProgramView';
 import type { TrainingProgram } from '../components/TrainingProgramView';
 import TrainingProgramForm from '../components/TrainingProgramForm';
 import WhoopCard from '../components/WhoopCard';
-import { apiClient, ApiError } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
+import { useToast } from '../contexts/ToastContext';
 
 // "Aug 3" from an ISO date/datetime string — the API returns full timestamps
 // (e.g. "2026-06-06T00:00:00.000Z"), which must never be shown to the user raw.
@@ -25,9 +26,10 @@ function shortDate(iso: string): string {
 }
 
 export default function BodyTab() {
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(true);
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
   const [showWeightForm, setShowWeightForm] = useState(false);
-  const [weightError, setWeightError] = useState<string | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [showMeasurementForm, setShowMeasurementForm] = useState(false);
   const [gymSessions, setGymSessions] = useState<GymSession[]>([]);
@@ -57,22 +59,18 @@ export default function BodyTab() {
   }, []);
 
   useEffect(() => {
-    fetchWeight();
-    fetchMeasurements();
-    fetchGymSessions();
-    fetchHeatmap();
-    fetchPrograms();
+    Promise.all([fetchWeight(), fetchMeasurements(), fetchGymSessions(), fetchHeatmap(), fetchPrograms()])
+      .finally(() => setLoading(false));
   }, [fetchWeight, fetchMeasurements, fetchGymSessions, fetchHeatmap, fetchPrograms]);
 
   function handleWeightCreated(optimistic: WeightEntry, body: { weight: number; date: string }) {
-    setWeightError(null);
     setWeightEntries((prev) => [...prev, optimistic].sort((a, b) => a.date.localeCompare(b.date)));
     setShowWeightForm(false);
     apiClient.post('/api/weight', { body })
       .then((data) => setWeightEntries((prev) => prev.map((e) => (e.id === optimistic.id ? (data as WeightEntry) : e))))
       .catch((err) => {
         setWeightEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
-        setWeightError(err instanceof ApiError ? err.message : 'Failed to save weight entry');
+        showToast(errorMessage(err, 'Failed to save weight entry'));
       });
   }
 
@@ -81,7 +79,10 @@ export default function BodyTab() {
     setShowMeasurementForm(false);
     apiClient.post('/api/measurements', { body })
       .then((data) => setMeasurements((prev) => prev.map((m) => (m.id === optimistic.id ? (data as Measurement) : m))))
-      .catch(() => setMeasurements((prev) => prev.filter((m) => m.id !== optimistic.id)));
+      .catch((err) => {
+        setMeasurements((prev) => prev.filter((m) => m.id !== optimistic.id));
+        showToast(errorMessage(err, 'Failed to save measurement'));
+      });
   }
 
   function handleGymSessionImported(
@@ -92,12 +93,18 @@ export default function BodyTab() {
     setShowImport(false);
     apiClient.post('/api/gym-sessions', { body })
       .then((data) => { setGymSessions((prev) => prev.map((s) => (s.id === optimistic.id ? (data as GymSession) : s))); fetchHeatmap(); })
-      .catch(() => setGymSessions((prev) => prev.filter((s) => s.id !== optimistic.id)));
+      .catch((err) => {
+        setGymSessions((prev) => prev.filter((s) => s.id !== optimistic.id));
+        showToast(errorMessage(err, 'Failed to import gym session'));
+      });
   }
 
   function handleGymSessionDeleted(sessionId: string) {
     setGymSessions((prev) => prev.filter((s) => s.id !== sessionId));
-    apiClient.delete(`/api/gym-sessions/${sessionId}`).then(() => fetchHeatmap()).catch(() => fetchGymSessions());
+    apiClient.delete(`/api/gym-sessions/${sessionId}`).then(() => fetchHeatmap()).catch((err) => {
+      fetchGymSessions();
+      showToast(errorMessage(err, 'Failed to delete gym session'));
+    });
   }
 
   function handleProgramCreated(
@@ -108,22 +115,35 @@ export default function BodyTab() {
     setShowProgramForm(false);
     apiClient.post('/api/training-programs', { body })
       .then((data) => setPrograms((prev) => prev.map((p) => (p.id === optimistic.id ? (data as TrainingProgram) : p))))
-      .catch(() => setPrograms((prev) => prev.filter((p) => p.id !== optimistic.id)));
+      .catch((err) => {
+        setPrograms((prev) => prev.filter((p) => p.id !== optimistic.id));
+        showToast(errorMessage(err, 'Failed to create training program'));
+      });
   }
 
   function handleProgramActivate(programId: string) {
     setPrograms((prev) => prev.map((p) => ({ ...p, active: p.id === programId })));
-    apiClient.patch(`/api/training-programs/${programId}/activate`).catch(() => fetchPrograms());
+    apiClient.patch(`/api/training-programs/${programId}/activate`).catch((err) => {
+      fetchPrograms();
+      showToast(errorMessage(err, 'Failed to activate training program'));
+    });
   }
 
   function handleProgramDelete(programId: string) {
     setPrograms((prev) => prev.filter((p) => p.id !== programId));
-    apiClient.delete(`/api/training-programs/${programId}`).catch(() => fetchPrograms());
+    apiClient.delete(`/api/training-programs/${programId}`).catch((err) => {
+      fetchPrograms();
+      showToast(errorMessage(err, 'Failed to delete training program'));
+    });
   }
 
   const latest = weightEntries.length ? weightEntries[weightEntries.length - 1] : null;
   const first = weightEntries.length ? weightEntries[0] : null;
   const weightChange = latest && first ? (latest.weight - first.weight).toFixed(1) : null;
+
+  if (loading) {
+    return <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Loading…</p>;
+  }
 
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>
@@ -156,9 +176,6 @@ export default function BodyTab() {
           </button>
         </div>
         {showWeightForm && <div style={{ marginBottom: 16 }}><WeightForm onCreated={handleWeightCreated} /></div>}
-        {weightError && (
-          <p style={{ fontSize: 12.5, color: 'var(--bad)', marginBottom: 12 }}>{weightError}</p>
-        )}
         <WeightChart entries={weightEntries} />
       </section>
 
