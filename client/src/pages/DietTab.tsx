@@ -10,6 +10,7 @@ import MealPlanImport from '../components/MealPlanImport';
 import GroceryList from '../components/GroceryList';
 import type { GroceryListData } from '../components/GroceryList';
 import NutritionTarget from '../components/NutritionTarget';
+import WeeklyNutritionChart from '../components/WeeklyNutritionChart';
 import NutritionAiPrompt from '../components/NutritionAiPrompt';
 import { apiClient, errorMessage } from '../lib/apiClient';
 import { useToast } from '../contexts/ToastContext';
@@ -189,6 +190,8 @@ export default function DietTab() {
 
       {/* Dynamic nutrition target (WHOOP-driven) */}
       <NutritionTarget consumed={consumed} date={selectedDate} />
+
+      <WeeklyNutritionChart selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
       {/* Copyable AI analysis prompt (bring-your-own-AI, no API cost) */}
       <NutritionAiPrompt date={selectedDate} />
