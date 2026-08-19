@@ -8,8 +8,9 @@ interface FoodEntry { calories: number; protein: number; carbs: number; fat: num
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 // Headroom above 100% so the goal tick doesn't sit at the very top of the bar.
 const TRACK_HEADROOM = 1.2;
-const BAR_HEIGHT = 34;
-const BAR_WIDTH = 14;
+const BAR_HEIGHT = 42;
+const BAR_WIDTH = 11;
+const BAR_GAP = 3;
 
 const ROWS: { key: keyof Macro; label: string; unit: string; color: string }[] = [
   { key: 'calories', label: 'Calories', unit: '', color: 'var(--info)' },
@@ -99,8 +100,8 @@ export default function WeeklyNutritionChart({ selectedDate, onSelectDate }: Pro
                 aria-label={`Select ${shortDay(d)}`}
                 title={shortDay(d)}
                 style={{
-                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                  padding: '5px 2px', borderRadius: 10, cursor: 'pointer',
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: BAR_GAP,
+                  padding: '6px 3px', borderRadius: 14, cursor: 'pointer',
                   background: 'transparent',
                   border: `1.5px solid ${isSelected ? 'var(--text)' : 'transparent'}`,
                 }}
@@ -122,16 +123,16 @@ export default function WeeklyNutritionChart({ selectedDate, onSelectDate }: Pro
                       {hasData && (
                         <div style={{
                           position: 'absolute', left: 0, right: 0, bottom: 0, height: `${fillPct}%`,
-                          background: row.color, opacity: 0.85, borderRadius: 999, transition: 'height .2s',
+                          background: row.color, borderRadius: 999, transition: 'height .2s',
                         }} />
                       )}
                       {goal > 0 && (
-                        <div style={{ position: 'absolute', left: 3, right: 3, bottom: `${tickPct}%`, height: 1.5, background: 'var(--text)', opacity: 0.45, borderRadius: 1 }} />
+                        <div style={{ position: 'absolute', left: 2, right: 2, bottom: `${tickPct}%`, height: 1.5, background: 'var(--text)', opacity: 0.5, borderRadius: 1 }} />
                       )}
                     </div>
                   );
                 })}
-                <span className="eyebrow" style={{ fontSize: 10.5, color: isSelected ? 'var(--text)' : 'var(--text-faint)' }}>
+                <span className="eyebrow" style={{ fontSize: 11.5, fontWeight: isSelected ? 700 : 500, marginTop: 2, color: isSelected ? 'var(--text)' : 'var(--text-faint)' }}>
                   {DAY_LABELS[dayIndex]}
                 </span>
               </button>
@@ -139,7 +140,7 @@ export default function WeeklyNutritionChart({ selectedDate, onSelectDate }: Pro
           })}
         </div>
 
-        <div style={{ display: 'grid', gap: 6, minWidth: 84, alignContent: 'center' }}>
+        <div style={{ display: 'grid', gap: BAR_GAP, minWidth: 84, alignContent: 'center' }}>
           {ROWS.map((row) => {
             const goal = target?.[row.key] ?? 0;
             const value = view === 'consumed' ? selected[row.key] : Math.max(0, goal - selected[row.key]);
