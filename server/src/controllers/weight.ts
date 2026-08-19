@@ -50,6 +50,17 @@ export async function createWeightEntry(req: Request, res: Response): Promise<vo
     });
 
     if (existing) {
+      // A WHOOP auto-sync may have already logged today's weight — a manual
+      // weigh-in for the same day should win, not silently 409 and vanish
+      // from the UI. A real duplicate manual entry still gets rejected.
+      if (existing.source === 'whoop') {
+        const updated = await prisma.weightEntry.update({
+          where: { id: existing.id },
+          data: { weight, source: 'manual' },
+        });
+        res.status(200).json(updated);
+        return;
+      }
       res.status(409).json({ error: 'Weight entry already exists for this date' });
       return;
     }

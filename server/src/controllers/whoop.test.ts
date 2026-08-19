@@ -1,5 +1,21 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import request from 'supertest';
+import app from '../index';
 import { reconcileWhoopWeight } from './whoop';
+
+vi.mock('../lib/prisma', () => ({
+  default: {
+    whoopConnection: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    user: {
+      upsert: vi.fn().mockResolvedValue({}),
+    },
+  },
+}));
+
+import prisma from '../lib/prisma';
 
 describe('reconcileWhoopWeight', () => {
   it('creates today\'s row when there is none', () => {
@@ -29,5 +45,41 @@ describe('reconcileWhoopWeight', () => {
     for (const bad of [undefined, null, 0, -5, NaN, 'x']) {
       expect(reconcileWhoopWeight(null, bad).action).toBe('skip');
     }
+  });
+});
+
+describe('GET /api/whoop/cron-sync', () => {
+  const ORIGINAL_SECRET = process.env.CRON_SECRET;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.CRON_SECRET = 'test-secret';
+  });
+
+  afterEach(() => {
+    process.env.CRON_SECRET = ORIGINAL_SECRET;
+  });
+
+  it('rejects a request with no CRON_SECRET configured', async () => {
+    delete process.env.CRON_SECRET;
+    const res = await request(app).get('/api/whoop/cron-sync');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a request with the wrong bearer token', async () => {
+    const res = await request(app).get('/api/whoop/cron-sync').set('Authorization', 'Bearer wrong');
+    expect(res.status).toBe(401);
+  });
+
+  it('syncs every connected user and reports a failure without aborting the rest', async () => {
+    (prisma.whoopConnection.findMany as any).mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }]);
+    // No stored connection for either user in this mock, so freshAccessToken
+    // returns null for both — performWhoopSync treats that as "not connected".
+    (prisma.whoopConnection.findUnique as any).mockResolvedValue(null);
+
+    const res = await request(app).get('/api/whoop/cron-sync').set('Authorization', 'Bearer test-secret');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ total: 2, synced: 0, failed: 2 });
   });
 });

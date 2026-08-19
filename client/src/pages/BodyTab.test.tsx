@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import BodyTab from './BodyTab';
 
 // Recharts needs a ResizeObserver jsdom doesn't provide; other tests in this
@@ -14,14 +15,26 @@ vi.mock('recharts', () => ({
   Tooltip: () => null,
 }));
 
+const { ApiError } = vi.hoisted(() => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
 const mockGet = vi.fn();
+const mockPost = vi.fn();
 vi.mock('../lib/apiClient', () => ({
   apiClient: {
     get: (...args: any[]) => mockGet(...args),
-    post: vi.fn().mockResolvedValue({}),
+    post: (...args: any[]) => mockPost(...args),
     patch: vi.fn().mockResolvedValue({}),
     delete: vi.fn().mockResolvedValue({}),
   },
+  ApiError,
 }));
 
 describe('BodyTab weight card', () => {
@@ -44,5 +57,17 @@ describe('BodyTab weight card', () => {
     await waitFor(() => expect(screen.getByText(/since/)).toBeInTheDocument());
     expect(screen.getByText('since Jun 6')).toBeInTheDocument();
     expect(screen.queryByText(/2026-06-06T00:00:00/)).not.toBeInTheDocument();
+  });
+
+  it('surfaces the server error instead of silently discarding a failed weigh-in', async () => {
+    mockPost.mockRejectedValue(new ApiError('Weight entry already exists for this date', 409));
+    render(<BodyTab />);
+    await waitFor(() => expect(screen.getByText('since Jun 6')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('Log Weight'));
+    await userEvent.type(screen.getByLabelText('Weight in kg'), '80');
+    await userEvent.click(screen.getByText('Log Entry'));
+
+    await waitFor(() => expect(screen.getByText('Weight entry already exists for this date')).toBeInTheDocument());
   });
 });

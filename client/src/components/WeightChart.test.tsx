@@ -6,7 +6,12 @@ import WeightChart from './WeightChart';
 // Mock recharts to avoid rendering issues in jsdom
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div data-testid="chart-container">{children}</div>,
-  LineChart: ({ children }: any) => <div>{children}</div>,
+  LineChart: ({ children, data }: any) => (
+    <div>
+      {data.map((d: any) => <span key={d.date}>{d.date}</span>)}
+      {children}
+    </div>
+  ),
   Line: () => null,
   XAxis: () => null,
   YAxis: () => null,
@@ -47,5 +52,13 @@ describe('WeightChart', () => {
     const btn = screen.getByLabelText('Show 7D range');
     await userEvent.click(btn);
     expect(btn.className).toContain('bg-accent-primary');
+  });
+
+  it('labels points by their UTC date, not the browser\'s local timezone', () => {
+    // A date stored as UTC midnight must render as the same calendar day
+    // everywhere, regardless of the viewer's local offset — otherwise a
+    // west-of-UTC user sees every point shifted a day earlier than reality.
+    render(<WeightChart entries={[{ id: 'w1', weight: 80, date: '2026-08-19T00:00:00.000Z' }]} />);
+    expect(screen.getByText('Aug 19')).toBeInTheDocument();
   });
 });

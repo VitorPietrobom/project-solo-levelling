@@ -14,7 +14,7 @@ import TrainingProgramView from '../components/TrainingProgramView';
 import type { TrainingProgram } from '../components/TrainingProgramView';
 import TrainingProgramForm from '../components/TrainingProgramForm';
 import WhoopCard from '../components/WhoopCard';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, ApiError } from '../lib/apiClient';
 
 // "Aug 3" from an ISO date/datetime string — the API returns full timestamps
 // (e.g. "2026-06-06T00:00:00.000Z"), which must never be shown to the user raw.
@@ -27,6 +27,7 @@ function shortDate(iso: string): string {
 export default function BodyTab() {
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
   const [showWeightForm, setShowWeightForm] = useState(false);
+  const [weightError, setWeightError] = useState<string | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [showMeasurementForm, setShowMeasurementForm] = useState(false);
   const [gymSessions, setGymSessions] = useState<GymSession[]>([]);
@@ -64,11 +65,15 @@ export default function BodyTab() {
   }, [fetchWeight, fetchMeasurements, fetchGymSessions, fetchHeatmap, fetchPrograms]);
 
   function handleWeightCreated(optimistic: WeightEntry, body: { weight: number; date: string }) {
+    setWeightError(null);
     setWeightEntries((prev) => [...prev, optimistic].sort((a, b) => a.date.localeCompare(b.date)));
     setShowWeightForm(false);
     apiClient.post('/api/weight', { body })
       .then((data) => setWeightEntries((prev) => prev.map((e) => (e.id === optimistic.id ? (data as WeightEntry) : e))))
-      .catch(() => setWeightEntries((prev) => prev.filter((e) => e.id !== optimistic.id)));
+      .catch((err) => {
+        setWeightEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
+        setWeightError(err instanceof ApiError ? err.message : 'Failed to save weight entry');
+      });
   }
 
   function handleMeasurementCreated(optimistic: Measurement, body: { type: string; value: number; date: string }) {
@@ -151,6 +156,9 @@ export default function BodyTab() {
           </button>
         </div>
         {showWeightForm && <div style={{ marginBottom: 16 }}><WeightForm onCreated={handleWeightCreated} /></div>}
+        {weightError && (
+          <p style={{ fontSize: 12.5, color: 'var(--bad)', marginBottom: 12 }}>{weightError}</p>
+        )}
         <WeightChart entries={weightEntries} />
       </section>
 
