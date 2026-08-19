@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Calendar, Flag, Trash2, Sparkles } from 'lucide-react';
+import { ChevronDown, Calendar, Flag, Trash2, Sparkles, Pencil } from 'lucide-react';
 import type { Quest, QuestPriority } from './QuestList';
 import type { Skill } from './SkillList';
 
@@ -12,7 +12,7 @@ interface Props {
   onDragEnd: () => void;
   onToggleStep: (questId: string, stepId: string, completed: boolean) => void;
   onDelete: (questId: string, title: string) => void;
-  onUpdate: (questId: string, patch: { priority?: QuestPriority; dueDate?: string | null; linkedSkillId?: string | null }) => void;
+  onUpdate: (questId: string, patch: { title?: string; description?: string | null; priority?: QuestPriority; dueDate?: string | null; linkedSkillId?: string | null }) => void;
 }
 
 const PRIORITY_META: Record<QuestPriority, { label: string; color: string }> = {
@@ -36,6 +36,9 @@ function isOverdue(dueDate: string | null, completed: boolean): boolean {
 
 export default function QuestCard({ quest, skills = [], dragging, onDragStart, onDragEnd, onToggleStep, onDelete, onUpdate }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [editingText, setEditingText] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(quest.title);
+  const [descDraft, setDescDraft] = useState(quest.description ?? '');
   const done = quest.steps.filter((s) => s.completed).length;
   const total = quest.steps.length || 1;
   const isDone = quest.completed;
@@ -108,8 +111,44 @@ export default function QuestCard({ quest, skills = [], dragging, onDragStart, o
 
       {expanded && (
         <div style={{ borderTop: '1px solid var(--line-soft)', padding: 13, display: 'grid', gap: 12 }} onClick={(e) => e.stopPropagation()}>
-          {quest.description && (
-            <p style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5 }}>{quest.description}</p>
+          {editingText ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <input
+                type="text" value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)}
+                aria-label="Quest title"
+                style={{ background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '7px 9px', fontSize: 13.5 }}
+              />
+              <textarea
+                value={descDraft} onChange={(e) => setDescDraft(e.target.value)}
+                rows={2} aria-label="Quest description"
+                style={{ background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '7px 9px', fontSize: 12.5, resize: 'vertical', fontFamily: 'inherit' }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button" className="btn btn-primary" style={{ padding: '5px 12px', fontSize: 12.5 }}
+                  onClick={() => {
+                    if (!titleDraft.trim()) return;
+                    onUpdate(quest.id, { title: titleDraft.trim(), description: descDraft.trim() || null });
+                    setEditingText(false);
+                  }}
+                >Save</button>
+                <button
+                  type="button" className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: 12.5 }}
+                  onClick={() => { setTitleDraft(quest.title); setDescDraft(quest.description ?? ''); setEditingText(false); }}
+                >Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+              {quest.description ? (
+                <p style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5 }}>{quest.description}</p>
+              ) : <span />}
+              <button
+                onClick={() => { setTitleDraft(quest.title); setDescDraft(quest.description ?? ''); setEditingText(true); }}
+                aria-label={`Edit quest "${quest.title}"`}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', flexShrink: 0, padding: 2 }}
+              ><Pencil size={13} /></button>
+            </div>
           )}
 
           <div style={{ display: 'grid', gap: 6 }}>

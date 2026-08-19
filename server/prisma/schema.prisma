@@ -116,7 +116,6 @@ model User {
   createdAt       DateTime @default(now())
 
   quests            Quest[]
-  tasks             Task[]
   skills            Skill[]
   dailyActivity     DailyActivity[]
   weightEntries     WeightEntry[]
@@ -232,20 +231,6 @@ model QuestStep {
   completed   Boolean @default(false)
 
   quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
-}
-
-model Task {
-  id              String     @id @default(uuid())
-  userId          String
-  title           String
-  recurrence      Recurrence
-  xpReward        Int
-  completedToday  Boolean    @default(false)
-  lastCompletedAt DateTime?
-  linkedSkillId   String?
-  createdAt       DateTime   @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Skill {

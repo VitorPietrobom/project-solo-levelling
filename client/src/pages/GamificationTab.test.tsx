@@ -45,7 +45,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGet.mockImplementation((url: string) => {
     if (url === '/api/quests') return Promise.resolve([quest, habit]);
-    if (url === '/api/tasks') return Promise.resolve([]);
     if (url === '/api/skills') return Promise.resolve([]);
     if (url === '/api/gamification/status') return Promise.resolve({ level: 4, totalXP: 900, streak: 5, hunterName: 'Shadow', progress: { current: 100, required: 500, percentage: 20 } });
     return Promise.resolve([]);
@@ -109,6 +108,39 @@ describe('GamificationTab', () => {
     await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/complete'));
   });
 
+  it('opens a habit-only quest form pre-set to Daily from the "New Habit" button', async () => {
+    mockPost.mockResolvedValue({
+      id: 'h2', title: 'Stretch', description: null, xpReward: 50, priority: 'medium',
+      dueDate: null, linkedSkillId: null, recurrence: 'daily', completed: false, steps: [],
+    });
+    render(<GamificationTab />);
+    await waitFor(() => expect(screen.getByText('Morning run')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('New Habit'));
+    expect(screen.getByRole('radio', { name: 'Daily', checked: true })).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Quest title'), 'Stretch');
+    await userEvent.click(screen.getByText('Create Habit'));
+
+    await waitFor(() => expect(mockPost).toHaveBeenCalledWith(
+      '/api/quests',
+      { body: expect.objectContaining({ title: 'Stretch', recurrence: 'daily' }) },
+    ));
+  });
+
+  it('shows an empty-state message instead of bare columns when there are no quests', async () => {
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/api/quests') return Promise.resolve([habit]);
+      if (url === '/api/skills') return Promise.resolve([]);
+      if (url === '/api/gamification/status') return Promise.resolve({ level: 1, totalXP: 0, streak: 0, progress: { current: 0, required: 100, percentage: 0 } });
+      return Promise.resolve([]);
+    });
+    render(<GamificationTab />);
+    await waitFor(() => expect(screen.getByText('Morning run')).toBeInTheDocument());
+    expect(screen.getByText(/No quests yet/)).toBeInTheDocument();
+    expect(screen.queryByText('To Do')).not.toBeInTheDocument();
+  });
+
   it('has no Skills section anymore — that moved to its own page', async () => {
     render(<GamificationTab />);
     await waitFor(() => expect(screen.getByText('Learn Guitar')).toBeInTheDocument());
@@ -139,30 +171,5 @@ describe('GamificationTab', () => {
       '/api/quests/h1',
       { body: { title: 'Evening run', xpReward: 25, recurrence: 'daily', linkedSkillId: null } },
     ));
-  });
-
-  it('shows an import banner when old tasks still exist, and hides it after importing', async () => {
-    mockGet.mockImplementation((url: string) => {
-      if (url === '/api/quests') return Promise.resolve([]);
-      if (url === '/api/tasks') return Promise.resolve([{ id: 'legacy1' }]);
-      if (url === '/api/skills') return Promise.resolve([]);
-      if (url === '/api/gamification/status') return Promise.resolve({ level: 1, totalXP: 0, streak: 0, progress: { current: 0, required: 100, percentage: 0 } });
-      return Promise.resolve([]);
-    });
-    mockPost.mockResolvedValue({ imported: 1 });
-
-    render(<GamificationTab />);
-    await waitFor(() => expect(screen.getByText('Import my tasks')).toBeInTheDocument());
-
-    await userEvent.click(screen.getByText('Import my tasks'));
-
-    await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/api/quests/import-tasks'));
-    await waitFor(() => expect(screen.queryByText('Import my tasks')).not.toBeInTheDocument());
-  });
-
-  it('shows no import banner when there are no old tasks', async () => {
-    render(<GamificationTab />);
-    await waitFor(() => expect(screen.getByText('Learn Guitar')).toBeInTheDocument());
-    expect(screen.queryByText('Import my tasks')).not.toBeInTheDocument();
   });
 });

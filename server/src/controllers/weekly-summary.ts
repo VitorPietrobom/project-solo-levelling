@@ -56,18 +56,19 @@ export async function getWeeklySummary(req: Request, res: Response): Promise<voi
       include: { steps: true },
     });
 
-    // Tasks completed this week
-    const completedTasks = await prisma.task.findMany({
+    // Recurring habits completed this week
+    const completedHabits = await prisma.quest.findMany({
       where: {
         userId,
+        recurrence: { not: null },
         lastCompletedAt: { gte: start, lte: end },
       },
     });
 
-    // XP earned this week from tasks + quests
-    const xpFromTasks = completedTasks.reduce((sum, t) => sum + t.xpReward, 0);
+    // XP earned this week from habits + one-time quests
+    const xpFromHabits = completedHabits.reduce((sum, t) => sum + t.xpReward, 0);
     const xpFromQuests = completedQuests.reduce((sum, q) => sum + q.xpReward, 0);
-    const xpEarnedThisWeek = xpFromTasks + xpFromQuests;
+    const xpEarnedThisWeek = xpFromHabits + xpFromQuests;
 
     // Skills — show all skills with their current level/XP
     const skills = await prisma.skill.findMany({
@@ -189,7 +190,7 @@ export async function getWeeklySummary(req: Request, res: Response): Promise<voi
     lines.push('');
     lines.push(`- **Current Level:** ${currentLevel} (${currentTotalXP} total XP)`);
     lines.push(`- **XP Earned This Week:** ${xpEarnedThisWeek} XP`);
-    lines.push(`  - From tasks: ${xpFromTasks} XP`);
+    lines.push(`  - From habits: ${xpFromHabits} XP`);
     lines.push(`  - From quests: ${xpFromQuests} XP`);
     lines.push('');
 
@@ -204,9 +205,9 @@ export async function getWeeklySummary(req: Request, res: Response): Promise<voi
       lines.push('');
     }
 
-    const dailyTasksDone = completedTasks.filter((t) => t.recurrence === 'daily');
-    const weeklyTasksDone = completedTasks.filter((t) => t.recurrence === 'weekly');
-    lines.push(`**Tasks Completed:** ${completedTasks.length} total (${dailyTasksDone.length} daily, ${weeklyTasksDone.length} weekly)`);
+    const dailyHabitsDone = completedHabits.filter((t) => t.recurrence === 'daily');
+    const weeklyHabitsDone = completedHabits.filter((t) => t.recurrence === 'weekly');
+    lines.push(`**Habits Completed:** ${completedHabits.length} total (${dailyHabitsDone.length} daily, ${weeklyHabitsDone.length} weekly)`);
     lines.push('');
 
     if (skills.length > 0) {

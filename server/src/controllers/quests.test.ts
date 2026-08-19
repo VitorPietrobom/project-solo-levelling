@@ -15,9 +15,6 @@ vi.mock('../lib/prisma', () => ({
       createMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn(),
     },
-    task: {
-      findMany: vi.fn().mockResolvedValue([]),
-    },
     questStep: {
       update: vi.fn(),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -583,40 +580,6 @@ describe('Quest endpoints', () => {
       expect(res.body.completed).toBe(false);
       expect(prisma.quest.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { lastCompletedAt: null } });
       expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: 20 } } });
-    });
-  });
-
-  describe('POST /api/quests/import-tasks', () => {
-    it('imports every legacy task as a recurring quest', async () => {
-      (prisma.task.findMany as any).mockResolvedValue([
-        { id: 't1', title: 'Beber água', recurrence: 'daily', xpReward: 25, lastCompletedAt: null, linkedSkillId: null },
-        { id: 't2', title: 'Weekly review', recurrence: 'weekly', xpReward: 50, lastCompletedAt: null, linkedSkillId: 'sk1' },
-      ]);
-      (prisma.quest.findMany as any).mockResolvedValue([]);
-
-      const res = await request(app).post('/api/quests/import-tasks');
-
-      expect(res.status).toBe(200);
-      expect(res.body.imported).toBe(2);
-      expect(prisma.quest.createMany).toHaveBeenCalledWith({
-        data: [
-          expect.objectContaining({ title: 'Beber água', recurrence: 'daily', legacyTaskId: 't1' }),
-          expect.objectContaining({ title: 'Weekly review', recurrence: 'weekly', legacyTaskId: 't2', linkedSkillId: 'sk1' }),
-        ],
-      });
-    });
-
-    it('is idempotent — skips tasks already imported', async () => {
-      (prisma.task.findMany as any).mockResolvedValue([
-        { id: 't1', title: 'Beber água', recurrence: 'daily', xpReward: 25, lastCompletedAt: null, linkedSkillId: null },
-      ]);
-      (prisma.quest.findMany as any).mockResolvedValue([{ legacyTaskId: 't1' }]);
-
-      const res = await request(app).post('/api/quests/import-tasks');
-
-      expect(res.status).toBe(200);
-      expect(res.body.imported).toBe(0);
-      expect(prisma.quest.createMany).not.toHaveBeenCalled();
     });
   });
 });

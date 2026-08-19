@@ -97,4 +97,21 @@ describe('QuestCard', () => {
     await userEvent.selectOptions(screen.getByLabelText('Linked skill'), 'sk1');
     expect(onUpdate).toHaveBeenCalledWith('q1', { linkedSkillId: 'sk1' });
   });
+
+  it('lets the title and description be edited from the expanded card', async () => {
+    const onUpdate = vi.fn();
+    render(<QuestCard quest={baseQuest} dragging={false} onDragStart={noop} onDragEnd={noop} onToggleStep={noop} onDelete={noop} onUpdate={onUpdate} />);
+    await userEvent.click(screen.getByLabelText('Expand quest "Learn Guitar"'));
+
+    await userEvent.click(screen.getByLabelText('Edit quest "Learn Guitar"'));
+    const titleInput = screen.getByLabelText('Quest title');
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, 'Master Guitar');
+    const descInput = screen.getByLabelText('Quest description');
+    await userEvent.clear(descInput);
+    await userEvent.type(descInput, 'Practice weekly');
+    await userEvent.click(screen.getByText('Save'));
+
+    expect(onUpdate).toHaveBeenCalledWith('q1', { title: 'Master Guitar', description: 'Practice weekly' });
+  });
 });

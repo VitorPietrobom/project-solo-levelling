@@ -4,7 +4,6 @@ import cors from 'cors';
 import authRoutes from './routes/auth';
 import gamificationRoutes from './routes/gamification';
 import questRoutes from './routes/quests';
-import taskRoutes from './routes/tasks';
 import skillRoutes from './routes/skills';
 import weightRoutes from './routes/weight';
 import measurementRoutes from './routes/measurements';
@@ -43,7 +42,6 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/gamification', gamificationRoutes);
 app.use('/api/quests', questRoutes);
-app.use('/api/tasks', taskRoutes);
 app.use('/api/skills', skillRoutes);
 app.use('/api/weight', weightRoutes);
 app.use('/api/measurements', measurementRoutes);
