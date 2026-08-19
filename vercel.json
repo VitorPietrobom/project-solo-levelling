@@ -9,5 +9,8 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/whoop/cron-sync", "schedule": "0 6 * * *" }
   ]
 }

@@ -33,7 +33,7 @@ export default function WeightChart({ entries }: WeightChartProps) {
   }, [entries, range]);
 
   const chartData = filtered.map((e) => ({
-    date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }),
     weight: e.weight,
   }));
 

@@ -160,11 +160,15 @@ async function whoopGet(token: string, path: string): Promise<any | null> {
   }
 }
 
-// POST /api/whoop/sync — pull latest recovery, sleep, strain, and workouts.
-export async function syncWhoop(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
+// Does the actual pull-and-persist for one user. Shared by the on-demand
+// POST /api/whoop/sync handler and the daily cron below — a manual sync only
+// ever runs when someone has the app open, so without an automatic daily
+// pass, any day nobody opened the app got no weight row at all even though
+// Whoop had a real reading that day (Whoop's own app shows it; ours never
+// captured it). Returns null if there's no valid connection to sync.
+async function performWhoopSync(userId: string): Promise<{ syncedAt: Date | null; latest: unknown; weightLogged: boolean } | null> {
   const token = await freshAccessToken(userId);
-  if (!token) { res.status(400).json({ error: 'Whoop not connected' }); return; }
+  if (!token) return null;
 
   const [recovery, sleep, cycles, workouts, profile, body] = await Promise.all([
     whoopGet(token, '/v2/recovery?limit=1'),
@@ -258,7 +262,41 @@ export async function syncWhoop(req: Request, res: Response): Promise<void> {
     }
   }
 
-  res.json({ connected: true, syncedAt: updated.syncedAt, latest, weightLogged });
+  return { syncedAt: updated.syncedAt, latest, weightLogged };
+}
+
+// POST /api/whoop/sync — pull latest recovery, sleep, strain, and workouts.
+export async function syncWhoop(req: Request, res: Response): Promise<void> {
+  const result = await performWhoopSync(req.user!.id);
+  if (!result) { res.status(400).json({ error: 'Whoop not connected' }); return; }
+  res.json({ connected: true, ...result });
+}
+
+// GET /api/whoop/cron-sync — runs performWhoopSync for every connected user,
+// once a day, so a day nobody opened the app still gets a weight row. Vercel
+// Cron Jobs hit this as a plain GET and auto-attach `Authorization: Bearer
+// $CRON_SECRET` when an env var of that exact name is set — that's the only
+// thing gating this route, since it isn't tied to any one user's session.
+export async function cronSyncAllWhoop(req: Request, res: Response): Promise<void> {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const connections = await prisma.whoopConnection.findMany({ select: { userId: true } });
+  let synced = 0;
+  let failed = 0;
+  for (const { userId } of connections) {
+    try {
+      const result = await performWhoopSync(userId);
+      if (result) synced++; else failed++;
+    } catch (err) {
+      console.error(`[whoop] cron sync failed for user ${userId}`, err);
+      failed++;
+    }
+  }
+  res.json({ total: connections.length, synced, failed });
 }
 
 // GET /api/whoop/status — connection state + last synced snapshot.

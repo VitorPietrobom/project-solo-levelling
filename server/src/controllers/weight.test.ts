@@ -8,6 +8,7 @@ vi.mock('../lib/prisma', () => ({
       findMany: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
     },
     user: {
       upsert: vi.fn().mockResolvedValue({}),
@@ -90,12 +91,13 @@ describe('Weight endpoints', () => {
       expect(res.body.weight).toBe(80.5);
     });
 
-    it('returns 409 on duplicate date', async () => {
+    it('returns 409 on a duplicate manual entry for the same date', async () => {
       (prisma.weightEntry.findUnique as any).mockResolvedValue({
         id: 'existing',
         userId: 'test-user-id',
         weight: 80.0,
         date: '2024-01-15',
+        source: 'manual',
       });
 
       const res = await request(app)
@@ -104,6 +106,36 @@ describe('Weight endpoints', () => {
 
       expect(res.status).toBe(409);
       expect(res.body.error).toBe('Weight entry already exists for this date');
+    });
+
+    it('overwrites a WHOOP-synced entry for the same date instead of 409ing', async () => {
+      (prisma.weightEntry.findUnique as any).mockResolvedValue({
+        id: 'existing',
+        userId: 'test-user-id',
+        weight: 79.0,
+        date: '2024-01-15',
+        source: 'whoop',
+      });
+      (prisma.weightEntry.update as any).mockResolvedValue({
+        id: 'existing',
+        userId: 'test-user-id',
+        weight: 80.5,
+        date: '2024-01-15',
+        source: 'manual',
+      });
+
+      const res = await request(app)
+        .post('/api/weight')
+        .send({ weight: 80.5, date: '2024-01-15' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.weight).toBe(80.5);
+      expect(res.body.source).toBe('manual');
+      expect(prisma.weightEntry.update).toHaveBeenCalledWith({
+        where: { id: 'existing' },
+        data: { weight: 80.5, source: 'manual' },
+      });
+      expect(prisma.weightEntry.create).not.toHaveBeenCalled();
     });
 
     it('returns 400 when weight is missing', async () => {
