@@ -127,6 +127,24 @@ describe('Training program endpoints', () => {
       expect(res.body.error).toBe('Name is required');
     });
 
+    it('returns 400 for an invalid dayOfWeek', async () => {
+      const res = await request(app)
+        .post('/api/training-programs')
+        .send({ name: 'Test Program', days: [{ dayOfWeek: 'someday', exercises: [] }] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Invalid dayOfWeek: someday');
+    });
+
+    it('returns 400 for a negative targetWeight', async () => {
+      const res = await request(app)
+        .post('/api/training-programs')
+        .send({ name: 'Test Program', days: [{ dayOfWeek: 'mon', exercises: [{ name: 'Squat', sets: 5, reps: 5, targetWeight: -100 }] }] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('targetWeight must be a non-negative number');
+    });
+
     it('returns 400 when days are missing', async () => {
       const res = await request(app)
         .post('/api/training-programs')

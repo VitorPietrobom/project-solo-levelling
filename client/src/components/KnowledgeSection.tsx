@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Network, List, Sparkles, Unlink } from 'lucide-react';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
+import { useToast } from '../contexts/ToastContext';
 import ConfirmDialog from './ui/ConfirmDialog';
 import KnowledgeGraph from './KnowledgeGraph';
 import KnowledgeNodeEditor, { type NodeDraft } from './KnowledgeNodeEditor';
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function KnowledgeSection({ query, activeTags, refreshKey = 0, onTagsDiscovered, addXP, onChanged }: Props) {
+  const { showToast } = useToast();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -39,13 +41,18 @@ export default function KnowledgeSection({ query, activeTags, refreshKey = 0, on
       const data = (await apiClient.get('/api/knowledge')) as { nodes: GraphNode[]; edges: GraphEdge[] };
       setNodes(data.nodes ?? []);
       setEdges(data.edges ?? []);
-    } catch { /* keep whatever we have */ }
+    } catch (err) {
+      showToast(errorMessage(err, 'Failed to load knowledge graph'));
+    }
     setLoaded(true);
-  }, []);
+  }, [showToast]);
 
   const fetchNode = useCallback(async (id: string) => {
-    try { setSelected((await apiClient.get(`/api/knowledge/${id}`)) as FullNode); } catch { setSelected(null); }
-  }, []);
+    try { setSelected((await apiClient.get(`/api/knowledge/${id}`)) as FullNode); } catch (err) {
+      setSelected(null);
+      showToast(errorMessage(err, 'Failed to load node'));
+    }
+  }, [showToast]);
 
   useEffect(() => { fetchGraph(); }, [fetchGraph, refreshKey]);
   useEffect(() => { if (selectedId) fetchNode(selectedId); else setSelected(null); }, [selectedId, fetchNode]);
@@ -79,7 +86,9 @@ export default function KnowledgeSection({ query, activeTags, refreshKey = 0, on
       setEditing(null);
       try {
         await apiClient.patch(`/api/knowledge/${selectedId}`, { body: draft });
-      } catch { /* refetch below restores truth */ }
+      } catch (err) {
+        showToast(errorMessage(err, 'Failed to save node'));
+      }
       await Promise.all([fetchGraph(), fetchNode(selectedId)]);
       onChanged?.();
       return;
@@ -91,7 +100,9 @@ export default function KnowledgeSection({ query, activeTags, refreshKey = 0, on
       await fetchGraph();
       setSelectedId(created.id);
       onChanged?.();
-    } catch { /* ignore */ }
+    } catch (err) {
+      showToast(errorMessage(err, 'Failed to create node'));
+    }
   }
 
   async function handleDelete() {
@@ -101,7 +112,9 @@ export default function KnowledgeSection({ query, activeTags, refreshKey = 0, on
     setSelectedId(null);
     setNodes((prev) => prev.filter((n) => n.id !== id));
     setEdges((prev) => prev.filter((e) => e.fromId !== id && e.toId !== id));
-    try { await apiClient.delete(`/api/knowledge/${id}`); } catch { /* ignore */ }
+    try { await apiClient.delete(`/api/knowledge/${id}`); } catch (err) {
+      showToast(errorMessage(err, 'Failed to delete node'));
+    }
     await fetchGraph();
     onChanged?.();
   }
@@ -112,12 +125,16 @@ export default function KnowledgeSection({ query, activeTags, refreshKey = 0, on
       const edge = (await apiClient.post('/api/knowledge/edges', { body: { fromId: selectedId, toId, kind } })) as GraphEdge & { xpAwarded?: number };
       if (edge.xpAwarded) addXP(edge.xpAwarded, 'New connection');
       await Promise.all([fetchGraph(), fetchNode(selectedId)]);
-    } catch { /* ignore */ }
+    } catch (err) {
+      showToast(errorMessage(err, 'Failed to add connection'));
+    }
   }
 
   async function handleRemoveEdge(edgeId: string) {
     setEdges((prev) => prev.filter((e) => e.id !== edgeId));
-    try { await apiClient.delete(`/api/knowledge/edges/${edgeId}`); } catch { /* ignore */ }
+    try { await apiClient.delete(`/api/knowledge/edges/${edgeId}`); } catch (err) {
+      showToast(errorMessage(err, 'Failed to remove connection'));
+    }
     if (selectedId) await Promise.all([fetchGraph(), fetchNode(selectedId)]);
   }
 

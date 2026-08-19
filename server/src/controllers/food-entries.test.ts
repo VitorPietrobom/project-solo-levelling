@@ -115,6 +115,25 @@ describe('Food entry endpoints', () => {
       expect(res.body.error).toBe('Calories must be a non-negative integer');
     });
 
+    it('returns 400 when protein is negative', async () => {
+      const res = await request(app)
+        .post('/api/food-entries')
+        .send({ foodName: 'Oatmeal', calories: 300, protein: -5, mealType: 'breakfast', date: '2024-01-15' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('protein must be a non-negative number');
+      expect(prisma.foodEntry.create).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when fat is not a finite number', async () => {
+      const res = await request(app)
+        .post('/api/food-entries')
+        .send({ foodName: 'Oatmeal', calories: 300, fat: NaN, mealType: 'breakfast', date: '2024-01-15' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('fat must be a non-negative number');
+    });
+
     it('returns 400 for invalid meal type', async () => {
       const res = await request(app)
         .post('/api/food-entries')

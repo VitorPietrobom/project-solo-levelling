@@ -41,6 +41,25 @@ export async function createGymSession(req: Request, res: Response): Promise<voi
       return;
     }
 
+    for (const ex of exercises) {
+      if (!ex.name || typeof ex.name !== 'string' || ex.name.trim() === '') {
+        res.status(400).json({ error: 'Each exercise needs a name' });
+        return;
+      }
+      if (typeof ex.sets !== 'number' || !Number.isInteger(ex.sets) || ex.sets <= 0) {
+        res.status(400).json({ error: 'sets must be a positive integer' });
+        return;
+      }
+      if (typeof ex.reps !== 'number' || !Number.isInteger(ex.reps) || ex.reps <= 0) {
+        res.status(400).json({ error: 'reps must be a positive integer' });
+        return;
+      }
+      if (ex.weight !== undefined && (typeof ex.weight !== 'number' || !Number.isFinite(ex.weight) || ex.weight < 0)) {
+        res.status(400).json({ error: 'weight must be a non-negative number' });
+        return;
+      }
+    }
+
     const session = await prisma.gymSession.create({
       data: {
         userId,
