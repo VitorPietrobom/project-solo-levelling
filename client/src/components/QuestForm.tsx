@@ -17,6 +17,7 @@ export interface QuestCreateBody {
 interface QuestFormProps {
   onCreated: (optimistic: Quest, body: QuestCreateBody) => void;
   skills?: Skill[];
+  defaultRecurrence?: QuestRecurrence | null;
 }
 
 const PRIORITIES: { value: QuestPriority; label: string; color: string }[] = [
@@ -31,9 +32,9 @@ const RECURRENCES: { value: QuestRecurrence | null; label: string }[] = [
   { value: 'weekly', label: 'Weekly' },
 ];
 
-export default function QuestForm({ onCreated, skills = [] }: QuestFormProps) {
+export default function QuestForm({ onCreated, skills = [], defaultRecurrence = null }: QuestFormProps) {
   const [title, setTitle] = useState('');
-  const [recurrence, setRecurrence] = useState<QuestRecurrence | null>(null);
+  const [recurrence, setRecurrence] = useState<QuestRecurrence | null>(defaultRecurrence);
   const [description, setDescription] = useState('');
   const [xpReward, setXpReward] = useState(50);
   const [priority, setPriority] = useState<QuestPriority>('medium');
@@ -99,7 +100,7 @@ export default function QuestForm({ onCreated, skills = [] }: QuestFormProps) {
     });
 
     setTitle('');
-    setRecurrence(null);
+    setRecurrence(defaultRecurrence);
     setDescription('');
     setXpReward(50);
     setPriority('medium');

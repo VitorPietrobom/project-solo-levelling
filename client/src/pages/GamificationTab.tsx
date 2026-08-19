@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
-  Flame, Zap, Check, Trophy, Plus, Download,
+  Flame, Zap, Check, Trophy, Plus,
 } from 'lucide-react';
 import Ring from '../components/ui/Ring';
 import XPBar from '../components/ui/XPBar';
@@ -79,15 +79,12 @@ export default function GamificationTab() {
   // they need (kanban vs a simple toggle list).
   const [quests, setQuests] = useState<Quest[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showHabitForm, setShowHabitForm] = useState(false);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [localStatus, setLocalStatus] = useState<GamificationStatus | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
   const [dragQuestId, setDragQuestId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
-  // Whether any old Task rows are still waiting to be imported — see the
-  // "import my tasks" banner below.
-  const [hasLegacyTasks, setHasLegacyTasks] = useState(false);
-  const [importing, setImporting] = useState(false);
 
   const fetchQuests = useCallback(async () => {
     try { setQuests((await apiClient.get('/api/quests')) as Quest[]); } catch { /* silently fail */ }
@@ -101,32 +98,11 @@ export default function GamificationTab() {
     try { setLocalStatus((await apiClient.get('/api/gamification/status')) as GamificationStatus); } catch { /* silently fail */ }
   }, []);
 
-  // The old /api/tasks endpoint is still live (Task table isn't dropped
-  // yet, on purpose — see the import-tasks migration) purely to detect
-  // whether there's anything left to import.
-  const checkLegacyTasks = useCallback(async () => {
-    try {
-      const legacy = (await apiClient.get('/api/tasks')) as { id: string }[];
-      setHasLegacyTasks(legacy.length > 0);
-    } catch { /* ignore — endpoint may be gone entirely in a future deploy */ }
-  }, []);
-
   useEffect(() => {
     fetchQuests();
     fetchSkills();
     fetchStatus();
-    checkLegacyTasks();
-  }, [fetchQuests, fetchSkills, fetchStatus, checkLegacyTasks]);
-
-  async function handleImportTasks() {
-    setImporting(true);
-    try {
-      await apiClient.post('/api/quests/import-tasks');
-      await fetchQuests();
-      setHasLegacyTasks(false);
-    } catch { /* leave the banner up so it can be retried */ }
-    setImporting(false);
-  }
+  }, [fetchQuests, fetchSkills, fetchStatus]);
 
   // Prefer localStatus (fetched directly from DB) over the Dashboard context
   // value which is only loaded once on mount and doesn't reflect level changes.
@@ -149,6 +125,7 @@ export default function GamificationTab() {
   function handleQuestCreated(optimistic: Quest, body: QuestCreateBody) {
     setQuests((prev) => [optimistic, ...prev]);
     setShowForm(false);
+    setShowHabitForm(false);
     apiClient
       .post('/api/quests', { body })
       .then((data) => setQuests((prev) => prev.map((q) => (q.id === optimistic.id ? (data as Quest) : q))))
@@ -189,7 +166,7 @@ export default function GamificationTab() {
 
   // Inline priority / due-date / linked-skill edit from inside an expanded
   // quest card.
-  function handleQuestUpdate(questId: string, patch: { priority?: QuestPriority; dueDate?: string | null; linkedSkillId?: string | null }) {
+  function handleQuestUpdate(questId: string, patch: { title?: string; description?: string | null; priority?: QuestPriority; dueDate?: string | null; linkedSkillId?: string | null }) {
     setQuests((prev) => prev.map((q) => (q.id === questId ? { ...q, ...patch } : q)));
     apiClient.patch(`/api/quests/${questId}`, { body: patch }).catch(() => fetchQuests());
   }
@@ -287,18 +264,6 @@ export default function GamificationTab() {
         </div>
       </div>
 
-      {hasLegacyTasks && (
-        <section className="card arise-in" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Download size={16} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontSize: 13.5 }}>Quests and Tasks are now one thing. Bring your old tasks in as habits below.</span>
-          </div>
-          <button className="btn btn-primary" onClick={handleImportTasks} disabled={importing} style={{ padding: '6px 14px', fontSize: 12.5 }}>
-            {importing ? 'Importing…' : 'Import my tasks'}
-          </button>
-        </section>
-      )}
-
       {/* Quests kanban — one-time goals only */}
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -312,6 +277,11 @@ export default function GamificationTab() {
             <QuestForm onCreated={handleQuestCreated} skills={skills} />
           </div>
         )}
+        {oneTimeQuests.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--text-faint)', textAlign: 'center', padding: '24px 0' }}>
+            No quests yet — one-time goals with steps to check off. Click "New Quest" to add your first one.
+          </p>
+        ) : (
         <div className="grid-3-col">
           {questCols.map(([label, items]) => {
             const droppable = label === 'To Do' || label === 'Done';
@@ -354,6 +324,7 @@ export default function GamificationTab() {
             );
           })}
         </div>
+        )}
         {(todoQuests.length + inProgressQuests.length) > 0 && (
           <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-faint)', textAlign: 'center' }}>
             Tip — click a quest to check off steps. Drag to "Done" or back to "To Do" to set them all at once.
@@ -365,7 +336,15 @@ export default function GamificationTab() {
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <h3 style={{ fontSize: 17 }}>Daily & Weekly</h3>
+          <button className="btn btn-ghost" onClick={() => setShowHabitForm(!showHabitForm)}>
+            <Plus size={15} strokeWidth={2.4} />{showHabitForm ? 'Cancel' : 'New Habit'}
+          </button>
         </div>
+        {showHabitForm && (
+          <div style={{ marginBottom: 16 }}>
+            <QuestForm onCreated={handleQuestCreated} skills={skills} defaultRecurrence="daily" />
+          </div>
+        )}
         <div className="grid-2-col" style={{ gap: 18 }}>
           {[['Daily', dailyHabits], ['Weekly', weeklyHabits]].map(([label, items]) => (
             <div key={label as string}>

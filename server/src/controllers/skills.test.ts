@@ -115,6 +115,33 @@ describe('Skill endpoints', () => {
     });
   });
 
+  describe('PATCH /api/skills/:id', () => {
+    it('renames a skill without touching its XP', async () => {
+      (prisma.skill.findFirst as any).mockResolvedValue({ id: 's1', userId: 'test-user-id', name: 'Guitar', totalXP: 150 });
+      (prisma.skill.update as any).mockResolvedValue({ id: 's1', userId: 'test-user-id', name: 'Piano', totalXP: 150, createdAt: new Date() });
+
+      const res = await request(app).patch('/api/skills/s1').send({ name: 'Piano' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe('Piano');
+      expect(res.body.totalXP).toBe(150);
+      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 's1' }, data: { name: 'Piano' } });
+    });
+
+    it('returns 404 for a skill that does not belong to the user', async () => {
+      (prisma.skill.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app).patch('/api/skills/s1').send({ name: 'Piano' });
+
+      expect(res.status).toBe(404);
+    });
+
+    it('returns 400 when name is empty', async () => {
+      const res = await request(app).patch('/api/skills/s1').send({ name: '  ' });
+      expect(res.status).toBe(400);
+    });
+  });
+
   // Manual XP logging (POST /api/skills/:id/log) was removed — it let anyone
   // type an arbitrary number straight into a skill's totalXP with no cap and
   // without going through awardXP, so it never actually moved the user's

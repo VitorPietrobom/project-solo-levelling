@@ -18,6 +18,13 @@ describe('QuestForm', () => {
     expect(screen.getByText('Create Quest')).toBeInTheDocument();
   });
 
+  it('pre-selects the given default recurrence, skipping the one-time fields', () => {
+    render(<QuestForm onCreated={onCreated} defaultRecurrence="daily" />);
+    expect(screen.getByRole('radio', { name: 'Daily', checked: true })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Quest description')).not.toBeInTheDocument();
+    expect(screen.getByText('Create Habit')).toBeInTheDocument();
+  });
+
   it('calls onCreated with the optimistic quest and body on submit', async () => {
     render(<QuestForm onCreated={onCreated} />);
 

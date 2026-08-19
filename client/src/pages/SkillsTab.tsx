@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, ChevronDown, AlertTriangle, Layers, Trophy, Target } from 'lucide-react';
+import { Plus, ChevronDown, AlertTriangle, Layers, Trophy, Target, Pencil } from 'lucide-react';
 import XPBar from '../components/ui/XPBar';
 import RadarChart, { niceMax } from '../components/ui/RadarChart';
 import SkillForm from '../components/SkillForm';
@@ -47,11 +47,36 @@ interface SkillRowProps {
   onUnhover: () => void;
   onToggleExpand: () => void;
   onDelete: (id: string, name: string) => void;
+  onRename: (id: string, name: string) => void;
 }
 
-function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhover, onToggleExpand, onDelete }: SkillRowProps) {
+function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhover, onToggleExpand, onDelete, onRename }: SkillRowProps) {
   const rank = rankForLevel(skill.level);
   const unlinked = linkedItems.length === 0;
+  const [editing, setEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState(skill.name);
+
+  if (editing) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!nameDraft.trim()) return;
+          onRename(skill.id, nameDraft.trim());
+          setEditing(false);
+        }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--surface-inset)', borderRadius: 'var(--r-sm)', border: '1px solid var(--line-soft)' }}
+      >
+        <input
+          type="text" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} autoFocus
+          aria-label={`Rename skill "${skill.name}"`}
+          style={{ flex: 1, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '6px 9px', fontSize: 13 }}
+        />
+        <button type="submit" className="btn btn-primary" style={{ padding: '5px 12px', fontSize: 12 }}>Save</button>
+        <button type="button" className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => { setNameDraft(skill.name); setEditing(false); }}>Cancel</button>
+      </form>
+    );
+  }
 
   return (
     <div
@@ -89,6 +114,13 @@ function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhove
           </span>
         )}
         <ChevronDown size={13} style={{ color: 'var(--text-faint)', flexShrink: 0, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+        <button
+          className="btn btn-ghost"
+          style={{ padding: '4px 8px', fontSize: 11, flexShrink: 0, display: 'flex' }}
+          onClick={(e) => { e.stopPropagation(); setNameDraft(skill.name); setEditing(true); }}
+          title="Rename skill"
+          aria-label={`Rename skill "${skill.name}"`}
+        ><Pencil size={12} /></button>
         <button
           className="btn btn-ghost"
           style={{ padding: '4px 8px', fontSize: 11, color: 'var(--bad)', flexShrink: 0 }}
@@ -146,6 +178,11 @@ export default function SkillsTab() {
 
   function handleSkillDelete(skillId: string, skillName: string) {
     setConfirmDelete({ id: skillId, name: skillName });
+  }
+
+  function handleSkillRename(skillId: string, name: string) {
+    setSkills((prev) => prev.map((s) => (s.id === skillId ? { ...s, name } : s)));
+    apiClient.patch(`/api/skills/${skillId}`, { body: { name } }).catch(() => fetchSkills());
   }
 
   function confirmDeleteAction() {
@@ -268,6 +305,7 @@ export default function SkillsTab() {
                     onUnhover={() => setHoveredSkill(null)}
                     onToggleExpand={() => setExpandedSkillId((prev) => (prev === s.id ? null : s.id))}
                     onDelete={handleSkillDelete}
+                    onRename={handleSkillRename}
                   />
                 );
               })}

@@ -5,11 +5,13 @@ import SkillsTab from './SkillsTab';
 
 const mockGet = vi.fn();
 const mockPost = vi.fn();
+const mockPatch = vi.fn();
 const mockDelete = vi.fn();
 vi.mock('../lib/apiClient', () => ({
   apiClient: {
     get: (...args: any[]) => mockGet(...args),
     post: (...args: any[]) => mockPost(...args),
+    patch: (...args: any[]) => mockPatch(...args),
     delete: (...args: any[]) => mockDelete(...args),
   },
 }));
@@ -34,6 +36,7 @@ function mockData(skills: any[], quests: any[] = []) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockPost.mockResolvedValue({});
+  mockPatch.mockResolvedValue({});
   mockDelete.mockResolvedValue({});
 });
 
@@ -117,6 +120,21 @@ describe('SkillsTab', () => {
 
     expect(screen.getByText('Practice scales')).toBeInTheDocument();
     expect(screen.getByText('Daily warmup')).toBeInTheDocument();
+  });
+
+  it('renames a skill in place without touching its XP', async () => {
+    mockData([skill('a', 'Guitar', 2)]);
+    render(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByLabelText('Rename skill "Guitar"'));
+    const input = screen.getByLabelText('Rename skill "Guitar"');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Piano');
+    await userEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/skills/a', { body: { name: 'Piano' } }));
+    expect(screen.getAllByText('Piano').length).toBeGreaterThan(0);
   });
 
   it('shows overview stats: total skills, highest level, most active', async () => {
