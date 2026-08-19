@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { QuestPriority, Recurrence } from '@prisma/client';
 import prisma from '../lib/prisma';
-import { awardXP, grantSkillXP, revokeSkillXP } from '../services/xp';
+import { awardXP, revokeXP, grantSkillXP, revokeSkillXP, getStartOfTodayUTC } from '../services/xp';
 
 const PRIORITIES = new Set(['low', 'medium', 'high']);
 const RECURRENCES = new Set(['daily', 'weekly']);
@@ -9,13 +9,8 @@ const questInclude = { steps: { orderBy: { sortOrder: 'asc' as const } } };
 
 // ─── Recurring-quest period math (moved from the old Task model) ──────────
 
-function getStartOfToday(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
-
 function getStartOfWeek(): Date {
-  const today = getStartOfToday();
+  const today = getStartOfTodayUTC();
   const day = today.getUTCDay();
   const diff = day === 0 ? 6 : day - 1;
   today.setUTCDate(today.getUTCDate() - diff);
@@ -24,7 +19,7 @@ function getStartOfWeek(): Date {
 
 function isCompletedForPeriod(recurrence: Recurrence, lastCompletedAt: Date | null): boolean {
   if (!lastCompletedAt) return false;
-  return recurrence === 'daily' ? lastCompletedAt >= getStartOfToday() : lastCompletedAt >= getStartOfWeek();
+  return recurrence === 'daily' ? lastCompletedAt >= getStartOfTodayUTC() : lastCompletedAt >= getStartOfWeek();
 }
 
 /** The `completed` a client sees: stored flag for one-time quests, derived for recurring ones. */
@@ -235,8 +230,7 @@ export async function toggleStep(req: Request, res: Response): Promise<void> {
       if (quest.linkedSkillId) await grantSkillXP(quest.linkedSkillId, quest.xpReward);
     } else if (!allDone && wasCompleted) {
       await prisma.quest.update({ where: { id: questId }, data: { completed: false } });
-      await prisma.user.update({ where: { id: userId }, data: { totalXP: { decrement: quest.xpReward } } });
-      await prisma.user.updateMany({ where: { id: userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+      await revokeXP(userId, quest.xpReward);
       if (quest.linkedSkillId) await revokeSkillXP(quest.linkedSkillId, quest.xpReward);
     }
 
@@ -267,8 +261,7 @@ export async function resetQuest(req: Request, res: Response): Promise<void> {
       if (!wasCompleted) { res.json(withComputedCompleted(quest)); return; }
 
       await prisma.quest.update({ where: { id }, data: { lastCompletedAt: null } });
-      await prisma.user.update({ where: { id: userId }, data: { totalXP: { decrement: quest.xpReward } } });
-      await prisma.user.updateMany({ where: { id: userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+      await revokeXP(userId, quest.xpReward);
       if (quest.linkedSkillId) await revokeSkillXP(quest.linkedSkillId, quest.xpReward);
 
       const updated = await prisma.quest.findUnique({ where: { id }, include: questInclude });
@@ -282,8 +275,7 @@ export async function resetQuest(req: Request, res: Response): Promise<void> {
     await prisma.questStep.updateMany({ where: { questId: id }, data: { completed: false } });
 
     if (quest.completed) {
-      await prisma.user.update({ where: { id: userId }, data: { totalXP: { decrement: quest.xpReward } } });
-      await prisma.user.updateMany({ where: { id: userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+      await revokeXP(userId, quest.xpReward);
       if (quest.linkedSkillId) await revokeSkillXP(quest.linkedSkillId, quest.xpReward);
     }
     await prisma.quest.update({ where: { id }, data: { completed: false } });

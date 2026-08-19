@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import app from '../index';
+import { BOOK_FINISH_XP } from './books';
 
 vi.mock('../lib/prisma', () => ({
   default: {
@@ -16,6 +17,7 @@ vi.mock('../lib/prisma', () => ({
     },
     skill: {
       update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     // The bookshelf is projected into the knowledge graph as `source` nodes.
     knowledgeNode: {
@@ -28,6 +30,7 @@ vi.mock('../lib/prisma', () => ({
       upsert: vi.fn().mockResolvedValue({}),
       // awardXP persists the new total.
       update: vi.fn().mockResolvedValue({ totalXP: 0 }),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   },
 }));
@@ -177,8 +180,28 @@ describe('Book endpoints', () => {
       expect(res.status).toBe(200);
       expect(prisma.skill.update).toHaveBeenCalledWith({
         where: { id: 'skill-1' },
-        data: { totalXP: { increment: 250 } },
+        data: expect.objectContaining({ totalXP: { increment: 250 } }),
       });
+    });
+
+    it('claws back XP and skill XP when un-finishing a book', async () => {
+      const existing = {
+        id: 'b1', userId: 'test-user-id', title: 'Book', author: 'Author',
+        status: 'finished', totalPages: 250, currentPage: 250,
+        startedAt: new Date(), finishedAt: new Date(), linkedSkillId: 'skill-1',
+      };
+      (prisma.book.findFirst as any).mockResolvedValue(existing);
+      (prisma.book.update as any).mockResolvedValue({ ...existing, status: 'reading' });
+      (prisma.user.update as any).mockResolvedValue({});
+      (prisma.user.updateMany as any).mockResolvedValue({ count: 0 });
+      (prisma.skill.update as any).mockResolvedValue({});
+      (prisma.skill.updateMany as any).mockResolvedValue({ count: 0 });
+
+      const res = await request(app).patch('/api/books/b1').send({ status: 'reading' });
+
+      expect(res.status).toBe(200);
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: BOOK_FINISH_XP } } });
+      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'skill-1' }, data: { totalXP: { decrement: 250 } } });
     });
 
     it('does not award XP when no linked skill', async () => {

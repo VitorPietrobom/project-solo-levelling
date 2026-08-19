@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { awardXP } from '../services/xp';
+import { awardXP, revokeXP, grantSkillXP, revokeSkillXP } from '../services/xp';
 import { syncBookNodes, removeBookNode } from '../services/bookNodes';
 
 export const BOOK_FINISH_XP = 80;
@@ -154,16 +154,18 @@ export async function updateBook(req: Request, res: Response): Promise<void> {
       data,
     });
 
-    // Reward finishing a book — but only on the transition into "finished".
+    // Reward finishing a book on the transition into "finished", and claw it
+    // back on the transition back out — same reversible-XP contract quests
+    // and habits follow, so un-finishing a book by mistake doesn't leave a
+    // permanent, unrecoverable XP grant behind.
     const justFinished = status === 'finished' && existing.status !== 'finished';
+    const justUnfinished = existing.status === 'finished' && status !== undefined && status !== 'finished';
     if (justFinished) {
       await awardXP(userId, BOOK_FINISH_XP, `book:${bookId}`);
-      if (existing.linkedSkillId) {
-        await prisma.skill.update({
-          where: { id: existing.linkedSkillId },
-          data: { totalXP: { increment: existing.totalPages } },
-        });
-      }
+      if (existing.linkedSkillId) await grantSkillXP(existing.linkedSkillId, existing.totalPages);
+    } else if (justUnfinished) {
+      await revokeXP(userId, BOOK_FINISH_XP);
+      if (existing.linkedSkillId) await revokeSkillXP(existing.linkedSkillId, existing.totalPages);
     }
 
     res.json({ ...updated, xpAwarded: justFinished ? BOOK_FINISH_XP : 0 });
