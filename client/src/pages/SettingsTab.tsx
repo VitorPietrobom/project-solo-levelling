@@ -49,6 +49,55 @@ function HunterNameField() {
   );
 }
 
+function PracticeReminderField() {
+  const [days, setDays] = useState(14);
+  const [saved, setSaved] = useState(14);
+  const [saving, setSaving] = useState(false);
+
+  const fetchDays = useCallback(async () => {
+    try {
+      const status = (await apiClient.get('/api/gamification/status')) as { practiceReminderDays?: number };
+      const value = status.practiceReminderDays ?? 14;
+      setDays(value);
+      setSaved(value);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => { fetchDays(); }, [fetchDays]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = (await apiClient.put('/api/gamification/profile', { body: { practiceReminderDays: days } })) as { practiceReminderDays: number };
+      setDays(res.practiceReminderDays);
+      setSaved(res.practiceReminderDays);
+    } finally { setSaving(false); }
+  }
+
+  const dirty = days !== saved;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 16px', background: 'var(--surface-inset)', borderRadius: 'var(--r-sm)', flexWrap: 'wrap' }}>
+      <div>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>Skill practice reminder</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>Flag a skill on the Skills page after this many days untouched</div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input
+          type="number" min={1} max={365} value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          onKeyDown={(e) => { if (e.key === 'Enter' && dirty) save(); }}
+          aria-label="Skill practice reminder days"
+          style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '7px 10px', fontSize: 13, width: 70 }}
+        />
+        <span style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>days</span>
+        <button className="btn btn-primary" onClick={save} disabled={!dirty || saving} style={{ padding: '7px 12px', fontSize: 12.5 }}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsTab() {
   const { logout } = useAuth();
 
@@ -60,6 +109,7 @@ export default function SettingsTab() {
         <h3 style={{ fontSize: 17, marginBottom: 16 }}>Account</h3>
         <div style={{ display: 'grid', gap: 10 }}>
           <HunterNameField />
+          <PracticeReminderField />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--surface-inset)', borderRadius: 'var(--r-sm)' }}>
             <div>
               <div style={{ fontWeight: 600, fontSize: 14 }}>Sign out</div>

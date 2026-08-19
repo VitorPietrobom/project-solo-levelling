@@ -414,7 +414,7 @@ describe('Quest endpoints', () => {
 
       await request(app).patch('/api/quests/q1/steps/s1');
 
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: { totalXP: { increment: 100 } } });
+      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: expect.objectContaining({ totalXP: { increment: 100 } }) });
     });
 
     it('claws back skill XP when a step is unchecked on a completed linked quest', async () => {
@@ -461,7 +461,7 @@ describe('Quest endpoints', () => {
 
       await request(app).patch('/api/quests/q1/complete');
 
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: { totalXP: { increment: 60 } } });
+      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: expect.objectContaining({ totalXP: { increment: 60 } }) });
     });
 
     it('claws back skill XP on reset (drag to To Do) when the quest was completed', async () => {

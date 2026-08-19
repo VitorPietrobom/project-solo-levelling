@@ -3,6 +3,7 @@ import { Plus, ChevronDown, AlertTriangle, Layers, Trophy, Target, Pencil } from
 import XPBar from '../components/ui/XPBar';
 import RadarChart, { niceMax } from '../components/ui/RadarChart';
 import SkillForm from '../components/SkillForm';
+import SkillActionList from '../components/SkillActionList';
 import type { Skill } from '../components/SkillList';
 import type { Quest } from '../components/QuestList';
 import { apiClient } from '../lib/apiClient';
@@ -48,9 +49,10 @@ interface SkillRowProps {
   onToggleExpand: () => void;
   onDelete: (id: string, name: string) => void;
   onRename: (id: string, name: string) => void;
+  onActionLogged: () => void;
 }
 
-function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhover, onToggleExpand, onDelete, onRename }: SkillRowProps) {
+function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhover, onToggleExpand, onDelete, onRename, onActionLogged }: SkillRowProps) {
   const rank = rankForLevel(skill.level);
   const unlinked = linkedItems.length === 0;
   const [editing, setEditing] = useState(false);
@@ -131,17 +133,20 @@ function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhove
       </div>
 
       {expanded && (
-        <div style={{ borderTop: '1px solid var(--line-soft)', padding: '10px 12px', display: 'grid', gap: 6 }}>
-          {unlinked ? (
-            <p style={{ fontSize: 12, color: 'var(--warn)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <AlertTriangle size={12} />Not linked to anything yet — link it to a quest or habit on the Status page so it can grow.
-            </p>
-          ) : (
-            <>
-              <span className="eyebrow" style={{ fontSize: 9.5 }}>Feeds this skill</span>
-              {linkedItems.map((item) => <LinkedItemRow key={item.id} item={item} />)}
-            </>
-          )}
+        <div style={{ borderTop: '1px solid var(--line-soft)', padding: '10px 12px', display: 'grid', gap: 12 }}>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {unlinked ? (
+              <p style={{ fontSize: 12, color: 'var(--warn)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertTriangle size={12} />Not linked to anything yet — link it to a quest or habit on the Status page so it can grow.
+              </p>
+            ) : (
+              <>
+                <span className="eyebrow" style={{ fontSize: 9.5 }}>Feeds this skill</span>
+                {linkedItems.map((item) => <LinkedItemRow key={item.id} item={item} />)}
+              </>
+            )}
+          </div>
+          <SkillActionList skillId={skill.id} onLogged={onActionLogged} />
         </div>
       )}
     </div>
@@ -156,6 +161,7 @@ export default function SkillsTab() {
   // Shared highlight between the skill list and the radar.
   const [hoveredSkill, setHoveredSkill] = useState<number | null>(null);
   const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null);
+  const [practiceReminderDays, setPracticeReminderDays] = useState(14);
 
   const fetchSkills = useCallback(async () => {
     try { setSkills((await apiClient.get('/api/skills')) as Skill[]); } catch { /* silently fail */ }
@@ -165,7 +171,14 @@ export default function SkillsTab() {
     try { setQuests((await apiClient.get('/api/quests')) as Quest[]); } catch { /* silently fail */ }
   }, []);
 
-  useEffect(() => { fetchSkills(); fetchQuests(); }, [fetchSkills, fetchQuests]);
+  const fetchReminderSetting = useCallback(async () => {
+    try {
+      const status = (await apiClient.get('/api/gamification/status')) as { practiceReminderDays?: number };
+      if (status.practiceReminderDays) setPracticeReminderDays(status.practiceReminderDays);
+    } catch { /* silently fail */ }
+  }, []);
+
+  useEffect(() => { fetchSkills(); fetchQuests(); fetchReminderSetting(); }, [fetchSkills, fetchQuests, fetchReminderSetting]);
 
   function handleSkillCreated(optimistic: Skill, body: { name: string }) {
     setSkills((prev) => [optimistic, ...prev]);
@@ -214,6 +227,14 @@ export default function SkillsTab() {
   const sortedSkills = [...skills].sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
   const unlinkedCount = skills.filter((s) => !(linkedByskill.get(s.id)?.length)).length;
 
+  // Skills flagged for the practice reminder — split into "gone stale" (has
+  // a last-practiced date, but it's older than the configured window) and
+  // "never practiced" (no XP-granting activity at all yet), since those are
+  // different situations worth saying differently.
+  const daysSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 86_400_000;
+  const staleSkills = skills.filter((s) => s.lastActivityAt && daysSince(s.lastActivityAt) >= practiceReminderDays);
+  const neverPracticedSkills = skills.filter((s) => !s.lastActivityAt);
+
   const topSkill = sortedSkills[0] ?? null;
   const mostActive = [...skills].sort((a, b) => (linkedByskill.get(b.id)?.length ?? 0) - (linkedByskill.get(a.id)?.length ?? 0))[0] ?? null;
   const mostActiveCount = mostActive ? (linkedByskill.get(mostActive.id)?.length ?? 0) : 0;
@@ -226,8 +247,8 @@ export default function SkillsTab() {
             <div>
               <h3 style={{ fontSize: 17 }}>Skills</h3>
               <p style={{ fontSize: 12.5, color: 'var(--text-faint)', marginTop: 3 }}>
-                Skills only grow by linking a quest or habit to them — finishing it grants the XP automatically.
-                No manual XP entry, so a skill's level always means something real got done.
+                Skills grow by linking a quest or habit, or by logging a practice action on an expanded skill below.
+                Every source pays a fixed, predefined amount — no typing in an arbitrary number — so a skill's level always means something real got done.
               </p>
             </div>
             <button className="btn btn-ghost" onClick={() => setShowSkillForm(!showSkillForm)} style={{ flexShrink: 0 }}>
@@ -263,6 +284,25 @@ export default function SkillsTab() {
             <span style={{ fontSize: 13 }}>
               {unlinkedCount} skill{unlinkedCount === 1 ? '' : 's'} {unlinkedCount === 1 ? "isn't" : "aren't"} linked to anything yet — {unlinkedCount === 1 ? 'it' : 'they'} can't grow until you link {unlinkedCount === 1 ? 'it' : 'them'} to a quest or habit.
             </span>
+          </section>
+        )}
+
+        {(staleSkills.length > 0 || neverPracticedSkills.length > 0) && (
+          <section className="card arise-in" style={{ padding: '12px 18px', display: 'grid', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <AlertTriangle size={15} style={{ color: 'var(--warn)', flexShrink: 0 }} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Needs practice</span>
+            </div>
+            {staleSkills.length > 0 && (
+              <p style={{ fontSize: 12.5, color: 'var(--text-3)', paddingLeft: 25 }}>
+                Untouched for {practiceReminderDays}+ days: {staleSkills.map((s) => s.name).join(', ')}
+              </p>
+            )}
+            {neverPracticedSkills.length > 0 && (
+              <p style={{ fontSize: 12.5, color: 'var(--text-3)', paddingLeft: 25 }}>
+                Never practiced yet: {neverPracticedSkills.map((s) => s.name).join(', ')}
+              </p>
+            )}
           </section>
         )}
 
@@ -306,6 +346,7 @@ export default function SkillsTab() {
                     onToggleExpand={() => setExpandedSkillId((prev) => (prev === s.id ? null : s.id))}
                     onDelete={handleSkillDelete}
                     onRename={handleSkillRename}
+                    onActionLogged={fetchSkills}
                   />
                 );
               })}

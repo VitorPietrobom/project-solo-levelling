@@ -99,24 +99,29 @@ enum BookStatus {
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
-  id              String   @id
-  email           String   @unique
-  totalXP         Int      @default(0)
-  calorieGoal     Int      @default(2000)
+  id                   String   @id
+  email                String   @unique
+  totalXP              Int      @default(0)
+  calorieGoal          Int      @default(2000)
   // Nutrition engine settings
-  nutritionGoal   String   @default("maintain") // cut | maintain | bulk | recomp
-  nutritionAdjust String   @default("steady") // steady | reactive
-  calorieDelta    Int      @default(0) // signed daily kcal adjustment (cut = negative)
-  proteinPerKg    Float    @default(1.8)
+  nutritionGoal        String   @default("maintain") // cut | maintain | bulk | recomp
+  nutritionAdjust      String   @default("steady") // steady | reactive
+  calorieDelta         Int      @default(0) // signed daily kcal adjustment (cut = negative)
+  proteinPerKg         Float    @default(1.8)
   // Learning
-  readingGoal     Int      @default(12) // books per year
+  readingGoal          Int      @default(12) // books per year
   // Optional display name for the hero card — falls back to the email's
   // local part when unset, so the UI never has to say generic "Hunter".
-  hunterName      String?
-  createdAt       DateTime @default(now())
+  hunterName           String?
+  // How many days a skill can go untouched before the Skills page flags it
+  // as needing practice. Configurable in Settings.
+  practiceReminderDays Int      @default(14)
+  createdAt            DateTime @default(now())
 
   quests            Quest[]
   skills            Skill[]
+  skillActions      SkillAction[]
+  skillActionLogs   SkillActionLog[]
   dailyActivity     DailyActivity[]
   weightEntries     WeightEntry[]
   measurements      Measurement[]
@@ -234,13 +239,53 @@ model QuestStep {
 }
 
 model Skill {
+  id             String    @id @default(uuid())
+  userId         String
+  name           String
+  totalXP        Int       @default(0)
+  // Last time this skill earned XP from anything — a linked quest/habit
+  // completing, or a SkillActionLog. Drives the "needs practice" flag.
+  lastActivityAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actions SkillAction[]
+  logs    SkillActionLog[]
+}
+
+// A named, repeatable way to practice a skill (e.g. "Play drums" +30 XP,
+// "Watch a drum lesson" +10 XP). Logging one is the structured replacement
+// for the old free-form manual-XP endpoint — fixed reward per action,
+// always routed through awardXP, so it actually moves the user's level.
+model SkillAction {
   id        String   @id @default(uuid())
   userId    String
+  skillId   String
   name      String
-  totalXP   Int      @default(0)
+  xpReward  Int
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill            @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  logs  SkillActionLog[]
+}
+
+// One row per time a SkillAction was logged. xpAwarded is the actual amount
+// granted after the same-day diminishing multiplier, so history stays
+// truthful even though the action's base xpReward can change later.
+model SkillActionLog {
+  id            String   @id @default(uuid())
+  skillActionId String
+  skillId       String
+  userId        String
+  xpAwarded     Int
+  loggedAt      DateTime @default(now())
+
+  skillAction SkillAction @relation(fields: [skillActionId], references: [id], onDelete: Cascade)
+  skill       Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([skillId, loggedAt])
 }
 
 model WeightEntry {
