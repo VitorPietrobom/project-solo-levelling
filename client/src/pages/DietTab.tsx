@@ -166,6 +166,34 @@ export default function DietTab() {
       .catch((err) => showToast(errorMessage(err, 'Failed to create meal prep plan')));
   }
 
+  // Removes a single assigned meal by re-posting the week's plan without it —
+  // createOrUpdateMealPrepPlan already does a full delete+recreate of entries
+  // server-side, so this needs no new endpoint. If it was the last entry,
+  // the create endpoint would reject an empty entries array, so fall back
+  // to deleting the whole (now-empty) plan instead.
+  function handleMealPrepEntryRemoved(entryId: string) {
+    if (!mealPrepPlan) return;
+    const remaining = mealPrepPlan.entries.filter((e) => e.id !== entryId);
+    if (remaining.length === 0) {
+      handleMealPrepDeleted();
+      return;
+    }
+    const prevPlan = mealPrepPlan;
+    setMealPrepPlan({ ...mealPrepPlan, entries: remaining });
+    apiClient
+      .post('/api/meal-prep', {
+        body: {
+          weekStartDate: mealPrepPlan.weekStartDate,
+          entries: remaining.map((e) => ({ dayOfWeek: e.dayOfWeek, mealType: e.mealType, recipeId: e.recipeId })),
+        },
+      })
+      .then((data) => setMealPrepPlan(data as MealPrepPlanData))
+      .catch((err) => {
+        setMealPrepPlan(prevPlan);
+        showToast(errorMessage(err, 'Failed to remove meal'));
+      });
+  }
+
   function handleMealPrepDeleted() {
     setMealPrepPlan(null);
     setSelectedMealPrepDay(null);
@@ -198,9 +226,6 @@ export default function DietTab() {
       </div>
 
       <WeeklyNutritionChart selectedDate={selectedDate} onSelectDate={setSelectedDate} refreshKey={foodRefreshKey} />
-
-      {/* Copyable AI analysis prompt (bring-your-own-AI, no API cost) */}
-      <NutritionAiPrompt date={selectedDate} />
 
       <div>
         {/* Food Entry Form + Entry List */}
@@ -324,12 +349,16 @@ export default function DietTab() {
             plan={mealPrepPlan}
             onSelectDay={setSelectedMealPrepDay}
             selectedDay={selectedMealPrepDay}
+            onRemoveEntry={handleMealPrepEntryRemoved}
           />
           {selectedMealPrepDay && (
             <GroceryList data={groceryList} day={selectedMealPrepDay} />
           )}
         </div>
       </section>
+
+      {/* Copyable AI analysis prompt (bring-your-own-AI, no API cost) */}
+      <NutritionAiPrompt date={selectedDate} />
     </div>
 
     {showScanner && (

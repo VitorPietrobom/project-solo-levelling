@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, X } from 'lucide-react';
 
 export interface MealPrepEntry {
   id: string;
@@ -24,6 +24,8 @@ interface MealPrepPlanProps {
   plan: MealPrepPlanData | null;
   onSelectDay: (day: string) => void;
   selectedDay: string | null;
+  /** Removes a single assigned meal without touching the rest of the week's plan. */
+  onRemoveEntry?: (entryId: string) => void;
 }
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -35,7 +37,7 @@ const MEAL_LABELS: Record<string, string> = {
   breakfast: '🌅 Breakfast', lunch: '☀️ Lunch', dinner: '🌙 Dinner', snack: '🍎 Snack',
 };
 
-export default function MealPrepPlan({ plan, onSelectDay, selectedDay }: MealPrepPlanProps) {
+export default function MealPrepPlan({ plan, onSelectDay, selectedDay, onRemoveEntry }: MealPrepPlanProps) {
   const entryMap = useMemo(() => {
     const map = new Map<string, MealPrepEntry>();
     if (plan) {
@@ -59,6 +61,9 @@ export default function MealPrepPlan({ plan, onSelectDay, selectedDay }: MealPre
     return cals;
   }, [entryMap]);
 
+  const weekTotal = useMemo(() => DAYS.reduce((sum, day) => sum + (dailyCalories[day] ?? 0), 0), [dailyCalories]);
+  const filledCount = entryMap.size;
+
   if (!plan) {
     return (
       <div style={{ background: 'var(--surface-inset)', borderRadius: 'var(--r)', padding: '32px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--text-faint)' }}>
@@ -73,7 +78,12 @@ export default function MealPrepPlan({ plan, onSelectDay, selectedDay }: MealPre
   };
 
   return (
-    <div style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', overflowX: 'auto' }}>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8, padding: '0 2px' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{filledCount} of 28 meals planned</span>
+        <span className="mono" style={{ fontSize: 12, color: 'var(--text-3)' }}>Week total <span style={{ color: 'var(--info)', fontWeight: 700 }}>{weekTotal.toLocaleString()}</span> kcal</span>
+      </div>
+      <div style={{ background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r)', overflowX: 'auto' }}>
       <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }} role="grid" aria-label="Weekly meal prep plan">
         <thead>
           <tr>
@@ -118,7 +128,17 @@ export default function MealPrepPlan({ plan, onSelectDay, selectedDay }: MealPre
                     style={{ ...cellBase, background: on ? 'var(--accent-soft)' : 'transparent' }}
                   >
                     {entry ? (
-                      <span style={{ color: 'var(--text)', fontSize: 11.5 }}>{entry.recipe.name}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '100%' }}>
+                        <span style={{ color: 'var(--text)', fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.recipe.name}</span>
+                        {onRemoveEntry && (
+                          <button
+                            type="button"
+                            onClick={() => onRemoveEntry(entry.id)}
+                            aria-label={`Remove ${entry.recipe.name} from ${DAY_LABELS[day]} ${MEAL_LABELS[meal].replace(/^\S+\s/, '')}`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', flexShrink: 0, padding: 1 }}
+                          ><X size={11} /></button>
+                        )}
+                      </span>
                     ) : (
                       <span style={{ color: 'var(--text-faint)', opacity: 0.5 }}>—</span>
                     )}
@@ -146,6 +166,7 @@ export default function MealPrepPlan({ plan, onSelectDay, selectedDay }: MealPre
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
