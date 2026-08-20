@@ -65,9 +65,11 @@ const EMPTY: Macro = { calories: 0, protein: 0, carbs: 0, fat: 0 };
 interface Props {
   selectedDate: string;
   onSelectDate: (date: string) => void;
+  /** Bumped by the parent whenever a food entry is logged/imported/deleted, so the week's totals refetch instead of only updating on next mount. */
+  refreshKey?: number;
 }
 
-export default function WeeklyNutritionChart({ selectedDate, onSelectDate }: Props) {
+export default function WeeklyNutritionChart({ selectedDate, onSelectDate, refreshKey = 0 }: Props) {
   const addXP = useAriseAddXP();
   const [data, setData] = useState<TargetResponse | null>(null);
   const [byDay, setByDay] = useState<Record<string, Macro>>({});
@@ -110,9 +112,9 @@ export default function WeeklyNutritionChart({ selectedDate, onSelectDate }: Pro
     } catch { /* leave whatever we have — a transient failure isn't worth a toast here */ }
   }, []);
 
-  useEffect(() => { fetchTarget(); }, [fetchTarget]);
+  useEffect(() => { fetchTarget(); }, [fetchTarget, refreshKey]);
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
-  useEffect(() => { fetchWeekEntries(monday); }, [monday, fetchWeekEntries]);
+  useEffect(() => { fetchWeekEntries(monday); }, [monday, fetchWeekEntries, refreshKey]);
 
   async function saveSettings(patch: Partial<SettingsResponse>) {
     setSaving(true);

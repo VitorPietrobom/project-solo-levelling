@@ -136,6 +136,17 @@ describe('WeeklyNutritionChart', () => {
     expect(screen.queryByText('Claim XP')).not.toBeInTheDocument();
   });
 
+  it('refetches the week and the target when refreshKey changes, without waiting for a remount', async () => {
+    mockWeek({ [WED]: [{ calories: 1500, protein: 100, carbs: 150, fat: 50 }] });
+    const { rerender } = render(<WeeklyNutritionChart selectedDate={WED} onSelectDate={vi.fn()} refreshKey={0} />);
+    await waitFor(() => expect(screen.getByText('1500')).toBeInTheDocument());
+
+    mockWeek({ [WED]: [{ calories: 1800, protein: 130, carbs: 150, fat: 50 }] });
+    rerender(<WeeklyNutritionChart selectedDate={WED} onSelectDate={vi.fn()} refreshKey={1} />);
+
+    await waitFor(() => expect(screen.getByText('1800')).toBeInTheDocument());
+  });
+
   it('opens the settings panel and saves a goal change', async () => {
     mockWeek({});
     mockPut.mockResolvedValue({ goal: 'bulk', adjust: 'steady', calorieDelta: 300, proteinPerKg: 1.8, fallbackCalories: 2200 });
