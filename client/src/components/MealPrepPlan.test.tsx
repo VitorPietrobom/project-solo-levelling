@@ -85,4 +85,25 @@ describe('MealPrepPlan', () => {
       expect(screen.getByLabelText(`Select ${day}`)).toBeInTheDocument();
     }
   });
+
+  it('shows how many of the 28 slots are filled and the week total calories', () => {
+    render(<MealPrepPlan plan={samplePlan} onSelectDay={vi.fn()} selectedDay={null} />);
+    // 3 entries logged; 300 + 450 + 600 = 1350
+    expect(screen.getByText('3 of 28 meals planned')).toBeInTheDocument();
+    expect(screen.getByText('1,350')).toBeInTheDocument();
+  });
+
+  it('removes a single meal without affecting the rest of the plan', async () => {
+    const onRemoveEntry = vi.fn();
+    render(<MealPrepPlan plan={samplePlan} onSelectDay={vi.fn()} selectedDay={null} onRemoveEntry={onRemoveEntry} />);
+
+    await userEvent.click(screen.getByLabelText('Remove Oatmeal from Mon Breakfast'));
+
+    expect(onRemoveEntry).toHaveBeenCalledWith('e1');
+  });
+
+  it('does not render a remove button when onRemoveEntry is not provided', () => {
+    render(<MealPrepPlan plan={samplePlan} onSelectDay={vi.fn()} selectedDay={null} />);
+    expect(screen.queryByLabelText(/Remove Oatmeal/)).not.toBeInTheDocument();
+  });
 });
