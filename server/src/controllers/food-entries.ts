@@ -80,6 +80,55 @@ export async function createFoodEntry(req: Request, res: Response): Promise<void
   }
 }
 
+// GET /api/food-entries/barcode/:code — looks up a product by UPC/EAN via
+// Open Food Facts (free, no API key). Returns per-100g macros so the client
+// can scale them by however many grams were actually eaten.
+export async function lookupBarcode(req: Request, res: Response): Promise<void> {
+  const code = (req.params.code as string || '').trim();
+  if (!/^\d{6,14}$/.test(code)) {
+    res.status(400).json({ error: 'Barcode must be a 6-14 digit UPC/EAN' });
+    return;
+  }
+
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json`, { signal: ctrl.signal });
+    clearTimeout(timer);
+
+    if (!r.ok) { res.json({ found: false }); return; }
+    const data = await r.json() as {
+      status?: number;
+      product?: {
+        product_name?: string;
+        nutriments?: Record<string, number>;
+        serving_size?: string;
+        serving_quantity?: number;
+      };
+    };
+
+    if (data.status !== 1 || !data.product?.product_name) { res.json({ found: false }); return; }
+
+    const n = data.product.nutriments ?? {};
+    // Open Food Facts keys energy in kcal directly under "energy-kcal_100g"
+    // (falling back to kJ/4.184 if only the kJ field is present).
+    const caloriesPer100g = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : 0);
+
+    res.json({
+      found: true,
+      foodName: data.product.product_name.trim(),
+      caloriesPer100g: Math.round(caloriesPer100g) || 0,
+      proteinPer100g: n['proteins_100g'] ?? 0,
+      carbsPer100g: n['carbohydrates_100g'] ?? 0,
+      fatPer100g: n['fat_100g'] ?? 0,
+      servingGrams: data.product.serving_quantity ?? null,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Failed to look up barcode' });
+  }
+}
+
 export async function deleteFoodEntry(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
