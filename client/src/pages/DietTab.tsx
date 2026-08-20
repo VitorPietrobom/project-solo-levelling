@@ -39,6 +39,11 @@ export default function DietTab() {
   const [showFoodImport, setShowFoodImport] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scannedCode, setScannedCode] = useState<string | null>(null);
+  // Bumped whenever a food entry is confirmed logged/imported/deleted, so
+  // WeeklyNutritionChart (which fetches its own week of entries) refetches
+  // instead of only picking up the change on the next mount.
+  const [foodRefreshKey, setFoodRefreshKey] = useState(0);
+  const bumpFoodRefresh = useCallback(() => setFoodRefreshKey((k) => k + 1), []);
 
   // Recipes — fetched only to populate the meal-prep planner; managed in the Recipes tab
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -110,11 +115,12 @@ export default function DietTab() {
     setShowFoodForm(false);
     apiClient
       .post('/api/food-entries', { body })
-      .then((data) =>
+      .then((data) => {
         setFoodEntries((prev) =>
           prev.map((e) => (e.id === optimistic.id ? (data as FoodEntry) : e)),
-        ),
-      )
+        );
+        bumpFoodRefresh();
+      })
       .catch((err) => {
         setFoodEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
         showToast(errorMessage(err, 'Failed to log food entry'));
@@ -124,23 +130,28 @@ export default function DietTab() {
   function handleFoodImport(entries: { optimistic: FoodEntry; body: any }[]) {
     setFoodEntries((prev) => [...prev, ...entries.map((e) => e.optimistic)]);
     setShowFoodImport(false);
-    // Fire all POSTs in parallel
-    entries.forEach(({ optimistic, body }) => {
-      apiClient.post('/api/food-entries', { body })
-        .then((data) => setFoodEntries((prev) => prev.map((e) => (e.id === optimistic.id ? (data as FoodEntry) : e))))
-        .catch((err) => {
-          setFoodEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
-          showToast(errorMessage(err, 'Failed to import a food entry'));
-        });
-    });
+    // Fire all POSTs in parallel, then refresh the weekly chart once
+    // everything has settled rather than once per entry.
+    Promise.allSettled(
+      entries.map(({ optimistic, body }) =>
+        apiClient.post('/api/food-entries', { body })
+          .then((data) => setFoodEntries((prev) => prev.map((e) => (e.id === optimistic.id ? (data as FoodEntry) : e))))
+          .catch((err) => {
+            setFoodEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
+            showToast(errorMessage(err, 'Failed to import a food entry'));
+          }),
+      ),
+    ).then(bumpFoodRefresh);
   }
 
   function handleFoodEntryDeleted(entryId: string) {
     setFoodEntries((prev) => prev.filter((e) => e.id !== entryId));
-    apiClient.delete(`/api/food-entries/${entryId}`).catch((err) => {
-      fetchFoodEntries(selectedDate);
-      showToast(errorMessage(err, 'Failed to delete food entry'));
-    });
+    apiClient.delete(`/api/food-entries/${entryId}`)
+      .then(bumpFoodRefresh)
+      .catch((err) => {
+        fetchFoodEntries(selectedDate);
+        showToast(errorMessage(err, 'Failed to delete food entry'));
+      });
   }
 
 
@@ -186,7 +197,7 @@ export default function DietTab() {
         />
       </div>
 
-      <WeeklyNutritionChart selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+      <WeeklyNutritionChart selectedDate={selectedDate} onSelectDate={setSelectedDate} refreshKey={foodRefreshKey} />
 
       {/* Copyable AI analysis prompt (bring-your-own-AI, no API cost) */}
       <NutritionAiPrompt date={selectedDate} />
