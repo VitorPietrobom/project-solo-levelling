@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@neondatabase/auth": "^0.3.0-beta",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "lucide-react": "^1.17.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

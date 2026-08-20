@@ -171,4 +171,82 @@ describe('Food entry endpoints', () => {
       expect(res.body.calories).toBe(0);
     });
   });
+
+  describe('GET /api/food-entries/barcode/:code', () => {
+    const mockFetch = vi.fn();
+
+    beforeEach(() => {
+      vi.stubGlobal('fetch', mockFetch);
+      mockFetch.mockReset();
+    });
+
+    it('returns 400 for a non-numeric code', async () => {
+      const res = await request(app).get('/api/food-entries/barcode/not-a-barcode');
+      expect(res.status).toBe(400);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('looks up a known product and returns per-100g macros', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: 1,
+          product: {
+            product_name: 'Peanut Butter',
+            nutriments: { 'energy-kcal_100g': 588, proteins_100g: 25, carbohydrates_100g: 20, fat_100g: 50 },
+            serving_quantity: 32,
+          },
+        }),
+      });
+
+      const res = await request(app).get('/api/food-entries/barcode/0123456789012');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        found: true,
+        foodName: 'Peanut Butter',
+        caloriesPer100g: 588,
+        proteinPer100g: 25,
+        carbsPer100g: 20,
+        fatPer100g: 50,
+        servingGrams: 32,
+      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://world.openfoodfacts.org/api/v2/product/0123456789012.json',
+        expect.objectContaining({ signal: expect.anything() }),
+      );
+    });
+
+    it('reports not found for an unknown barcode', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => ({ status: 0 }) });
+
+      const res = await request(app).get('/api/food-entries/barcode/9999999999999');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ found: false });
+    });
+
+    it('falls back to kJ conversion when energy-kcal_100g is missing', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: 1,
+          product: { product_name: 'Mystery Bar', nutriments: { energy_100g: 2092 } },
+        }),
+      });
+
+      const res = await request(app).get('/api/food-entries/barcode/1112223334445');
+
+      expect(res.status).toBe(200);
+      expect(res.body.caloriesPer100g).toBe(500); // 2092 / 4.184 ≈ 500
+    });
+
+    it('returns 502 when the upstream lookup throws', async () => {
+      mockFetch.mockRejectedValue(new Error('network down'));
+
+      const res = await request(app).get('/api/food-entries/barcode/0123456789012');
+
+      expect(res.status).toBe(502);
+    });
+  });
 });

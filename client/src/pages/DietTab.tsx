@@ -1,7 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import type { FoodEntry } from '../components/CalorieTracker';
 import FoodEntryForm from '../components/FoodEntryForm';
 import FoodEntryImport from '../components/FoodEntryImport';
+import BarcodeFoodForm from '../components/BarcodeFoodForm';
+
+// The barcode-decoding libraries are ~110KB gzipped and only needed once
+// someone taps "Scan Barcode" — split out of the main bundle instead of
+// loading them on every visit to the Diet tab.
+const BarcodeScanner = lazy(() => import('../components/BarcodeScanner'));
 import type { Recipe } from '../components/RecipeList';
 import MealPrepPlan from '../components/MealPrepPlan';
 import type { MealPrepPlanData } from '../components/MealPrepPlan';
@@ -31,6 +37,8 @@ export default function DietTab() {
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
   const [showFoodForm, setShowFoodForm] = useState(false);
   const [showFoodImport, setShowFoodImport] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedCode, setScannedCode] = useState<string | null>(null);
 
   // Recipes — fetched only to populate the meal-prep planner; managed in the Recipes tab
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -164,6 +172,7 @@ export default function DietTab() {
   }
 
   return (
+    <>
     <div style={{ display: 'grid', gap: 'var(--gap)' }}>
       {/* Date selector */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -188,10 +197,16 @@ export default function DietTab() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h3 style={{ fontSize: 17 }}>Food Log</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={() => { setShowFoodImport(!showFoodImport); setShowFoodForm(false); }} className="btn btn-ghost">
+              <button
+                onClick={() => { setShowScanner(true); setShowFoodForm(false); setShowFoodImport(false); setScannedCode(null); }}
+                className="btn btn-ghost"
+              >
+                Scan Barcode
+              </button>
+              <button onClick={() => { setShowFoodImport(!showFoodImport); setShowFoodForm(false); setScannedCode(null); }} className="btn btn-ghost">
                 {showFoodImport ? 'Cancel' : 'Import'}
               </button>
-              <button onClick={() => { setShowFoodForm(!showFoodForm); setShowFoodImport(false); }} className="btn btn-ghost">
+              <button onClick={() => { setShowFoodForm(!showFoodForm); setShowFoodImport(false); setScannedCode(null); }} className="btn btn-ghost">
                 {showFoodForm ? 'Cancel' : '+ Log Food'}
               </button>
             </div>
@@ -204,6 +219,16 @@ export default function DietTab() {
           {showFoodImport && (
             <div style={{ marginBottom: 16 }}>
               <FoodEntryImport onImport={handleFoodImport} defaultDate={selectedDate} />
+            </div>
+          )}
+          {scannedCode && (
+            <div style={{ marginBottom: 16 }}>
+              <BarcodeFoodForm
+                code={scannedCode}
+                defaultDate={selectedDate}
+                onCreated={(optimistic, body) => { handleFoodEntryCreated(optimistic, body); setScannedCode(null); }}
+                onCancel={() => setScannedCode(null)}
+              />
             </div>
           )}
 
@@ -295,5 +320,15 @@ export default function DietTab() {
         </div>
       </section>
     </div>
+
+    {showScanner && (
+      <Suspense fallback={null}>
+        <BarcodeScanner
+          onDetected={(code) => { setShowScanner(false); setScannedCode(code); setShowFoodForm(false); setShowFoodImport(false); }}
+          onClose={() => setShowScanner(false)}
+        />
+      </Suspense>
+    )}
+    </>
   );
 }
