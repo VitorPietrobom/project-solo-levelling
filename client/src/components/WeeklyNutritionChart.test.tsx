@@ -4,16 +4,46 @@ import userEvent from '@testing-library/user-event';
 import WeeklyNutritionChart from './WeeklyNutritionChart';
 
 const mockGet = vi.fn();
+const mockPost = vi.fn();
+const mockPut = vi.fn();
 vi.mock('../lib/apiClient', () => ({
-  apiClient: { get: (...args: any[]) => mockGet(...args) },
+  apiClient: {
+    get: (...args: any[]) => mockGet(...args),
+    post: (...args: any[]) => mockPost(...args),
+    put: (...args: any[]) => mockPut(...args),
+  },
 }));
 
 // A Wednesday, so the week runs Mon 2026-08-17 .. Sun 2026-08-23.
 const WED = '2026-08-19';
 
-function mockWeek(entriesByDate: Record<string, { calories: number; protein: number; carbs: number; fat: number }[]>, target = { calories: 2000, protein: 150, carbs: 200, fat: 70 }) {
+function targetResponse(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    date: WED,
+    weekStart: '2026-08-17',
+    weekEnd: '2026-08-23',
+    nextRecalibration: '2026-08-24',
+    tdee: 2500,
+    source: 'adaptive',
+    daysOfData: 14,
+    goal: 'cut',
+    calorieDelta: -500,
+    weightKg: 82,
+    target: { calories: 2000, protein: 150, carbs: 200, fat: 70 },
+    adherence: { proteinMet: false, caloriesOk: true, eligible: false, claimed: false, xp: 25 },
+    suggestion: null,
+    ...overrides,
+  };
+}
+
+function mockWeek(
+  entriesByDate: Record<string, { calories: number; protein: number; carbs: number; fat: number }[]>,
+  target = targetResponse(),
+  settings = { goal: 'cut', adjust: 'steady', calorieDelta: -500, proteinPerKg: 1.8, fallbackCalories: 2200 },
+) {
   mockGet.mockImplementation((url: string) => {
-    if (url.startsWith('/api/nutrition/target')) return Promise.resolve({ target });
+    if (url.startsWith('/api/nutrition/target')) return Promise.resolve(target);
+    if (url === '/api/nutrition/settings') return Promise.resolve(settings);
     const date = url.split('date=')[1];
     return Promise.resolve(entriesByDate[date] ?? []);
   });
@@ -21,6 +51,8 @@ function mockWeek(entriesByDate: Record<string, { calories: number; protein: num
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockPost.mockResolvedValue({ awarded: false });
+  mockPut.mockResolvedValue({});
 });
 
 describe('WeeklyNutritionChart', () => {
@@ -64,5 +96,55 @@ describe('WeeklyNutritionChart', () => {
     for (const d of ['2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20', '2026-08-21', '2026-08-22', '2026-08-23']) {
       expect(mockGet).toHaveBeenCalledWith(`/api/food-entries?date=${d}`);
     }
+  });
+
+  it('shows the goal chip and week range', async () => {
+    mockWeek({});
+    render(<WeeklyNutritionChart selectedDate={WED} onSelectDate={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Cut')).toBeInTheDocument());
+    expect(screen.getByText(/Aug 17.*Aug 23/)).toBeInTheDocument();
+  });
+
+  it('shows the adaptive TDEE line', async () => {
+    mockWeek({});
+    render(<WeeklyNutritionChart selectedDate={WED} onSelectDate={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/Adaptive TDEE 2500 kcal/)).toBeInTheDocument());
+  });
+
+  it('prompts to hit targets when not yet eligible for the XP claim', async () => {
+    mockWeek({});
+    render(<WeeklyNutritionChart selectedDate={WED} onSelectDate={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/Hit ~90% protein/)).toBeInTheDocument());
+    expect(screen.getByText('Claim XP')).toBeDisabled();
+  });
+
+  it('claims XP when eligible and targets are met', async () => {
+    mockWeek({}, targetResponse({ adherence: { proteinMet: true, caloriesOk: true, eligible: true, claimed: false, xp: 25 } }));
+    mockPost.mockResolvedValue({ awarded: true, xp: 25 });
+    render(<WeeklyNutritionChart selectedDate={WED} onSelectDate={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Claim XP')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('Claim XP'));
+
+    await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/api/nutrition/claim', { body: { date: WED } }));
+  });
+
+  it('shows claimed status once the day\'s XP has been claimed', async () => {
+    mockWeek({}, targetResponse({ adherence: { proteinMet: true, caloriesOk: true, eligible: true, claimed: true, xp: 25 } }));
+    render(<WeeklyNutritionChart selectedDate={WED} onSelectDate={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Done')).toBeInTheDocument());
+    expect(screen.queryByText('Claim XP')).not.toBeInTheDocument();
+  });
+
+  it('opens the settings panel and saves a goal change', async () => {
+    mockWeek({});
+    mockPut.mockResolvedValue({ goal: 'bulk', adjust: 'steady', calorieDelta: 300, proteinPerKg: 1.8, fallbackCalories: 2200 });
+    render(<WeeklyNutritionChart selectedDate={WED} onSelectDate={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Adjust')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('Adjust'));
+    await userEvent.click(await screen.findByText('Bulk'));
+
+    await waitFor(() => expect(mockPut).toHaveBeenCalledWith('/api/nutrition/settings', { body: { goal: 'bulk', calorieDelta: 300 } }));
   });
 });

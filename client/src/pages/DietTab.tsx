@@ -9,7 +9,6 @@ import MealPrepForm from '../components/MealPrepForm';
 import MealPlanImport from '../components/MealPlanImport';
 import GroceryList from '../components/GroceryList';
 import type { GroceryListData } from '../components/GroceryList';
-import NutritionTarget from '../components/NutritionTarget';
 import WeeklyNutritionChart from '../components/WeeklyNutritionChart';
 import NutritionAiPrompt from '../components/NutritionAiPrompt';
 import { apiClient, errorMessage } from '../lib/apiClient';
@@ -160,16 +159,6 @@ export default function DietTab() {
     }
   }
 
-  const consumed = foodEntries.reduce(
-    (acc, e) => ({
-      calories: acc.calories + (e.calories || 0),
-      protein: acc.protein + (e.protein || 0),
-      carbs: acc.carbs + (e.carbs || 0),
-      fat: acc.fat + (e.fat || 0),
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
-  );
-
   if (loading) {
     return <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Loading…</p>;
   }
@@ -187,9 +176,6 @@ export default function DietTab() {
           aria-label="Select date"
         />
       </div>
-
-      {/* Dynamic nutrition target (WHOOP-driven) */}
-      <NutritionTarget consumed={consumed} date={selectedDate} />
 
       <WeeklyNutritionChart selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
