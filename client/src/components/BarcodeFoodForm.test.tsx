@@ -55,7 +55,7 @@ describe('BarcodeFoodForm', () => {
     await waitFor(() => expect(screen.getByText(/Product not found/)).toBeInTheDocument());
   });
 
-  it('lets the user add an unrecognized product and continue straight to logging it', async () => {
+  it('lets the user add an unrecognized product (per-100g label) and continue straight to logging it', async () => {
     mockGet.mockResolvedValue({ found: false });
     mockPost.mockResolvedValue({
       found: true, source: 'custom', foodName: 'Homemade Bread',
@@ -66,10 +66,11 @@ describe('BarcodeFoodForm', () => {
 
     await userEvent.click(screen.getByText('+ Add this product'));
     await userEvent.type(screen.getByLabelText('Product name'), 'Homemade Bread');
-    await userEvent.type(screen.getByLabelText('Calories per 100g'), '265');
-    await userEvent.type(screen.getByLabelText('Protein per 100g'), '9');
-    await userEvent.type(screen.getByLabelText('Carbs per 100g'), '49');
-    await userEvent.type(screen.getByLabelText('Fat per 100g'), '3.2');
+    // Serving size defaults to 100g, so entered values pass straight through.
+    await userEvent.type(screen.getByLabelText('Calories per serving'), '265');
+    await userEvent.type(screen.getByLabelText('Protein per serving'), '9');
+    await userEvent.type(screen.getByLabelText('Carbs per serving'), '49');
+    await userEvent.type(screen.getByLabelText('Fat per serving'), '3.2');
     await userEvent.click(screen.getByText('Save & Continue'));
 
     expect(mockPost).toHaveBeenCalledWith('/api/food-entries/barcode/0123456789012', {
@@ -80,16 +81,59 @@ describe('BarcodeFoodForm', () => {
     expect(screen.getByLabelText('Food name')).toHaveValue('Homemade Bread');
   });
 
+  it('scales a per-serving label (not per-100g) up to per-100g before saving', async () => {
+    mockGet.mockResolvedValue({ found: false });
+    mockPost.mockResolvedValue({
+      found: true, source: 'custom', foodName: 'Protein Bar',
+      caloriesPer100g: 400, proteinPer100g: 40, carbsPer100g: 30, fatPer100g: 13.3, servingGrams: null,
+    });
+    render(<BarcodeFoodForm code="555" onCreated={vi.fn()} onCancel={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/Product not found/)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('+ Add this product'));
+    await userEvent.type(screen.getByLabelText('Product name'), 'Protein Bar');
+    // Label says: per 30g bar — 120 kcal, 12g protein, 9g carbs, 4g fat.
+    const servingInput = screen.getByLabelText('Serving size in grams');
+    await userEvent.clear(servingInput);
+    await userEvent.type(servingInput, '30');
+    await userEvent.type(screen.getByLabelText('Calories per serving'), '120');
+    await userEvent.type(screen.getByLabelText('Protein per serving'), '12');
+    await userEvent.type(screen.getByLabelText('Carbs per serving'), '9');
+    await userEvent.type(screen.getByLabelText('Fat per serving'), '4');
+    await userEvent.click(screen.getByText('Save & Continue'));
+
+    // Scaled to per-100g: x(100/30) ≈ 400 kcal, 40g protein, 30g carbs, 13.3g fat.
+    expect(mockPost).toHaveBeenCalledWith('/api/food-entries/barcode/555', {
+      body: { foodName: 'Protein Bar', caloriesPer100g: 400, proteinPer100g: 40, carbsPer100g: 30, fatPer100g: 13.3 },
+    });
+  });
+
   it('requires a food name before saving a new product', async () => {
     mockGet.mockResolvedValue({ found: false });
     render(<BarcodeFoodForm code="999" onCreated={vi.fn()} onCancel={vi.fn()} />);
     await waitFor(() => expect(screen.getByText(/Product not found/)).toBeInTheDocument());
 
     await userEvent.click(screen.getByText('+ Add this product'));
-    await userEvent.type(screen.getByLabelText('Calories per 100g'), '200');
+    await userEvent.type(screen.getByLabelText('Calories per serving'), '200');
     await userEvent.click(screen.getByText('Save & Continue'));
 
     expect(screen.getByText('Food name is required')).toBeInTheDocument();
+    expect(mockPost).not.toHaveBeenCalled();
+  });
+
+  it('requires a positive serving size before saving a new product', async () => {
+    mockGet.mockResolvedValue({ found: false });
+    render(<BarcodeFoodForm code="999" onCreated={vi.fn()} onCancel={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/Product not found/)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('+ Add this product'));
+    await userEvent.type(screen.getByLabelText('Product name'), 'X');
+    const servingInput = screen.getByLabelText('Serving size in grams');
+    await userEvent.clear(servingInput);
+    await userEvent.type(screen.getByLabelText('Calories per serving'), '200');
+    await userEvent.click(screen.getByText('Save & Continue'));
+
+    expect(screen.getByText('Serving size must be a positive number of grams')).toBeInTheDocument();
     expect(mockPost).not.toHaveBeenCalled();
   });
 
