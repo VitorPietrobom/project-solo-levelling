@@ -4,8 +4,13 @@ import userEvent from '@testing-library/user-event';
 import BarcodeFoodForm from './BarcodeFoodForm';
 
 const mockGet = vi.fn();
+const mockPost = vi.fn();
 vi.mock('../lib/apiClient', () => ({
-  apiClient: { get: (...args: any[]) => mockGet(...args) },
+  apiClient: {
+    get: (...args: any[]) => mockGet(...args),
+    post: (...args: any[]) => mockPost(...args),
+  },
+  errorMessage: (_err: any, fallback: string) => fallback,
 }));
 
 beforeEach(() => {
@@ -48,6 +53,44 @@ describe('BarcodeFoodForm', () => {
     mockGet.mockResolvedValue({ found: false });
     render(<BarcodeFoodForm code="999" onCreated={vi.fn()} onCancel={vi.fn()} />);
     await waitFor(() => expect(screen.getByText(/Product not found/)).toBeInTheDocument());
+  });
+
+  it('lets the user add an unrecognized product and continue straight to logging it', async () => {
+    mockGet.mockResolvedValue({ found: false });
+    mockPost.mockResolvedValue({
+      found: true, source: 'custom', foodName: 'Homemade Bread',
+      caloriesPer100g: 265, proteinPer100g: 9, carbsPer100g: 49, fatPer100g: 3.2, servingGrams: null,
+    });
+    render(<BarcodeFoodForm code="0123456789012" onCreated={vi.fn()} onCancel={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/Product not found/)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('+ Add this product'));
+    await userEvent.type(screen.getByLabelText('Product name'), 'Homemade Bread');
+    await userEvent.type(screen.getByLabelText('Calories per 100g'), '265');
+    await userEvent.type(screen.getByLabelText('Protein per 100g'), '9');
+    await userEvent.type(screen.getByLabelText('Carbs per 100g'), '49');
+    await userEvent.type(screen.getByLabelText('Fat per 100g'), '3.2');
+    await userEvent.click(screen.getByText('Save & Continue'));
+
+    expect(mockPost).toHaveBeenCalledWith('/api/food-entries/barcode/0123456789012', {
+      body: { foodName: 'Homemade Bread', caloriesPer100g: 265, proteinPer100g: 9, carbsPer100g: 49, fatPer100g: 3.2 },
+    });
+    // Falls through to the normal found-product flow, ready to log.
+    await waitFor(() => expect(screen.getByText('Log Food')).toBeInTheDocument());
+    expect(screen.getByLabelText('Food name')).toHaveValue('Homemade Bread');
+  });
+
+  it('requires a food name before saving a new product', async () => {
+    mockGet.mockResolvedValue({ found: false });
+    render(<BarcodeFoodForm code="999" onCreated={vi.fn()} onCancel={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/Product not found/)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('+ Add this product'));
+    await userEvent.type(screen.getByLabelText('Calories per 100g'), '200');
+    await userEvent.click(screen.getByText('Save & Continue'));
+
+    expect(screen.getByText('Food name is required')).toBeInTheDocument();
+    expect(mockPost).not.toHaveBeenCalled();
   });
 
   it('calls onCreated with the scaled macros on submit', async () => {

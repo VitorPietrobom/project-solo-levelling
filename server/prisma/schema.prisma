@@ -118,28 +118,29 @@ model User {
   practiceReminderDays Int      @default(14)
   createdAt            DateTime @default(now())
 
-  quests            Quest[]
-  skills            Skill[]
-  skillActions      SkillAction[]
-  skillActionLogs   SkillActionLog[]
-  dailyActivity     DailyActivity[]
-  weightEntries     WeightEntry[]
-  measurements      Measurement[]
-  gymSessions       GymSession[]
-  trainingPrograms  TrainingProgram[]
-  foodEntries       FoodEntry[]
-  recipes           Recipe[]
-  mealPrepPlans     MealPrepPlan[]
-  documents         Document[]
-  books             Book[]
-  journalEntries    JournalEntry[]
-  lessonsLearned    LessonLearned[]
-  notes             Note[]
-  knowledgeNodes    KnowledgeNode[]
-  knowledgeEdges    KnowledgeEdge[]
-  whoopConnection   WhoopConnection?
-  whoopDailies      WhoopDaily[]
-  nutritionXpClaims NutritionXpClaim[]
+  quests             Quest[]
+  skills             Skill[]
+  skillActions       SkillAction[]
+  skillActionLogs    SkillActionLog[]
+  dailyActivity      DailyActivity[]
+  weightEntries      WeightEntry[]
+  measurements       Measurement[]
+  gymSessions        GymSession[]
+  trainingPrograms   TrainingProgram[]
+  foodEntries        FoodEntry[]
+  customFoodProducts CustomFoodProduct[]
+  recipes            Recipe[]
+  mealPrepPlans      MealPrepPlan[]
+  documents          Document[]
+  books              Book[]
+  journalEntries     JournalEntry[]
+  lessonsLearned     LessonLearned[]
+  notes              Note[]
+  knowledgeNodes     KnowledgeNode[]
+  knowledgeEdges     KnowledgeEdge[]
+  whoopConnection    WhoopConnection?
+  whoopDailies       WhoopDaily[]
+  nutritionXpClaims  NutritionXpClaim[]
 }
 
 model NutritionXpClaim {
@@ -388,6 +389,26 @@ model FoodEntry {
   date     DateTime @db.Date
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// A community-style fallback for barcodes Open Food Facts doesn't have.
+// Keyed globally by barcode (not per-user) — a UPC/EAN identifies the same
+// real-world product no matter who scans it, so once anyone fills one in,
+// every future scan of that barcode resolves correctly for everyone.
+// createdByUserId is attribution only; onDelete: SetNull so the product
+// entry outlives the user who happened to add it.
+model CustomFoodProduct {
+  id              String   @id @default(uuid())
+  barcode         String   @unique
+  foodName        String
+  caloriesPer100g Int
+  proteinPer100g  Float    @default(0)
+  carbsPer100g    Float    @default(0)
+  fatPer100g      Float    @default(0)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  createdBy User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 }
 
 model Recipe {
