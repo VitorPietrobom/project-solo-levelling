@@ -8,6 +8,10 @@ vi.mock('../lib/prisma', () => ({
       findMany: vi.fn(),
       create: vi.fn(),
     },
+    customFoodProduct: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+    },
     user: {
       upsert: vi.fn().mockResolvedValue({}),
     },
@@ -178,6 +182,7 @@ describe('Food entry endpoints', () => {
     beforeEach(() => {
       vi.stubGlobal('fetch', mockFetch);
       mockFetch.mockReset();
+      (prisma.customFoodProduct.findUnique as any).mockResolvedValue(null);
     });
 
     it('returns 400 for a non-numeric code', async () => {
@@ -204,6 +209,7 @@ describe('Food entry endpoints', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual({
         found: true,
+        source: 'openfoodfacts',
         foodName: 'Peanut Butter',
         caloriesPer100g: 588,
         proteinPer100g: 25,
@@ -215,9 +221,11 @@ describe('Food entry endpoints', () => {
         'https://world.openfoodfacts.org/api/v2/product/0123456789012.json',
         expect.objectContaining({ signal: expect.anything() }),
       );
+      // OFF resolved it, so the custom fallback table was never consulted.
+      expect(prisma.customFoodProduct.findUnique).not.toHaveBeenCalled();
     });
 
-    it('reports not found for an unknown barcode', async () => {
+    it('reports not found when neither Open Food Facts nor the custom table has it', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: async () => ({ status: 0 }) });
 
       const res = await request(app).get('/api/food-entries/barcode/9999999999999');
@@ -241,12 +249,107 @@ describe('Food entry endpoints', () => {
       expect(res.body.caloriesPer100g).toBe(500); // 2092 / 4.184 ≈ 500
     });
 
-    it('returns 502 when the upstream lookup throws', async () => {
+    it('falls back to the custom table when Open Food Facts has never heard of it', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => ({ status: 0 }) });
+      (prisma.customFoodProduct.findUnique as any).mockResolvedValue({
+        id: 'c1', barcode: '9999999999999', foodName: "Grandma's Cookies",
+        caloriesPer100g: 480, proteinPer100g: 5, carbsPer100g: 60, fatPer100g: 22,
+      });
+
+      const res = await request(app).get('/api/food-entries/barcode/9999999999999');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        found: true,
+        source: 'custom',
+        foodName: "Grandma's Cookies",
+        caloriesPer100g: 480,
+        proteinPer100g: 5,
+        carbsPer100g: 60,
+        fatPer100g: 22,
+        servingGrams: null,
+      });
+    });
+
+    it('falls back to the custom table when the upstream OFF lookup throws', async () => {
       mockFetch.mockRejectedValue(new Error('network down'));
+      (prisma.customFoodProduct.findUnique as any).mockResolvedValue({
+        id: 'c1', barcode: '0123456789012', foodName: 'Local Snack',
+        caloriesPer100g: 300, proteinPer100g: 10, carbsPer100g: 40, fatPer100g: 8,
+      });
 
       const res = await request(app).get('/api/food-entries/barcode/0123456789012');
 
-      expect(res.status).toBe(502);
+      expect(res.status).toBe(200);
+      expect(res.body.found).toBe(true);
+      expect(res.body.source).toBe('custom');
+      expect(res.body.foodName).toBe('Local Snack');
+    });
+  });
+
+  describe('POST /api/food-entries/barcode/:code', () => {
+    beforeEach(() => {
+      (prisma.customFoodProduct.create as any).mockReset();
+      (prisma.customFoodProduct.findUnique as any).mockReset();
+    });
+
+    it('returns 400 for a non-numeric code', async () => {
+      const res = await request(app).post('/api/food-entries/barcode/not-a-barcode').send({ foodName: 'X', caloriesPer100g: 100 });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when foodName is missing', async () => {
+      const res = await request(app).post('/api/food-entries/barcode/0123456789012').send({ caloriesPer100g: 100 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Food name is required');
+    });
+
+    it('returns 400 when caloriesPer100g is negative', async () => {
+      const res = await request(app).post('/api/food-entries/barcode/0123456789012').send({ foodName: 'X', caloriesPer100g: -5 });
+      expect(res.status).toBe(400);
+    });
+
+    it('creates a custom product for the barcode, attributed to the user', async () => {
+      (prisma.customFoodProduct.create as any).mockResolvedValue({
+        id: 'c1', barcode: '0123456789012', foodName: 'Homemade Bread',
+        caloriesPer100g: 265, proteinPer100g: 9, carbsPer100g: 49, fatPer100g: 3.2,
+      });
+
+      const res = await request(app)
+        .post('/api/food-entries/barcode/0123456789012')
+        .send({ foodName: 'Homemade Bread', caloriesPer100g: 265, proteinPer100g: 9, carbsPer100g: 49, fatPer100g: 3.2 });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual({
+        found: true,
+        source: 'custom',
+        foodName: 'Homemade Bread',
+        caloriesPer100g: 265,
+        proteinPer100g: 9,
+        carbsPer100g: 49,
+        fatPer100g: 3.2,
+        servingGrams: null,
+      });
+      expect(prisma.customFoodProduct.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ barcode: '0123456789012', foodName: 'Homemade Bread', createdByUserId: 'test-user-id' }),
+      });
+    });
+
+    it('hands back the existing product instead of erroring on a duplicate barcode', async () => {
+      const dupError: any = new Error('Unique constraint failed');
+      dupError.code = 'P2002';
+      (prisma.customFoodProduct.create as any).mockRejectedValue(dupError);
+      (prisma.customFoodProduct.findUnique as any).mockResolvedValue({
+        id: 'c1', barcode: '0123456789012', foodName: 'Already Added',
+        caloriesPer100g: 200, proteinPer100g: 1, carbsPer100g: 2, fatPer100g: 3,
+      });
+
+      const res = await request(app)
+        .post('/api/food-entries/barcode/0123456789012')
+        .send({ foodName: 'Someone Else Typed This', caloriesPer100g: 999 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.foodName).toBe('Already Added');
     });
   });
 });
