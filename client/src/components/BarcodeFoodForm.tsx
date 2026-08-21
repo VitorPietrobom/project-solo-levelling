@@ -47,6 +47,10 @@ export default function BarcodeFoodForm({ code, defaultDate, onCreated, onCancel
   // table yet — the user fills these in once, we save it keyed to the
   // barcode, and every future scan (by anyone) resolves it from here on.
   const [addingCustom, setAddingCustom] = useState(false);
+  // What the entered macros below are "for" — most labels give you this
+  // per serving (e.g. "per 30g"), not per 100g, so let it be typed as-is
+  // and scale to per-100g ourselves before saving.
+  const [customBaseGrams, setCustomBaseGrams] = useState('100');
   const [customCalories, setCustomCalories] = useState('');
   const [customProtein, setCustomProtein] = useState('');
   const [customCarbs, setCustomCarbs] = useState('');
@@ -98,18 +102,24 @@ export default function BarcodeFoodForm({ code, defaultDate, onCreated, onCancel
 
     const trimmed = foodName.trim();
     if (!trimmed) { setError('Food name is required'); return; }
+    const baseGrams = parseFloat(customBaseGrams);
+    if (!customBaseGrams || isNaN(baseGrams) || baseGrams <= 0) { setError('Serving size must be a positive number of grams'); return; }
     const cal = parseFloat(customCalories);
-    if (!customCalories || isNaN(cal) || cal < 0) { setError('Calories (per 100g) must be a non-negative number'); return; }
+    if (!customCalories || isNaN(cal) || cal < 0) { setError('Calories must be a non-negative number'); return; }
+
+    // The label's numbers are "per baseGrams" — normalize to per-100g so
+    // they store and scale the same way Open Food Facts data does.
+    const to100g = 100 / baseGrams;
 
     setSavingCustom(true);
     try {
       const saved = await apiClient.post(`/api/food-entries/barcode/${encodeURIComponent(code)}`, {
         body: {
           foodName: trimmed,
-          caloriesPer100g: cal,
-          proteinPer100g: parseFloat(customProtein) || 0,
-          carbsPer100g: parseFloat(customCarbs) || 0,
-          fatPer100g: parseFloat(customFat) || 0,
+          caloriesPer100g: Math.round(cal * to100g),
+          proteinPer100g: round1((parseFloat(customProtein) || 0) * to100g),
+          carbsPer100g: round1((parseFloat(customCarbs) || 0) * to100g),
+          fatPer100g: round1((parseFloat(customFat) || 0) * to100g),
         },
       }) as BarcodeProduct;
       // Falls through to the normal "found" flow below — same grams/meal/date step.
@@ -156,23 +166,30 @@ export default function BarcodeFoodForm({ code, defaultDate, onCreated, onCancel
             aria-label="Product name"
           />
 
-          <p className="text-text-secondary text-xs">Nutrition per 100g (check the label)</p>
+          <p className="text-text-secondary text-xs">Nutrition, as shown on the label</p>
+          <label className="text-text-secondary text-xs block">
+            Serving size on the label (g)
+            <input
+              type="number" min={1} placeholder="100" value={customBaseGrams} onChange={(e) => setCustomBaseGrams(e.target.value)}
+              className="w-full mt-1 bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary" aria-label="Serving size in grams"
+            />
+          </label>
           <div className="grid grid-cols-2 gap-2">
             <input
               type="number" min={0} placeholder="Calories" value={customCalories} onChange={(e) => setCustomCalories(e.target.value)}
-              className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary" aria-label="Calories per 100g"
+              className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary" aria-label="Calories per serving"
             />
             <input
               type="number" min={0} step={0.1} placeholder="Protein (g)" value={customProtein} onChange={(e) => setCustomProtein(e.target.value)}
-              className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary" aria-label="Protein per 100g"
+              className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary" aria-label="Protein per serving"
             />
             <input
               type="number" min={0} step={0.1} placeholder="Carbs (g)" value={customCarbs} onChange={(e) => setCustomCarbs(e.target.value)}
-              className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary" aria-label="Carbs per 100g"
+              className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary" aria-label="Carbs per serving"
             />
             <input
               type="number" min={0} step={0.1} placeholder="Fat (g)" value={customFat} onChange={(e) => setCustomFat(e.target.value)}
-              className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary" aria-label="Fat per 100g"
+              className="bg-secondary text-text-primary border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary" aria-label="Fat per serving"
             />
           </div>
 
