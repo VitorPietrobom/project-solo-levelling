@@ -10,13 +10,30 @@
 
 export type QuestCategory = 'daily' | 'weekly' | 'monthly';
 
+// `vary` templates have a `{token}` in their title/description filled in
+// from a per-token option list — e.g. "Eat a dish from {nationality}".
+// Which option gets picked is itself deterministic (seeded by templateId +
+// period, +userId for daily), so the resolved wording stays stable for the
+// whole period instead of re-rolling on every page load.
 export interface QuestTemplate {
   id: string;
   category: QuestCategory;
   title: string;
   description: string;
   xpReward: number;
+  vary?: Record<string, string[]>;
 }
+
+export interface ResolvedQuestTemplate {
+  id: string;
+  category: QuestCategory;
+  title: string;
+  description: string;
+  xpReward: number;
+}
+
+const NATIONALITIES = ['Italian', 'Mexican', 'Japanese', 'Indian', 'Thai', 'Ethiopian', 'Korean', 'Greek', 'Lebanese', 'Peruvian', 'Vietnamese', 'Moroccan'];
+const STEP_TARGETS = ['6,000', '8,000', '10,000', '12,000', '15,000'];
 
 export const DAILY_QUEST_POOL: QuestTemplate[] = [
   { id: 'd-log-meals', category: 'daily', title: 'Log every meal today', description: 'Log all meals eaten today in the Diet tab.', xpReward: 15 },
@@ -27,6 +44,10 @@ export const DAILY_QUEST_POOL: QuestTemplate[] = [
   { id: 'd-water', category: 'daily', title: 'Drink enough water', description: 'Stay on top of hydration today.', xpReward: 10 },
   { id: 'd-sleep', category: 'daily', title: 'Get 7+ hours of sleep', description: 'Wake up rested — 7 hours or more.', xpReward: 10 },
   { id: 'd-no-missed-habits', category: 'daily', title: 'Clear every daily habit', description: 'Check off all of your daily habits today.', xpReward: 15 },
+  { id: 'd-world-food', category: 'daily', title: 'Eat a dish from {nationality} cuisine', description: 'Branch out — try something from a different food culture today.', xpReward: 15, vary: { nationality: NATIONALITIES } },
+  { id: 'd-old-dislike', category: 'daily', title: "Eat a food you've avoided for 2+ years", description: 'Give something you wrote off ages ago one more honest try.', xpReward: 20 },
+  { id: 'd-stranger-photo', category: 'daily', title: 'Take a photo with a stranger', description: "Ask someone you don't know for a quick photo together.", xpReward: 25 },
+  { id: 'd-steps', category: 'daily', title: 'Take more than {steps} steps', description: 'Get moving and hit your step count for the day.', xpReward: 15, vary: { steps: STEP_TARGETS } },
 ];
 
 export const WEEKLY_QUEST_POOL: QuestTemplate[] = [
@@ -120,4 +141,28 @@ export function getPeriodKey(category: QuestCategory, date: Date): string {
 export function selectActiveTemplates(category: QuestCategory, periodKey: string, userId?: string): QuestTemplate[] {
   const seed = category === 'daily' ? `daily:${userId}:${periodKey}` : `${category}:${periodKey}`;
   return seededShuffle(seed, POOLS[category]).slice(0, PICK_COUNT[category]);
+}
+
+function fillTemplate(text: string, values: Record<string, string>): string {
+  return text.replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
+}
+
+/** Fills in a template's `{token}`s, picked deterministically from the same period seed used to select it. */
+export function resolveTemplate(template: QuestTemplate, periodKey: string, userId?: string): ResolvedQuestTemplate {
+  if (!template.vary) {
+    return { id: template.id, category: template.category, title: template.title, description: template.description, xpReward: template.xpReward };
+  }
+  const seed = template.category === 'daily' ? `vary:${template.id}:${userId}:${periodKey}` : `vary:${template.id}:${periodKey}`;
+  const random = mulberry32(hashString(seed));
+  const values: Record<string, string> = {};
+  for (const [key, options] of Object.entries(template.vary)) {
+    values[key] = options[Math.floor(random() * options.length)]!;
+  }
+  return {
+    id: template.id,
+    category: template.category,
+    title: fillTemplate(template.title, values),
+    description: fillTemplate(template.description, values),
+    xpReward: template.xpReward,
+  };
 }

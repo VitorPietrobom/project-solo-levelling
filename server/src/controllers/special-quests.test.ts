@@ -58,11 +58,25 @@ describe('GET /api/special-quests', () => {
     const found = res.body.daily.find((q: any) => q.id === dailyPick.id);
     expect(found.completed).toBe(true);
   });
+
+  it('fills in a vary-templated quest with a concrete value, not the raw {token}', async () => {
+    (prisma.specialQuestCompletion.findMany as any).mockResolvedValue([]);
+
+    const res = await request(app).get('/api/special-quests');
+
+    const varied = res.body.daily.filter((q: any) => /\{.*\}/.test(q.title));
+    expect(varied).toHaveLength(0);
+  });
 });
 
 describe('PATCH /api/special-quests/:templateId', () => {
+  // Pick a template guaranteed to be one of today's 3 active daily picks
+  // for this test user, since the pool is bigger than the pick count.
+  const todayKey = getDailyPeriodKey(new Date());
+  const activeDaily = selectActiveTemplates('daily', todayKey, 'test-user-id')[0]!;
+
   it('rejects a non-boolean completed value', async () => {
-    const res = await request(app).patch('/api/special-quests/d-water').send({});
+    const res = await request(app).patch(`/api/special-quests/${activeDaily.id}`).send({});
     expect(res.status).toBe(400);
   });
 
@@ -75,23 +89,23 @@ describe('PATCH /api/special-quests/:templateId', () => {
     (prisma.specialQuestCompletion.findUnique as any).mockResolvedValue(null);
     (prisma.specialQuestCompletion.create as any).mockResolvedValue({});
 
-    const res = await request(app).patch('/api/special-quests/d-water').send({ completed: true });
+    const res = await request(app).patch(`/api/special-quests/${activeDaily.id}`).send({ completed: true });
 
     expect(res.status).toBe(200);
     expect(res.body.completed).toBe(true);
     expect(prisma.specialQuestCompletion.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ userId: 'test-user-id', templateId: 'd-water', xpAwarded: 10 }),
+      data: expect.objectContaining({ userId: 'test-user-id', templateId: activeDaily.id, xpAwarded: activeDaily.xpReward }),
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'test-user-id' },
-      data: { totalXP: { increment: 10 } },
+      data: { totalXP: { increment: activeDaily.xpReward } },
     });
   });
 
   it('does not double-award XP if already completed this period', async () => {
-    (prisma.specialQuestCompletion.findUnique as any).mockResolvedValue({ id: 'existing-id', xpAwarded: 10 });
+    (prisma.specialQuestCompletion.findUnique as any).mockResolvedValue({ id: 'existing-id', xpAwarded: activeDaily.xpReward });
 
-    const res = await request(app).patch('/api/special-quests/d-water').send({ completed: true });
+    const res = await request(app).patch(`/api/special-quests/${activeDaily.id}`).send({ completed: true });
 
     expect(res.status).toBe(200);
     expect(prisma.specialQuestCompletion.create).not.toHaveBeenCalled();
@@ -99,25 +113,27 @@ describe('PATCH /api/special-quests/:templateId', () => {
   });
 
   it('revokes XP and deletes the claim when un-completing', async () => {
-    (prisma.specialQuestCompletion.findUnique as any).mockResolvedValue({ id: 'existing-id', xpAwarded: 10 });
+    (prisma.specialQuestCompletion.findUnique as any).mockResolvedValue({ id: 'existing-id', xpAwarded: activeDaily.xpReward });
 
-    const res = await request(app).patch('/api/special-quests/d-water').send({ completed: false });
+    const res = await request(app).patch(`/api/special-quests/${activeDaily.id}`).send({ completed: false });
 
     expect(res.status).toBe(200);
     expect(res.body.completed).toBe(false);
     expect(prisma.specialQuestCompletion.delete).toHaveBeenCalledWith({ where: { id: 'existing-id' } });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'test-user-id' },
-      data: { totalXP: { decrement: 10 } },
+      data: { totalXP: { decrement: activeDaily.xpReward } },
     });
   });
 
   it('404s a template that is not one of this period\'s active picks', async () => {
-    // d-water is in the daily pool but selectActiveTemplates only returns 3
-    // of the 8 templates each day — some ids will always be inactive.
-    const todayKey = getDailyPeriodKey(new Date());
+    // selectActiveTemplates only returns 3 of the 12 daily templates each
+    // day — some ids will always be inactive.
     const active = new Set(selectActiveTemplates('daily', todayKey, 'test-user-id').map((t) => t.id));
-    const allDailyIds = ['d-log-meals', 'd-hit-protein', 'd-workout', 'd-read', 'd-practice-skill', 'd-water', 'd-sleep', 'd-no-missed-habits'];
+    const allDailyIds = [
+      'd-log-meals', 'd-hit-protein', 'd-workout', 'd-read', 'd-practice-skill', 'd-water', 'd-sleep',
+      'd-no-missed-habits', 'd-world-food', 'd-old-dislike', 'd-stranger-photo', 'd-steps',
+    ];
     const inactiveId = allDailyIds.find((id) => !active.has(id));
     if (!inactiveId) return; // extremely unlikely all 8 are active (pool picks only 3), but guard anyway
 
