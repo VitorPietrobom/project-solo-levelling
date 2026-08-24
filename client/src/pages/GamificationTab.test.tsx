@@ -53,6 +53,7 @@ beforeEach(() => {
     if (url === '/api/quests') return Promise.resolve([quest, habit]);
     if (url === '/api/skills') return Promise.resolve([]);
     if (url === '/api/gamification/status') return Promise.resolve({ level: 4, totalXP: 900, streak: 5, hunterName: 'Shadow', progress: { current: 100, required: 500, percentage: 20 } });
+    if (url === '/api/special-quests') return Promise.resolve({ daily: [], weekly: [], monthly: [] });
     return Promise.resolve([]);
   });
   mockPost.mockResolvedValue({});
@@ -139,6 +140,7 @@ describe('GamificationTab', () => {
       if (url === '/api/quests') return Promise.resolve([habit]);
       if (url === '/api/skills') return Promise.resolve([]);
       if (url === '/api/gamification/status') return Promise.resolve({ level: 1, totalXP: 0, streak: 0, progress: { current: 0, required: 100, percentage: 0 } });
+      if (url === '/api/special-quests') return Promise.resolve({ daily: [], weekly: [], monthly: [] });
       return Promise.resolve([]);
     });
     render(<GamificationTab />);

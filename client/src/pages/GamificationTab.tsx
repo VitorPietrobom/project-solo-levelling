@@ -8,6 +8,7 @@ import XPBar from '../components/ui/XPBar';
 import QuestForm from '../components/QuestForm';
 import type { QuestCreateBody } from '../components/QuestForm';
 import QuestCard from '../components/QuestCard';
+import SpecialQuestPanel from '../components/SpecialQuestPanel';
 import HabitRow from '../components/HabitRow';
 import type { HabitPatch } from '../components/HabitRow';
 import type { Quest, QuestPriority } from '../components/QuestList';
@@ -292,6 +293,8 @@ export default function GamificationTab() {
           <StatCard icon={Trophy} label="Quests done" value={doneQuests.length} accent="var(--accent-2)" />
         </div>
       </div>
+
+      <SpecialQuestPanel onXpChange={addXP ? (amount, label) => addXP(amount, label) : undefined} />
 
       {/* Quests kanban — one-time goals only */}
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>

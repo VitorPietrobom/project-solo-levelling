@@ -141,6 +141,29 @@ model User {
   whoopConnection    WhoopConnection?
   whoopDailies       WhoopDaily[]
   nutritionXpClaims  NutritionXpClaim[]
+  specialQuestCompletions SpecialQuestCompletion[]
+}
+
+// One row per (user, template, period) the user has claimed a random Daily
+// / Weekly / Monthly quest for. The quest catalog and which templates are
+// "active" this period live in code (server/src/lib/specialQuests.ts) —
+// this table only records claims, so completion history survives even if
+// the catalog changes later. xpAwarded is captured at claim time for the
+// same reason SkillActionLog captures it: the template's reward can change
+// without rewriting history.
+model SpecialQuestCompletion {
+  id          String   @id @default(uuid())
+  userId      String
+  templateId  String
+  // "2026-08-24" for daily, "2026-W34" for weekly, "2026-08" for monthly —
+  // whichever period this claim belongs to.
+  periodKey   String
+  xpAwarded   Int
+  completedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, templateId, periodKey])
 }
 
 model NutritionXpClaim {
