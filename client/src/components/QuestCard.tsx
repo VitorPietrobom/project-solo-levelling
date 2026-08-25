@@ -66,6 +66,12 @@ export default function QuestCard({ quest, skills = [], onToggleStep, onDelete, 
         zIndex: isDragging ? 10 : undefined,
         position: 'relative',
         userSelect: 'none',
+        WebkitUserSelect: 'none',
+        // iOS Safari's long-press-to-select/callout menu fires on the same
+        // gesture our long-press-to-drag uses, and unprefixed userSelect
+        // alone doesn't suppress it there — needs the -webkit- callout
+        // property too.
+        WebkitTouchCallout: 'none',
         touchAction: 'pan-y',
       }}
     >
