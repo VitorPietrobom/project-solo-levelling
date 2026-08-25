@@ -225,8 +225,14 @@ input, select, textarea { color-scheme: dark; }
 
 .dashboard-main {
   overflow-y: auto;
+  overflow-x: hidden;
   height: 100vh;
 }
+
+/* Any element that miscalculates its width (a chart, a wide table, a long
+   unbroken token) clips instead of pushing the whole page into a sideways
+   scroll — the page's own scroll stays vertical-only everywhere. */
+img, svg, video, canvas { max-width: 100%; }
 
 .sidebar-backdrop {
   display: none;
@@ -314,5 +320,13 @@ input, select, textarea { color-scheme: dark; }
 
   .chip-label {
     display: none;
+  }
+}
+
+/* Phone-width screens: even 2 columns is cramped for kanban-style cards
+   (quest board, quests To Do/In Progress/Done) — stack them instead. */
+@media (max-width: 480px) {
+  .grid-3-col {
+    grid-template-columns: 1fr;
   }
 }
