@@ -90,22 +90,21 @@ function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhove
     >
       <div
         onPointerEnter={onHover} onPointerLeave={onUnhover}
-        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer' }}
+        style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minWidth: 0, padding: '10px 12px', cursor: 'pointer' }}
         onClick={onToggleExpand}
       >
         <span
           title={skill.name}
           style={{
-            flex: '0 1 110px', minWidth: 0, fontSize: 13, fontWeight: 600,
+            flex: '0 1 90px', minWidth: 0, fontSize: 13, fontWeight: 600,
             color: highlighted ? 'var(--accent)' : 'var(--text)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}
         >{skill.name}</span>
-        <span className="chip" style={{ fontSize: 9.5, padding: '2px 7px', borderColor: rank.color, color: rank.color, flexShrink: 0 }}>{rank.label}</span>
-        <div style={{ flex: 1, minWidth: 40 }}>
+        <div style={{ flex: '1 1 40px', minWidth: 28 }}>
           <XPBar value={skill.progress.percentage} max={100} height={6} color={highlighted ? 'var(--accent)' : 'var(--accent-2)'} />
         </div>
-        <span className="mono" style={{ fontSize: 12, color: 'var(--text-3)', width: 34, textAlign: 'right', flexShrink: 0 }}>Lv {skill.level}</span>
+        <span className="mono" style={{ fontSize: 12, color: 'var(--text-3)', flexShrink: 0 }}>Lv {skill.level}</span>
         {unlinked && (
           <span
             role="img"
@@ -119,14 +118,14 @@ function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhove
         <ChevronDown size={13} style={{ color: 'var(--text-faint)', flexShrink: 0, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
         <button
           className="btn btn-ghost"
-          style={{ padding: '4px 8px', fontSize: 11, flexShrink: 0, display: 'flex' }}
+          style={{ padding: '3px 6px', fontSize: 11, flexShrink: 0, display: 'flex' }}
           onClick={(e) => { e.stopPropagation(); setNameDraft(skill.name); setEditing(true); }}
           title="Rename skill"
           aria-label={`Rename skill "${skill.name}"`}
         ><Pencil size={12} /></button>
         <button
           className="btn btn-ghost"
-          style={{ padding: '4px 8px', fontSize: 11, color: 'var(--bad)', flexShrink: 0 }}
+          style={{ padding: '3px 6px', fontSize: 11, color: 'var(--bad)', flexShrink: 0 }}
           onClick={(e) => { e.stopPropagation(); onDelete(skill.id, skill.name); }}
           title="Delete skill"
           aria-label={`Delete skill "${skill.name}"`}
@@ -135,6 +134,7 @@ function SkillRow({ skill, linkedItems, highlighted, expanded, onHover, onUnhove
 
       {expanded && (
         <div style={{ borderTop: '1px solid var(--line-soft)', padding: '10px 12px', display: 'grid', gap: 12 }}>
+          <span className="chip" style={{ fontSize: 9.5, padding: '2px 7px', borderColor: rank.color, color: rank.color, alignSelf: 'start' }}>{rank.label}</span>
           <div style={{ display: 'grid', gap: 6 }}>
             {unlinked ? (
               <p style={{ fontSize: 12, color: 'var(--warn)', display: 'flex', alignItems: 'center', gap: 6 }}>

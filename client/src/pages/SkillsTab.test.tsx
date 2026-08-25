@@ -108,6 +108,7 @@ describe('SkillsTab', () => {
     mockData([skill('a', 'Guitar', 45)]); // A-Rank
     render(<SkillsTab />);
     await waitFor(() => expect(screen.getByText('Guitar')).toBeInTheDocument());
+    await userEvent.click(screen.getByText('Guitar'));
     expect(screen.getByText('A-Rank')).toBeInTheDocument();
   });
 
