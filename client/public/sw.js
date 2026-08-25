@@ -1,6 +1,6 @@
 // Project Arise service worker — app-shell offline + safe caching.
 // Bump CACHE version to force clients to refresh cached assets.
-const CACHE = 'arise-v1';
+const CACHE = 'arise-v2';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
