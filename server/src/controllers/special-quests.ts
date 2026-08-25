@@ -3,15 +3,16 @@ import prisma from '../lib/prisma';
 import { awardXP, revokeXP } from '../services/xp';
 import {
   QuestCategory,
-  QuestTemplate,
+  ResolvedQuestTemplate,
   findTemplate,
   getPeriodKey,
+  resolveTemplate,
   selectActiveTemplates,
 } from '../lib/specialQuests';
 
 const CATEGORIES: QuestCategory[] = ['daily', 'weekly', 'monthly'];
 
-interface QuestView extends QuestTemplate {
+interface QuestView extends ResolvedQuestTemplate {
   periodKey: string;
   completed: boolean;
 }
@@ -44,7 +45,7 @@ export async function listSpecialQuests(req: Request, res: Response): Promise<vo
     const byCategory: Record<QuestCategory, QuestView[]> = { daily: [], weekly: [], monthly: [] };
     for (const { category, periodKey, templates } of active) {
       byCategory[category] = templates.map((t) => ({
-        ...t,
+        ...resolveTemplate(t, periodKey, userId),
         periodKey,
         completed: completedIds.has(`${periodKey}:${t.id}`),
       }));
@@ -96,7 +97,7 @@ export async function toggleSpecialQuest(req: Request, res: Response): Promise<v
       await revokeXP(userId, existing.xpAwarded);
     }
 
-    res.json({ ...template, periodKey, completed: requested });
+    res.json({ ...resolveTemplate(template, periodKey, userId), periodKey, completed: requested });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
