@@ -1,19 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import GamificationTab from './GamificationTab';
 
 // jsdom has no PointerEvent constructor, so testing-library's fireEvent
 // falls back to a plain Event that silently drops pointerType/clientX/
-// clientY — the touch-drag tests below need those to actually reach the
-// handler, so polyfill a minimal PointerEvent on top of MouseEvent (which
-// jsdom does support clientX/clientY on).
+// clientY/isPrimary — the drag tests below need those to actually reach
+// dnd-kit's PointerSensor (which specifically checks event.isPrimary),
+// so polyfill a minimal PointerEvent on top of MouseEvent (which jsdom
+// does support clientX/clientY on).
 if (typeof (window as unknown as { PointerEvent?: unknown }).PointerEvent === 'undefined') {
   class PointerEventPolyfill extends MouseEvent {
     pointerType: string;
-    constructor(type: string, params: MouseEventInit & { pointerType?: string } = {}) {
+    pointerId: number;
+    isPrimary: boolean;
+    constructor(type: string, params: MouseEventInit & { pointerType?: string; pointerId?: number; isPrimary?: boolean } = {}) {
       super(type, params);
       this.pointerType = params.pointerType ?? '';
+      this.pointerId = params.pointerId ?? 1;
+      this.isPrimary = params.isPrimary ?? true;
     }
   }
   (window as unknown as { PointerEvent: unknown }).PointerEvent = PointerEventPolyfill;
@@ -120,50 +125,59 @@ describe('GamificationTab', () => {
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('/api/quests/h1'));
   });
 
-  it('dropping a quest card on "Done" bulk-completes it', async () => {
+  // dnd-kit's PointerSensor (mouse/pen) and TouchSensor (touch, with a
+  // long-press activation delay) both funnel into the same DndContext
+  // onDragEnd handler — this exercises that shared wiring via the pointer
+  // path, which jsdom can simulate; TouchSensor itself is dnd-kit's own
+  // well-tested code, not ours to re-verify here.
+  it('dragging a quest card onto "Done" bulk-completes it', async () => {
     render(<GamificationTab />);
     await waitFor(() => expect(screen.getByText('Learn Guitar')).toBeInTheDocument());
 
-    const doneColumn = screen.getByText('Done').closest('div')!.parentElement!;
-    fireEvent.dragStart(screen.getByText('Learn Guitar'));
-    fireEvent.drop(doneColumn);
+    const card = screen.getByTestId('quest-card-q1');
+    const doneColumn = screen.getByTestId('kanban-col-Done');
+    // jsdom never computes real layout — every element's rect is 0×0 at the
+    // origin by default, which would make dnd-kit's collision detection
+    // unable to tell "Done" apart from any other column. Give the columns
+    // distinct, non-overlapping rects so it resolves the way a real
+    // browser's layout would.
+    card.getBoundingClientRect = () => ({ x: 0, y: 0, top: 0, left: 0, right: 50, bottom: 50, width: 50, height: 50, toJSON: () => {} }) as DOMRect;
+    doneColumn.getBoundingClientRect = () => ({ x: 500, y: 0, top: 0, left: 500, right: 700, bottom: 200, width: 200, height: 200, toJSON: () => {} }) as DOMRect;
 
-    await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/complete'));
-  });
-
-  it('long-presses a quest card and drags it to "Done" on a touch device', async () => {
-    render(<GamificationTab />);
-    await waitFor(() => expect(screen.getByText('Learn Guitar')).toBeInTheDocument());
-
-    const card = screen.getByText('Learn Guitar').closest('[draggable]') as HTMLElement;
-    const doneColumn = document.querySelector('[data-quest-col="Done"]') as HTMLElement;
-    // jsdom doesn't implement elementFromPoint at all — stub it directly.
-    (document as unknown as { elementFromPoint: () => Element }).elementFromPoint = () => doneColumn;
-
-    fireEvent.pointerDown(card, { pointerType: 'touch', clientX: 10, clientY: 10 });
-    // A quick tap (no hold) must NOT trigger a drag — only a sustained
-    // press past the long-press threshold does.
-    fireEvent.pointerMove(window as unknown as Element, { clientX: 10, clientY: 10 });
-    expect(mockPatch).not.toHaveBeenCalledWith('/api/quests/q1/complete');
-
-    await act(() => new Promise((resolve) => setTimeout(resolve, 400))); // past the long-press threshold
-    fireEvent.pointerMove(window as unknown as Element, { clientX: 10, clientY: 10 });
-    fireEvent.pointerUp(window as unknown as Element);
+    fireEvent.pointerDown(card, { pointerType: 'mouse', clientX: 10, clientY: 10 });
+    // dnd-kit's PointerSensor attaches its move/end listeners to the
+    // document (not the original target — see its own comment: "Pointer
+    // events stop firing if the target is unmounted while dragging"), and
+    // only activates past a small movement threshold — which also proves a
+    // plain click still just clicks (verified elsewhere in this file). The
+    // move that crosses that threshold only starts the drag; it takes a
+    // second move to actually update position and run collision detection.
+    fireEvent.pointerMove(document, { clientX: 30, clientY: 30 });
+    fireEvent.pointerMove(document, { clientX: 550, clientY: 50 });
+    fireEvent.pointerUp(document, { clientX: 550, clientY: 50 });
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/complete'));
     expect(addXP).toHaveBeenCalledWith(100, 'Learn Guitar');
+    // dnd-kit removes its document-level listeners (a stray one of which
+    // captures and stops all click events) 50ms after drag end, not
+    // immediately — wait it out so a leftover listener can't break a click
+    // in a later test in this file.
+    await new Promise((resolve) => setTimeout(resolve, 60));
   });
 
-  it('releasing a touch drag before the long-press threshold does nothing (lets a normal scroll/tap through)', async () => {
+  it('dropping a quest card outside a valid column does nothing', async () => {
     render(<GamificationTab />);
     await waitFor(() => expect(screen.getByText('Learn Guitar')).toBeInTheDocument());
 
-    const card = screen.getByText('Learn Guitar').closest('[draggable]') as HTMLElement;
-    fireEvent.pointerDown(card, { pointerType: 'touch', clientX: 10, clientY: 10 });
-    fireEvent.pointerUp(window as unknown as Element);
+    const card = screen.getByTestId('quest-card-q1');
+    card.getBoundingClientRect = () => ({ x: 0, y: 0, top: 0, left: 0, right: 50, bottom: 50, width: 50, height: 50, toJSON: () => {} }) as DOMRect;
 
-    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
+    fireEvent.pointerDown(card, { pointerType: 'mouse', clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(document, { clientX: 9000, clientY: 9000 }); // nowhere near any column
+    fireEvent.pointerUp(document, { clientX: 9000, clientY: 9000 });
+
     expect(mockPatch).not.toHaveBeenCalledWith('/api/quests/q1/complete');
+    await new Promise((resolve) => setTimeout(resolve, 60)); // see comment on the previous test
   });
 
   it('opens a habit-only quest form pre-set to Daily from the "New Habit" button', async () => {

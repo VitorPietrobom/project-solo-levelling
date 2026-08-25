@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, Calendar, Flag, Trash2, Sparkles, Pencil, Check, RotateCcw } from 'lucide-react';
 import type { Quest, QuestPriority } from './QuestList';
 import type { Skill } from './SkillList';
@@ -7,18 +9,12 @@ interface Props {
   quest: Quest;
   /** All skills, so the expanded card can offer a link picker. */
   skills?: Skill[];
-  dragging: boolean;
-  onDragStart: () => void;
-  onDragEnd: () => void;
-  /** Long-press-to-drag entry point for touch devices — HTML5 `draggable`
-   *  (used for onDragStart/onDragEnd above) doesn't fire for touch input. */
-  onTouchDragStart: (e: React.PointerEvent) => void;
   onToggleStep: (questId: string, stepId: string, completed: boolean) => void;
   onDelete: (questId: string, title: string) => void;
   onUpdate: (questId: string, patch: { title?: string; description?: string | null; priority?: QuestPriority; dueDate?: string | null; linkedSkillId?: string | null }) => void;
-  /** Tap equivalent of dragging the card to Done/To Do — the only way to
-   *  bulk-complete or bulk-reset a quest on a touch device, since HTML5
-   *  drag-and-drop has no real mobile support. */
+  /** One-tap equivalent of dragging the card to Done/To Do, for anyone who'd
+   *  rather not drag at all — desktop and mobile both support real
+   *  drag-and-drop too, via useDraggable below. */
   onSetCompleted: (questId: string, completed: boolean) => void;
 }
 
@@ -41,11 +37,12 @@ function isOverdue(dueDate: string | null, completed: boolean): boolean {
   return dueDate.slice(0, 10) < today;
 }
 
-export default function QuestCard({ quest, skills = [], dragging, onDragStart, onDragEnd, onTouchDragStart, onToggleStep, onDelete, onUpdate, onSetCompleted }: Props) {
+export default function QuestCard({ quest, skills = [], onToggleStep, onDelete, onUpdate, onSetCompleted }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [editingText, setEditingText] = useState(false);
   const [titleDraft, setTitleDraft] = useState(quest.title);
   const [descDraft, setDescDraft] = useState(quest.description ?? '');
+  const { listeners, setNodeRef, transform, isDragging } = useDraggable({ id: quest.id });
   const done = quest.steps.filter((s) => s.completed).length;
   const total = quest.steps.length || 1;
   const isDone = quest.completed;
@@ -55,17 +52,19 @@ export default function QuestCard({ quest, skills = [], dragging, onDragStart, o
 
   return (
     <div
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onPointerDown={onTouchDragStart}
+      ref={setNodeRef}
+      data-testid={`quest-card-${quest.id}`}
+      {...listeners}
       style={{
         background: 'var(--surface)',
         border: `1px solid ${overdue ? 'var(--bad)' : 'var(--line-soft)'}`,
         borderRadius: 'var(--r-sm)',
-        cursor: dragging ? 'grabbing' : 'grab',
-        transition: 'border-color .16s, opacity .16s',
-        opacity: dragging ? 0.45 : 1,
+        cursor: isDragging ? 'grabbing' : 'grab',
+        transition: isDragging ? undefined : 'border-color .16s, opacity .16s',
+        opacity: isDragging ? 0.45 : 1,
+        transform: CSS.Translate.toString(transform),
+        zIndex: isDragging ? 10 : undefined,
+        position: 'relative',
         userSelect: 'none',
         touchAction: 'pan-y',
       }}
