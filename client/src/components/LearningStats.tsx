@@ -89,7 +89,7 @@ export default function LearningStats({ refreshKey }: { refreshKey: number }) {
       </div>
 
       {/* Knowledge tiles */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 10 }}>
         <Tile icon={BookOpen} label="Reading now" value={stats.booksReading} color="var(--accent)" />
         <Tile icon={StickyNote} label="Notes" value={stats.notesCount} color="var(--accent-2)" />
         <Tile icon={Lightbulb} label="Lessons" value={stats.lessonsCount} color="var(--warn)" />

@@ -365,7 +365,7 @@ export default function RecipesTab() {
               justifyContent: 'center',
             }}
           >
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, padding: 24, width: '100%' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10, padding: 24, width: '100%' }}>
               {(featured.tags ?? [featured.category ?? 'Recipe', 'Balanced']).slice(0, 6).map((tag, i) => (
                 <span key={i} className="chip" style={{ justifyContent: 'center', fontSize: 11.5, padding: '8px 6px' }}>{tag}</span>
               ))}

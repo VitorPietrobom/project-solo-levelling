@@ -81,7 +81,7 @@ export default function HabitRow({ habit, skills, onToggle, onSave, onDelete }: 
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'center', gap: 10,
+        display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, boxSizing: 'border-box',
         padding: '11px 14px', borderRadius: 'var(--r-sm)', border: '1px solid var(--line-soft)',
         background: habit.completed ? 'var(--accent-soft)' : 'var(--surface-inset)',
       }}
