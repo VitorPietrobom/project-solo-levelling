@@ -273,12 +273,12 @@ export default function GamificationTab() {
               <span className="chip" style={{ borderColor: rank.color, color: rank.color, flexShrink: 0 }}>{rank.label}</span>
             </div>
             <div style={{ color: 'var(--text-3)', fontSize: 14, marginBottom: 16 }}>"{mottoForLevel(currentStatus?.level ?? 0)}"</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-3)', marginBottom: 7 }}>
-              <span className="mono" style={{ whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '2px 10px', fontSize: 12, color: 'var(--text-3)', marginBottom: 7 }}>
+              <span className="mono">
                 {currentStatus?.progress.current ?? 0} / {currentStatus?.progress.required ?? 1000} XP
               </span>
-              <span className="mono" style={{ whiteSpace: 'nowrap' }}>
-                {currentStatus?.progress.percentage ?? 0}% to Lv {(currentStatus?.level ?? 1) + 1}
+              <span className="mono">
+                {Math.round(currentStatus?.progress.percentage ?? 0)}% to Lv {(currentStatus?.level ?? 1) + 1}
               </span>
             </div>
             <XPBar value={currentStatus?.progress.current ?? 0} max={currentStatus?.progress.required ?? 1000} color="var(--accent-2)" height={10} />
