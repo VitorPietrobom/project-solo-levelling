@@ -14,6 +14,7 @@ A personal growth web application that centralizes self-improvement tracking acr
 
 ### Gamification Tab
 - **Level System** — XP progression with level formula, progress bars
+- **Quest Board** — 3 daily quests picked per user, 3 weekly and 2 monthly shared by everyone, refreshed automatically each period with no manual reset needed
 - **Quests** — Kanban board (To Do / In Progress / Done) with multi-step quests that award XP on completion
 - **Daily & Weekly Tasks** — Recurring tasks with automatic reset, XP rewards
 - **Skills** — Independent skill leveling with radar/spider chart visualization, XP logging
@@ -26,10 +27,10 @@ A personal growth web application that centralizes self-improvement tracking acr
 - **Training Programs** — Weekly program view with day tabs, activate/deactivate, create/delete
 
 ### Diet Tab
-- **Calorie Tracking** — Daily summary with goal progress bar, meal type breakdown, macro tracking (protein/carbs/fat)
-- **Food Log** — Manual entry or AI-powered JSON import for quick meal logging
+- **Weekly Nutrition Dashboard** — 7-day calorie/macro bars, consumed-vs-remaining toggle, adaptive TDEE-based targets, daily nutrition XP claim
+- **Food Log** — Manual entry, AI-powered JSON import, or live barcode scanning (Open Food Facts, with a community-editable fallback for products it doesn't have)
 - **Recipes** — CRUD with ingredient management, search by name/ingredient, AI import
-- **Meal Prep** — Weekly grid planner (7 days × 4 meals), recipe assignment, grocery list per day with calorie totals
+- **Meal Prep** — Weekly grid planner (7 days × 4 meals), recipe assignment, per-meal removal, week totals, grocery list per day with calorie totals
 
 ### Learning Tab
 - **Book Tracker** — Kanban board (Want to Read / Reading / Finished), page progress, skill XP on completion
@@ -92,6 +93,7 @@ cd client && npx vitest run
 - **Presentational Components** — List/Form components receive data and callbacks as props. Tab containers own state and handle API calls
 - **Auth Middleware** — Verifies Neon Auth EdDSA JWTs against the JWKS endpoint (`jose`), with an in-memory token cache. `ensureUser` middleware auto-creates the User row on first request
 - **Database** — Neon Postgres accessed via Prisma (`DATABASE_URL` for queries, `DIRECT_URL` for migrations)
+- **Mobile / PWA** — Installable PWA with a service worker (app-shell caching, network-first navigations), and a layout audited to avoid horizontal overflow on phone-width screens
 
 ## AI Integration
 
