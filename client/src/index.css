@@ -269,7 +269,7 @@ img, svg, video, canvas { max-width: 100%; }
 }
 .grid-3-col {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 14px;
 }
 
@@ -277,7 +277,7 @@ img, svg, video, canvas { max-width: 100%; }
   body { overflow: auto; }
 
   .dashboard-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0,1fr);
   }
 
   .dashboard-sidebar {
@@ -311,11 +311,11 @@ img, svg, video, canvas { max-width: 100%; }
 
   .grid-2-col,
   .grid-2-col-skewed {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0,1fr);
   }
 
   .grid-3-col {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
   }
 
   .chip-label {
@@ -327,6 +327,6 @@ img, svg, video, canvas { max-width: 100%; }
    (quest board, quests To Do/In Progress/Done) — stack them instead. */
 @media (max-width: 480px) {
   .grid-3-col {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0,1fr);
   }
 }
