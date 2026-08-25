@@ -35,7 +35,7 @@ function QuestRow({ quest, onToggle }: { quest: SpecialQuest; onToggle: (q: Spec
       onClick={() => onToggle(quest, !quest.completed)}
       aria-label={`Mark "${quest.title}" ${quest.completed ? 'incomplete' : 'complete'}`}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0, boxSizing: 'border-box', textAlign: 'left',
         background: 'var(--surface-inset)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)',
         padding: '9px 11px', cursor: 'pointer',
       }}
@@ -98,12 +98,12 @@ export default function SpecialQuestPanel({ onXpChange }: Props) {
       </div>
       <div className="grid-3-col" style={{ gap: 18 }}>
         {SECTIONS.map(({ key, label, resetHint }) => (
-          <div key={key}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 9 }}>
+          <div key={key} style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: '2px 8px', marginBottom: 9 }}>
               <span className="eyebrow">{label}</span>
-              <span style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>{resetHint}</span>
+              <span style={{ fontSize: 10.5, color: 'var(--text-faint)', minWidth: 0 }}>{resetHint}</span>
             </div>
-            <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
               {(board[key] ?? []).map((quest) => (
                 <QuestRow key={quest.id} quest={quest} onToggle={handleToggle} />
               ))}
