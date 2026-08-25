@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Flame, Zap, Check, Trophy, Plus,
@@ -89,6 +89,11 @@ export default function GamificationTab() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
   const [dragQuestId, setDragQuestId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  // Mirrors `quests` for the touch-drag handlers below — they're attached
+  // to `window` once per gesture (not re-created on every render), so they
+  // can't rely on React state closures without going stale mid-drag.
+  const questsRef = useRef<Quest[]>(quests);
+  useEffect(() => { questsRef.current = quests; }, [quests]);
 
   const fetchQuests = useCallback(async () => {
     try { setQuests((await apiClient.get('/api/quests')) as Quest[]); } catch { /* silently fail */ }
@@ -220,6 +225,12 @@ export default function GamificationTab() {
     }
   }
 
+  // Kept in sync every render so the touch-drag handlers below (attached to
+  // `window` once per gesture, potentially outliving several renders) can
+  // call the latest version instead of the one captured at gesture start.
+  const setQuestCompletionRef = useRef(setQuestCompletion);
+  setQuestCompletionRef.current = setQuestCompletion;
+
   // "In Progress" isn't a droppable target — that state only ever comes from
   // checking some-but-not-all steps, which you do inside the card itself.
   function handleDrop(targetCol: 'To Do' | 'Done') {
@@ -230,6 +241,89 @@ export default function GamificationTab() {
     if (!quest) return;
     setQuestCompletion(quest, targetCol === 'Done');
   }
+
+  // Touch drag-and-drop: HTML5's `draggable` (used for mouse drag below)
+  // has no real touch support, so dragging a card on a phone needs its own
+  // implementation on top of Pointer Events. A long-press (not an instant
+  // grab) starts the drag so a normal touch-scroll starting on a card isn't
+  // hijacked — if the finger moves before the press fires, it's treated as
+  // a scroll and the pending drag is cancelled.
+  const TOUCH_LONG_PRESS_MS = 350;
+  const TOUCH_MOVE_CANCEL_PX = 10;
+  const touchDragRef = useRef<{
+    questId: string; timer: number; startX: number; startY: number; engaged: boolean; hoverCol: string | null;
+  } | null>(null);
+
+  const handleTouchDragMove = useCallback((e: PointerEvent) => {
+    const state = touchDragRef.current;
+    if (!state) return;
+    if (!state.engaged) {
+      if (Math.hypot(e.clientX - state.startX, e.clientY - state.startY) > TOUCH_MOVE_CANCEL_PX) {
+        window.clearTimeout(state.timer);
+        touchDragRef.current = null;
+        window.removeEventListener('pointermove', handleTouchDragMove);
+        window.removeEventListener('pointerup', handleTouchDragEndRef.current);
+        window.removeEventListener('pointercancel', handleTouchDragEndRef.current);
+      }
+      return;
+    }
+    e.preventDefault();
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const colEl = target?.closest('[data-quest-col]') as HTMLElement | null;
+    const col = colEl?.dataset.questCol;
+    const droppable = col === 'To Do' || col === 'Done';
+    state.hoverCol = droppable ? col! : null;
+    setDragOverCol(state.hoverCol);
+  }, []);
+
+  const handleTouchDragEnd = useCallback(() => {
+    const state = touchDragRef.current;
+    window.clearTimeout(state?.timer);
+    touchDragRef.current = null;
+    window.removeEventListener('pointermove', handleTouchDragMove);
+    window.removeEventListener('pointerup', handleTouchDragEndRef.current);
+    window.removeEventListener('pointercancel', handleTouchDragEndRef.current);
+    if (!state?.engaged) return;
+    setDragQuestId(null);
+    setDragOverCol(null);
+    if (state.hoverCol === 'To Do' || state.hoverCol === 'Done') {
+      const quest = questsRef.current.find((q) => q.id === state.questId);
+      if (quest) setQuestCompletionRef.current(quest, state.hoverCol === 'Done');
+    }
+  }, [handleTouchDragMove]);
+
+  // removeEventListener needs the exact function reference it was added
+  // with — this ref lets handleTouchDragMove/End remove each other (and
+  // themselves) without depending on the other's identity in useCallback.
+  const handleTouchDragEndRef = useRef(handleTouchDragEnd);
+  handleTouchDragEndRef.current = handleTouchDragEnd;
+
+  const handleCardPointerDown = useCallback((questId: string, e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return; // mouse/pen keep native HTML5 drag
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const timer = window.setTimeout(() => {
+      const state = touchDragRef.current;
+      if (!state) return;
+      state.engaged = true;
+      setDragQuestId(questId);
+      navigator.vibrate?.(10);
+    }, TOUCH_LONG_PRESS_MS);
+    touchDragRef.current = { questId, timer, startX, startY, engaged: false, hoverCol: null };
+    window.addEventListener('pointermove', handleTouchDragMove, { passive: false });
+    window.addEventListener('pointerup', handleTouchDragEndRef.current);
+    window.addEventListener('pointercancel', handleTouchDragEndRef.current);
+  }, [handleTouchDragMove]);
+
+  // Safety net: clear any in-flight drag's listeners/timer if the tab
+  // unmounts mid-gesture.
+  useEffect(() => () => {
+    const state = touchDragRef.current;
+    if (state) window.clearTimeout(state.timer);
+    window.removeEventListener('pointermove', handleTouchDragMove);
+    window.removeEventListener('pointerup', handleTouchDragEndRef.current);
+    window.removeEventListener('pointercancel', handleTouchDragEndRef.current);
+  }, [handleTouchDragMove]);
 
   function handleQuestSetCompleted(questId: string, complete: boolean) {
     const quest = quests.find((q) => q.id === questId);
@@ -332,6 +426,7 @@ export default function GamificationTab() {
             return (
               <div
                 key={label}
+                data-quest-col={label}
                 onDragOver={(e) => { if (droppable) { e.preventDefault(); setDragOverCol(label); } }}
                 onDragLeave={() => setDragOverCol(null)}
                 onDrop={() => { if (droppable) handleDrop(label as 'To Do' | 'Done'); }}
@@ -357,6 +452,7 @@ export default function GamificationTab() {
                       dragging={dragQuestId === q.id}
                       onDragStart={() => setDragQuestId(q.id)}
                       onDragEnd={() => { setDragQuestId(null); setDragOverCol(null); }}
+                      onTouchDragStart={(e) => handleCardPointerDown(q.id, e)}
                       onToggleStep={handleToggleStep}
                       onDelete={handleQuestDelete}
                       onUpdate={handleQuestUpdate}

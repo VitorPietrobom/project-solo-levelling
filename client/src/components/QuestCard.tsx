@@ -10,6 +10,9 @@ interface Props {
   dragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
+  /** Long-press-to-drag entry point for touch devices — HTML5 `draggable`
+   *  (used for onDragStart/onDragEnd above) doesn't fire for touch input. */
+  onTouchDragStart: (e: React.PointerEvent) => void;
   onToggleStep: (questId: string, stepId: string, completed: boolean) => void;
   onDelete: (questId: string, title: string) => void;
   onUpdate: (questId: string, patch: { title?: string; description?: string | null; priority?: QuestPriority; dueDate?: string | null; linkedSkillId?: string | null }) => void;
@@ -38,7 +41,7 @@ function isOverdue(dueDate: string | null, completed: boolean): boolean {
   return dueDate.slice(0, 10) < today;
 }
 
-export default function QuestCard({ quest, skills = [], dragging, onDragStart, onDragEnd, onToggleStep, onDelete, onUpdate, onSetCompleted }: Props) {
+export default function QuestCard({ quest, skills = [], dragging, onDragStart, onDragEnd, onTouchDragStart, onToggleStep, onDelete, onUpdate, onSetCompleted }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [editingText, setEditingText] = useState(false);
   const [titleDraft, setTitleDraft] = useState(quest.title);
@@ -55,6 +58,7 @@ export default function QuestCard({ quest, skills = [], dragging, onDragStart, o
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onPointerDown={onTouchDragStart}
       style={{
         background: 'var(--surface)',
         border: `1px solid ${overdue ? 'var(--bad)' : 'var(--line-soft)'}`,
@@ -63,6 +67,7 @@ export default function QuestCard({ quest, skills = [], dragging, onDragStart, o
         transition: 'border-color .16s, opacity .16s',
         opacity: dragging ? 0.45 : 1,
         userSelect: 'none',
+        touchAction: 'pan-y',
       }}
     >
       <div
