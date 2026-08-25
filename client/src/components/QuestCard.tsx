@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Calendar, Flag, Trash2, Sparkles, Pencil } from 'lucide-react';
+import { ChevronDown, Calendar, Flag, Trash2, Sparkles, Pencil, Check, RotateCcw } from 'lucide-react';
 import type { Quest, QuestPriority } from './QuestList';
 import type { Skill } from './SkillList';
 
@@ -13,6 +13,10 @@ interface Props {
   onToggleStep: (questId: string, stepId: string, completed: boolean) => void;
   onDelete: (questId: string, title: string) => void;
   onUpdate: (questId: string, patch: { title?: string; description?: string | null; priority?: QuestPriority; dueDate?: string | null; linkedSkillId?: string | null }) => void;
+  /** Tap equivalent of dragging the card to Done/To Do — the only way to
+   *  bulk-complete or bulk-reset a quest on a touch device, since HTML5
+   *  drag-and-drop has no real mobile support. */
+  onSetCompleted: (questId: string, completed: boolean) => void;
 }
 
 const PRIORITY_META: Record<QuestPriority, { label: string; color: string }> = {
@@ -34,7 +38,7 @@ function isOverdue(dueDate: string | null, completed: boolean): boolean {
   return dueDate.slice(0, 10) < today;
 }
 
-export default function QuestCard({ quest, skills = [], dragging, onDragStart, onDragEnd, onToggleStep, onDelete, onUpdate }: Props) {
+export default function QuestCard({ quest, skills = [], dragging, onDragStart, onDragEnd, onToggleStep, onDelete, onUpdate, onSetCompleted }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [editingText, setEditingText] = useState(false);
   const [titleDraft, setTitleDraft] = useState(quest.title);
@@ -74,6 +78,12 @@ export default function QuestCard({ quest, skills = [], dragging, onDragStart, o
           <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}>{quest.title}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <span className="mono" style={{ fontSize: 11, color: 'var(--accent)', whiteSpace: 'nowrap' }}>+{quest.xpReward}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onSetCompleted(quest.id, !isDone); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: isDone ? 'var(--good)' : 'var(--text-faint)', display: 'flex', padding: 2 }}
+              title={isDone ? 'Reopen quest' : 'Mark all steps done'}
+              aria-label={isDone ? `Reopen quest "${quest.title}"` : `Mark quest "${quest.title}" done`}
+            >{isDone ? <RotateCcw size={13} /> : <Check size={13} />}</button>
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(quest.id, quest.title); }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', padding: 2 }}

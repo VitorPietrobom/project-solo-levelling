@@ -192,18 +192,12 @@ export default function GamificationTab() {
     setConfirmDelete({ id: questId, name: questTitle });
   }
 
-  // Dragging is now a coarse shortcut on top of the real per-step checklist:
-  // drop on Done = complete every step; drop on To Do = reset every step.
-  // "In Progress" isn't a droppable target — that state only ever comes from
-  // checking some-but-not-all steps, which you do inside the card itself.
-  function handleDrop(targetCol: 'To Do' | 'Done') {
-    setDragOverCol(null);
-    if (!dragQuestId) return;
-    const quest = quests.find((q) => q.id === dragQuestId);
-    setDragQuestId(null);
-    if (!quest) return;
-
-    if (targetCol === 'Done') {
+  // Shared by both the kanban drag-drop (desktop) and the tap-to-complete
+  // button on the card itself (mobile has no real drag support) — complete
+  // = every step done, reset = every step cleared. Both are coarse
+  // shortcuts on top of the real per-step checklist.
+  function setQuestCompletion(quest: Quest, complete: boolean) {
+    if (complete) {
       if (quest.completed) return;
       setQuests((prev) => prev.map((q) =>
         q.id === quest.id ? { ...q, completed: true, steps: q.steps.map((s) => ({ ...s, completed: true })) } : q,
@@ -224,6 +218,23 @@ export default function GamificationTab() {
         showToast(errorMessage(err, 'Failed to reset quest'));
       });
     }
+  }
+
+  // "In Progress" isn't a droppable target — that state only ever comes from
+  // checking some-but-not-all steps, which you do inside the card itself.
+  function handleDrop(targetCol: 'To Do' | 'Done') {
+    setDragOverCol(null);
+    if (!dragQuestId) return;
+    const quest = quests.find((q) => q.id === dragQuestId);
+    setDragQuestId(null);
+    if (!quest) return;
+    setQuestCompletion(quest, targetCol === 'Done');
+  }
+
+  function handleQuestSetCompleted(questId: string, complete: boolean) {
+    const quest = quests.find((q) => q.id === questId);
+    if (!quest) return;
+    setQuestCompletion(quest, complete);
   }
 
   function confirmDeleteAction() {
@@ -349,6 +360,7 @@ export default function GamificationTab() {
                       onToggleStep={handleToggleStep}
                       onDelete={handleQuestDelete}
                       onUpdate={handleQuestUpdate}
+                      onSetCompleted={handleQuestSetCompleted}
                     />
                   ))}
                 </div>
