@@ -11,6 +11,8 @@
     "test": "vitest --run"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/utilities": "^3.2.2",
     "@neondatabase/auth": "^0.3.0-beta",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
