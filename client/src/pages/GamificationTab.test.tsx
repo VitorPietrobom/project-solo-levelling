@@ -1,7 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import GamificationTab from './GamificationTab';
+
+// jsdom has no PointerEvent constructor, so testing-library's fireEvent
+// falls back to a plain Event that silently drops pointerType/clientX/
+// clientY — the touch-drag tests below need those to actually reach the
+// handler, so polyfill a minimal PointerEvent on top of MouseEvent (which
+// jsdom does support clientX/clientY on).
+if (typeof (window as unknown as { PointerEvent?: unknown }).PointerEvent === 'undefined') {
+  class PointerEventPolyfill extends MouseEvent {
+    pointerType: string;
+    constructor(type: string, params: MouseEventInit & { pointerType?: string } = {}) {
+      super(type, params);
+      this.pointerType = params.pointerType ?? '';
+    }
+  }
+  (window as unknown as { PointerEvent: unknown }).PointerEvent = PointerEventPolyfill;
+}
 
 const mockGet = vi.fn();
 const mockPost = vi.fn();
@@ -113,6 +129,41 @@ describe('GamificationTab', () => {
     fireEvent.drop(doneColumn);
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/complete'));
+  });
+
+  it('long-presses a quest card and drags it to "Done" on a touch device', async () => {
+    render(<GamificationTab />);
+    await waitFor(() => expect(screen.getByText('Learn Guitar')).toBeInTheDocument());
+
+    const card = screen.getByText('Learn Guitar').closest('[draggable]') as HTMLElement;
+    const doneColumn = document.querySelector('[data-quest-col="Done"]') as HTMLElement;
+    // jsdom doesn't implement elementFromPoint at all — stub it directly.
+    (document as unknown as { elementFromPoint: () => Element }).elementFromPoint = () => doneColumn;
+
+    fireEvent.pointerDown(card, { pointerType: 'touch', clientX: 10, clientY: 10 });
+    // A quick tap (no hold) must NOT trigger a drag — only a sustained
+    // press past the long-press threshold does.
+    fireEvent.pointerMove(window as unknown as Element, { clientX: 10, clientY: 10 });
+    expect(mockPatch).not.toHaveBeenCalledWith('/api/quests/q1/complete');
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 400))); // past the long-press threshold
+    fireEvent.pointerMove(window as unknown as Element, { clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(window as unknown as Element);
+
+    await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/complete'));
+    expect(addXP).toHaveBeenCalledWith(100, 'Learn Guitar');
+  });
+
+  it('releasing a touch drag before the long-press threshold does nothing (lets a normal scroll/tap through)', async () => {
+    render(<GamificationTab />);
+    await waitFor(() => expect(screen.getByText('Learn Guitar')).toBeInTheDocument());
+
+    const card = screen.getByText('Learn Guitar').closest('[draggable]') as HTMLElement;
+    fireEvent.pointerDown(card, { pointerType: 'touch', clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(window as unknown as Element);
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
+    expect(mockPatch).not.toHaveBeenCalledWith('/api/quests/q1/complete');
   });
 
   it('opens a habit-only quest form pre-set to Daily from the "New Habit" button', async () => {
