@@ -75,3 +75,54 @@ export async function createWeightEntry(req: Request, res: Response): Promise<vo
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function updateWeightEntry(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const id = req.params.id as string;
+    const { weight } = req.body;
+
+    if (typeof weight !== 'number' || weight <= 0) {
+      res.status(400).json({ error: 'Weight must be a positive number' });
+      return;
+    }
+
+    const existing = await prisma.weightEntry.findFirst({ where: { id, userId } });
+    if (!existing) {
+      res.status(404).json({ error: 'Weight entry not found' });
+      return;
+    }
+
+    // A correction to a manual weigh-in — not a re-sync — so it should stay
+    // "manual" even if the original row came from WHOOP (same reasoning as
+    // createWeightEntry's whoop→manual override for the same-day case).
+    const updated = await prisma.weightEntry.update({
+      where: { id },
+      data: { weight, source: 'manual' },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function deleteWeightEntry(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const id = req.params.id as string;
+
+    const existing = await prisma.weightEntry.findFirst({ where: { id, userId } });
+    if (!existing) {
+      res.status(404).json({ error: 'Weight entry not found' });
+      return;
+    }
+
+    await prisma.weightEntry.delete({ where: { id } });
+    res.json({ message: 'Weight entry deleted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}

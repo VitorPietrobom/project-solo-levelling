@@ -60,3 +60,47 @@ export async function createMeasurement(req: Request, res: Response): Promise<vo
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function updateMeasurement(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const id = req.params.id as string;
+    const { value } = req.body;
+
+    if (typeof value !== 'number' || value <= 0) {
+      res.status(400).json({ error: 'Value must be a positive number' });
+      return;
+    }
+
+    const existing = await prisma.measurement.findFirst({ where: { id, userId } });
+    if (!existing) {
+      res.status(404).json({ error: 'Measurement not found' });
+      return;
+    }
+
+    const updated = await prisma.measurement.update({ where: { id }, data: { value } });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function deleteMeasurement(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const id = req.params.id as string;
+
+    const existing = await prisma.measurement.findFirst({ where: { id, userId } });
+    if (!existing) {
+      res.status(404).json({ error: 'Measurement not found' });
+      return;
+    }
+
+    await prisma.measurement.delete({ where: { id } });
+    res.json({ message: 'Measurement deleted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
