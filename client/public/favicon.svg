@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <title>Project Arise</title>
+  <rect width="1024" height="1024" rx="220" fill="#1e1e2e"/>
   <path fill="#fff" d="M512 74 168 704l224-116 60 360 60-350 60 350 60-360 224 116L512 74Zm0 214 207 377-151-91-56 306-56-306-151 91 207-377Z" fill-rule="evenodd"/>
 </svg>
