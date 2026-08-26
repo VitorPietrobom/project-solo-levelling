@@ -3,12 +3,15 @@ import { Plus, Dumbbell, Clock } from 'lucide-react';
 import WeightChart from '../components/WeightChart';
 import type { WeightEntry } from '../components/WeightChart';
 import WeightForm from '../components/WeightForm';
+import WeightEntryList from '../components/WeightEntryList';
 import BodyMeasurementDiagram from '../components/BodyMeasurementDiagram';
 import type { Measurement } from '../components/MeasurementList';
 import MeasurementForm from '../components/MeasurementForm';
+import MeasurementEntryList from '../components/MeasurementEntryList';
 import GymSessionLog from '../components/GymSessionLog';
 import type { GymSession } from '../components/GymSessionLog';
 import GymSessionImport from '../components/GymSessionImport';
+import GymSessionForm from '../components/GymSessionForm';
 import SorenessBodyDiagram from '../components/SorenessBodyDiagram';
 import TrainingProgramView from '../components/TrainingProgramView';
 import type { TrainingProgram } from '../components/TrainingProgramView';
@@ -34,6 +37,7 @@ export default function BodyTab() {
   const [showMeasurementForm, setShowMeasurementForm] = useState(false);
   const [gymSessions, setGymSessions] = useState<GymSession[]>([]);
   const [showImport, setShowImport] = useState(false);
+  const [showManualSession, setShowManualSession] = useState(false);
   const [heatmap, setHeatmap] = useState<Record<string, number>>({});
   const [programs, setPrograms] = useState<TrainingProgram[]>([]);
   const [showProgramForm, setShowProgramForm] = useState(false);
@@ -74,6 +78,42 @@ export default function BodyTab() {
       });
   }
 
+  function handleWeightUpdated(id: string, weight: number) {
+    const prev = weightEntries;
+    setWeightEntries((entries) => entries.map((e) => (e.id === id ? { ...e, weight } : e)));
+    apiClient.patch(`/api/weight/${id}`, { body: { weight } }).catch((err) => {
+      setWeightEntries(prev);
+      showToast(errorMessage(err, 'Failed to update weight entry'));
+    });
+  }
+
+  function handleWeightDeleted(id: string) {
+    const prev = weightEntries;
+    setWeightEntries((entries) => entries.filter((e) => e.id !== id));
+    apiClient.delete(`/api/weight/${id}`).catch((err) => {
+      setWeightEntries(prev);
+      showToast(errorMessage(err, 'Failed to delete weight entry'));
+    });
+  }
+
+  function handleMeasurementUpdated(id: string, value: number) {
+    const prev = measurements;
+    setMeasurements((entries) => entries.map((m) => (m.id === id ? { ...m, value } : m)));
+    apiClient.patch(`/api/measurements/${id}`, { body: { value } }).catch((err) => {
+      setMeasurements(prev);
+      showToast(errorMessage(err, 'Failed to update measurement'));
+    });
+  }
+
+  function handleMeasurementDeleted(id: string) {
+    const prev = measurements;
+    setMeasurements((entries) => entries.filter((m) => m.id !== id));
+    apiClient.delete(`/api/measurements/${id}`).catch((err) => {
+      setMeasurements(prev);
+      showToast(errorMessage(err, 'Failed to delete measurement'));
+    });
+  }
+
   function handleMeasurementCreated(optimistic: Measurement, body: { type: string; value: number; date: string }) {
     setMeasurements((prev) => [...prev, optimistic].sort((a, b) => a.date.localeCompare(b.date)));
     setShowMeasurementForm(false);
@@ -91,6 +131,7 @@ export default function BodyTab() {
   ) {
     setGymSessions((prev) => [optimistic, ...prev]);
     setShowImport(false);
+    setShowManualSession(false);
     apiClient.post('/api/gym-sessions', { body })
       .then((data) => { setGymSessions((prev) => prev.map((s) => (s.id === optimistic.id ? (data as GymSession) : s))); fetchHeatmap(); })
       .catch((err) => {
@@ -177,6 +218,9 @@ export default function BodyTab() {
         </div>
         {showWeightForm && <div style={{ marginBottom: 16 }}><WeightForm onCreated={handleWeightCreated} /></div>}
         <WeightChart entries={weightEntries} />
+        <div style={{ marginTop: 16 }}>
+          <WeightEntryList entries={weightEntries} onUpdate={handleWeightUpdated} onDelete={handleWeightDeleted} />
+        </div>
       </section>
 
       {/* Measurements + Soreness */}
@@ -190,6 +234,9 @@ export default function BodyTab() {
           </div>
           {showMeasurementForm && <div style={{ marginBottom: 16 }}><MeasurementForm onCreated={handleMeasurementCreated} /></div>}
           <BodyMeasurementDiagram measurements={measurements} />
+          <div style={{ marginTop: 16 }}>
+            <MeasurementEntryList measurements={measurements} onUpdate={handleMeasurementUpdated} onDelete={handleMeasurementDeleted} />
+          </div>
         </section>
 
         <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
@@ -204,12 +251,18 @@ export default function BodyTab() {
       {/* Gym sessions + Training Programs */}
       <div className="grid-2-col">
         <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <h3 style={{ fontSize: 17 }}>Recent Sessions</h3>
-            <button className="btn btn-ghost" onClick={() => setShowImport(!showImport)}>
-              <Plus size={15} strokeWidth={2.4} />{showImport ? 'Cancel' : 'Import from Hevy'}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-ghost" onClick={() => { setShowManualSession(!showManualSession); setShowImport(false); }}>
+                <Plus size={15} strokeWidth={2.4} />{showManualSession ? 'Cancel' : 'Log Session'}
+              </button>
+              <button className="btn btn-ghost" onClick={() => { setShowImport(!showImport); setShowManualSession(false); }}>
+                <Plus size={15} strokeWidth={2.4} />{showImport ? 'Cancel' : 'Import from Hevy'}
+              </button>
+            </div>
           </div>
+          {showManualSession && <div style={{ marginBottom: 16 }}><GymSessionForm onCreated={handleGymSessionImported} /></div>}
           {showImport && <div style={{ marginBottom: 16 }}><GymSessionImport onImport={handleGymSessionImported} /></div>}
           {gymSessions.length > 0 ? (
             <GymSessionLog sessions={gymSessions} onDelete={handleGymSessionDeleted} />

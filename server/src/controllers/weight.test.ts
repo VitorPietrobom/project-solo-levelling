@@ -7,8 +7,10 @@ vi.mock('../lib/prisma', () => ({
     weightEntry: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
     user: {
       upsert: vi.fn().mockResolvedValue({}),
@@ -172,6 +174,51 @@ describe('Weight endpoints', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Date is required');
+    });
+  });
+
+  describe('PATCH /api/weight/:id', () => {
+    it('updates a weight entry and forces its source back to manual', async () => {
+      (prisma.weightEntry.findFirst as any).mockResolvedValue({ id: 'w1', userId: 'test-user-id', weight: 80.5, source: 'whoop' });
+      (prisma.weightEntry.update as any).mockResolvedValue({ id: 'w1', userId: 'test-user-id', weight: 81, source: 'manual' });
+
+      const res = await request(app).patch('/api/weight/w1').send({ weight: 81 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.weight).toBe(81);
+      expect(res.body.source).toBe('manual');
+      expect(prisma.weightEntry.update).toHaveBeenCalledWith({ where: { id: 'w1' }, data: { weight: 81, source: 'manual' } });
+    });
+
+    it('returns 400 for a non-positive weight', async () => {
+      const res = await request(app).patch('/api/weight/w1').send({ weight: 0 });
+      expect(res.status).toBe(400);
+      expect(prisma.weightEntry.update).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for another user\'s entry', async () => {
+      (prisma.weightEntry.findFirst as any).mockResolvedValue(null);
+      const res = await request(app).patch('/api/weight/not-mine').send({ weight: 81 });
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('DELETE /api/weight/:id', () => {
+    it('deletes a weight entry', async () => {
+      (prisma.weightEntry.findFirst as any).mockResolvedValue({ id: 'w1', userId: 'test-user-id' });
+      (prisma.weightEntry.delete as any).mockResolvedValue({});
+
+      const res = await request(app).delete('/api/weight/w1');
+
+      expect(res.status).toBe(200);
+      expect(prisma.weightEntry.delete).toHaveBeenCalledWith({ where: { id: 'w1' } });
+    });
+
+    it('returns 404 for another user\'s entry', async () => {
+      (prisma.weightEntry.findFirst as any).mockResolvedValue(null);
+      const res = await request(app).delete('/api/weight/not-mine');
+      expect(res.status).toBe(404);
+      expect(prisma.weightEntry.delete).not.toHaveBeenCalled();
     });
   });
 });

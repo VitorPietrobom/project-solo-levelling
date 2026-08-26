@@ -6,7 +6,10 @@ vi.mock('../lib/prisma', () => ({
   default: {
     measurement: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
     },
     user: {
       upsert: vi.fn().mockResolvedValue({}),
@@ -101,6 +104,50 @@ describe('Measurement endpoints', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Value must be a positive number');
+    });
+  });
+
+  describe('PATCH /api/measurements/:id', () => {
+    it('updates a measurement value', async () => {
+      (prisma.measurement.findFirst as any).mockResolvedValue({ id: 'm1', userId: 'test-user-id', type: 'chest', value: 100 });
+      (prisma.measurement.update as any).mockResolvedValue({ id: 'm1', userId: 'test-user-id', type: 'chest', value: 102 });
+
+      const res = await request(app).patch('/api/measurements/m1').send({ value: 102 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.value).toBe(102);
+      expect(prisma.measurement.update).toHaveBeenCalledWith({ where: { id: 'm1' }, data: { value: 102 } });
+    });
+
+    it('returns 400 for a non-positive value', async () => {
+      const res = await request(app).patch('/api/measurements/m1').send({ value: -1 });
+      expect(res.status).toBe(400);
+      expect(prisma.measurement.update).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for another user\'s measurement', async () => {
+      (prisma.measurement.findFirst as any).mockResolvedValue(null);
+      const res = await request(app).patch('/api/measurements/not-mine').send({ value: 102 });
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('DELETE /api/measurements/:id', () => {
+    it('deletes a measurement', async () => {
+      (prisma.measurement.findFirst as any).mockResolvedValue({ id: 'm1', userId: 'test-user-id' });
+      (prisma.measurement.delete as any).mockResolvedValue({});
+
+      const res = await request(app).delete('/api/measurements/m1');
+
+      expect(res.status).toBe(200);
+      expect(prisma.measurement.delete).toHaveBeenCalledWith({ where: { id: 'm1' } });
+    });
+
+    it('returns 404 for another user\'s measurement', async () => {
+      (prisma.measurement.findFirst as any).mockResolvedValue(null);
+      const res = await request(app).delete('/api/measurements/not-mine');
+      expect(res.status).toBe(404);
+      expect(prisma.measurement.delete).not.toHaveBeenCalled();
     });
   });
 });
