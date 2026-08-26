@@ -3,13 +3,25 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SettingsTab from './SettingsTab';
 
+const { ApiError } = vi.hoisted(() => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
 const mockGet = vi.fn();
 const mockPut = vi.fn();
 vi.mock('../lib/apiClient', () => ({
   apiClient: {
     get: (...args: any[]) => mockGet(...args),
     put: (...args: any[]) => mockPut(...args),
+    post: vi.fn(),
   },
+  ApiError,
   errorMessage: (_err: any, fallback: string) => fallback,
 }));
 
@@ -26,7 +38,10 @@ vi.mock('../components/DataExport', () => ({ default: () => <div /> }));
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGet.mockResolvedValue({ hunterName: 'Shadow Monarch', practiceReminderDays: 14 });
+  mockGet.mockImplementation((url: string) => {
+    if (url === '/api/invite/codes') return Promise.reject(new ApiError('Admin access required', 403));
+    return Promise.resolve({ hunterName: 'Shadow Monarch', practiceReminderDays: 14 });
+  });
 });
 
 describe('SettingsTab hunter name', () => {

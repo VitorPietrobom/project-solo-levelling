@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import DataExport from '../components/DataExport';
+import InviteCodeAdmin from '../components/InviteCodeAdmin';
 import { apiClient, errorMessage } from '../lib/apiClient';
 import { useToast } from '../contexts/ToastContext';
 
@@ -110,6 +111,7 @@ export default function SettingsTab() {
 
   return (
     <div style={{ display: 'grid', gap: 'var(--gap)', maxWidth: 560 }}>
+      <InviteCodeAdmin />
       <DataExport />
 
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
