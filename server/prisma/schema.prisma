@@ -116,6 +116,14 @@ model User {
   // How many days a skill can go untouched before the Skills page flags it
   // as needing practice. Configurable in Settings.
   practiceReminderDays Int      @default(14)
+  // Alpha access gate, checked client-side only (GET/POST /api/invite/*) —
+  // not enforced by ensureUser, so it doesn't touch the rest of the API's
+  // auth path. Defaults to true so existing rows (everyone using the app
+  // before this column existed) aren't locked out; a brand new user's row
+  // is created with this explicitly false, the first time GET
+  // /api/invite/status runs — which the client always calls before
+  // rendering anything else, so no other route creates the row first.
+  activated            Boolean  @default(true)
   createdAt            DateTime @default(now())
 
   quests             Quest[]
@@ -142,6 +150,22 @@ model User {
   whoopDailies       WhoopDaily[]
   nutritionXpClaims  NutritionXpClaim[]
   specialQuestCompletions SpecialQuestCompletion[]
+  feedback           Feedback[]
+}
+
+// A note a tester leaves from anywhere in the app during the alpha —
+// intentionally minimal (no status/priority workflow), just a timestamped
+// record you can read straight out of the database.
+model Feedback {
+  id        String   @id @default(uuid())
+  userId    String
+  message   String
+  // Which tab it was sent from (e.g. "/diet"), for context on what they
+  // were looking at — not required, since the button is global.
+  page      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // One row per (user, template, period) the user has claimed a random Daily

@@ -16,6 +16,12 @@ vi.mock('../lib/neonAuth', () => ({
   getAuthToken: vi.fn(),
 }));
 
+const mockGet = vi.fn();
+vi.mock('../lib/apiClient', () => ({
+  apiClient: { get: (...args: any[]) => mockGet(...args), post: vi.fn() },
+  errorMessage: (_err: any, fallback: string) => fallback,
+}));
+
 function renderWithAuth(initialEntries: string[] = ['/']) {
   return render(
     <MemoryRouter initialEntries={initialEntries}>
@@ -39,6 +45,7 @@ function renderWithAuth(initialEntries: string[] = ['/']) {
 describe('ProtectedRoute', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGet.mockResolvedValue({ activated: true });
   });
 
   it('redirects to /login when not authenticated', async () => {
@@ -47,7 +54,7 @@ describe('ProtectedRoute', () => {
     expect(await screen.findByText('Login Page')).toBeInTheDocument();
   });
 
-  it('renders children when authenticated', async () => {
+  it('renders children when authenticated and activated', async () => {
     sessionState = {
       data: { user: { id: '1', email: 'user@example.com' }, session: { id: 's1' } },
       isPending: false,
@@ -60,5 +67,26 @@ describe('ProtectedRoute', () => {
     sessionState = { data: null, isPending: true };
     renderWithAuth();
     expect(screen.getByText('Loading...')).toBeInTheDocument();
+  });
+
+  it('shows the invite gate instead of children when not activated', async () => {
+    mockGet.mockResolvedValue({ activated: false });
+    sessionState = {
+      data: { user: { id: '1', email: 'user@example.com' }, session: { id: 's1' } },
+      isPending: false,
+    };
+    renderWithAuth();
+    expect(await screen.findByLabelText('Invite code')).toBeInTheDocument();
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+  });
+
+  it('fails open (renders children) if the activation check itself fails', async () => {
+    mockGet.mockRejectedValue(new Error('network down'));
+    sessionState = {
+      data: { user: { id: '1', email: 'user@example.com' }, session: { id: 's1' } },
+      isPending: false,
+    };
+    renderWithAuth();
+    expect(await screen.findByText('Protected Content')).toBeInTheDocument();
   });
 });

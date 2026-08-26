@@ -26,6 +26,8 @@ import nutritionRoutes from './routes/nutrition';
 import exportRoutes from './routes/export';
 import learningRoutes from './routes/learning';
 import knowledgeRoutes from './routes/knowledge';
+import inviteRoutes from './routes/invite';
+import feedbackRoutes from './routes/feedback';
 import { authProxy } from './controllers/authProxy';
 
 const app = express();
@@ -66,6 +68,8 @@ app.use('/api/nutrition', nutritionRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/learning', learningRoutes);
 app.use('/api/knowledge', knowledgeRoutes);
+app.use('/api/invite', inviteRoutes);
+app.use('/api/feedback', feedbackRoutes);
 // Same-origin auth proxy (all methods, any sub-path) so session cookies are first-party.
 app.all('/api/auth-proxy/*', authProxy);
 
