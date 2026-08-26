@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { getInviteStatus, redeemInvite } from '../controllers/invite';
+import { getInviteStatus, redeemInvite, generateInviteCode, listInviteCodes } from '../controllers/invite';
 import { authMiddleware } from '../middleware/auth';
+import { requireAdmin } from '../middleware/requireAdmin';
 
 const router = Router();
 
@@ -8,5 +9,8 @@ const router = Router();
 // user gets unstuck, so they must work before activation.
 router.get('/status', authMiddleware, getInviteStatus);
 router.post('/redeem', authMiddleware, redeemInvite);
+
+router.get('/codes', authMiddleware, requireAdmin, listInviteCodes);
+router.post('/codes', authMiddleware, requireAdmin, generateInviteCode);
 
 export default router;
