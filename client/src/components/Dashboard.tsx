@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
+import FeedbackButton from './FeedbackButton';
 
 interface GamificationStatus {
   level: number;
@@ -408,6 +409,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <FeedbackButton />
     </div>
   );
 }

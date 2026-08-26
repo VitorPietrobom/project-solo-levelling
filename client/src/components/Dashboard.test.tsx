@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import { AuthProvider } from '../contexts/AuthContext';
+import { ToastProvider } from '../contexts/ToastContext';
 
 let sessionState: { data: unknown; isPending: boolean } = { data: null, isPending: false };
 vi.mock('../lib/neonAuth', () => ({
@@ -23,14 +24,16 @@ function renderDashboard() {
 
   return render(
     <MemoryRouter initialEntries={['/']}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Dashboard />}>
-            <Route index element={<div>Gamification Content</div>} />
-            <Route path="body" element={<div>Body Content</div>} />
-          </Route>
-        </Routes>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Dashboard />}>
+              <Route index element={<div>Gamification Content</div>} />
+              <Route path="body" element={<div>Body Content</div>} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </ToastProvider>
     </MemoryRouter>,
   );
 }
