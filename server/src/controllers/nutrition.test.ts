@@ -1,5 +1,89 @@
-import { describe, it, expect } from 'vitest';
-import { weekStartOf, energyBalanceTdee } from './nutrition';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import request from 'supertest';
+
+vi.mock('../lib/prisma', () => ({
+  default: {
+    user: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      upsert: vi.fn().mockResolvedValue({}),
+    },
+    nutritionXpClaim: {
+      create: vi.fn(),
+      delete: vi.fn(),
+    },
+  },
+}));
+
+vi.mock('../middleware/auth', async () => ({
+  authMiddleware: (req: any, _res: any, next: any) => {
+    req.user = { id: 'test-user-id', email: 'test@example.com' };
+    next();
+  },
+}));
+
+import app from '../index';
+import prisma from '../lib/prisma';
+import { weekStartOf, energyBalanceTdee, isWithinClaimWindow } from './nutrition';
+
+function utcDayOffset(n: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+describe('isWithinClaimWindow', () => {
+  const now = new Date('2026-10-15T12:00:00Z');
+  it('allows today, yesterday and tomorrow', () => {
+    expect(isWithinClaimWindow('2026-10-15', now)).toBe(true);
+    expect(isWithinClaimWindow('2026-10-14', now)).toBe(true);
+    expect(isWithinClaimWindow('2026-10-16', now)).toBe(true);
+  });
+  it('rejects dates two or more days away', () => {
+    expect(isWithinClaimWindow('2026-10-13', now)).toBe(false);
+    expect(isWithinClaimWindow('2026-10-17', now)).toBe(false);
+    expect(isWithinClaimWindow('2019-01-01', now)).toBe(false);
+  });
+  it('handles month/year boundaries', () => {
+    expect(isWithinClaimWindow('2025-12-31', new Date('2026-01-01T00:30:00Z'))).toBe(true);
+  });
+});
+
+describe('POST /api/nutrition/claim date window', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // User lookup fails → 404, which proves the request passed the window check.
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+  });
+
+  it('rejects a far-past date with 400 and awards no XP', async () => {
+    const res = await request(app).post('/api/nutrition/claim').send({ date: '2019-01-01' });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Can only claim nutrition XP for today' });
+    expect(prisma.nutritionXpClaim.create).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a date two days ago with 400', async () => {
+    const res = await request(app).post('/api/nutrition/claim').send({ date: utcDayOffset(-2) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Can only claim nutrition XP for today');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it.each([['today', 0], ['yesterday', -1], ['tomorrow', 1]])('allows %s past the window check', async (_l, off) => {
+    const res = await request(app).post('/api/nutrition/claim').send({ date: utcDayOffset(off as number) });
+    expect(res.status).toBe(404);
+    expect(prisma.user.findUnique).toHaveBeenCalled();
+  });
+
+  it('returns 500 JSON when the database throws', async () => {
+    vi.mocked(prisma.user.findUnique).mockRejectedValue(new Error('db down'));
+    const res = await request(app).post('/api/nutrition/claim').send({ date: utcDayOffset(0) });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBeDefined();
+  });
+});
 
 describe('weekStartOf', () => {
   it('returns the Monday of the week for a mid-week date', () => {
