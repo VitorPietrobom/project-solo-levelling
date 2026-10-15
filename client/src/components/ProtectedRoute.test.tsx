@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import { AuthProvider } from '../contexts/AuthContext';
@@ -80,13 +80,18 @@ describe('ProtectedRoute', () => {
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
   });
 
-  it('fails open (renders children) if the activation check itself fails', async () => {
-    mockGet.mockRejectedValue(new Error('network down'));
+  it('shows retry on error instead of failing open, and Retry re-runs the check', async () => {
+    mockGet.mockRejectedValueOnce(new Error('network down'));
     sessionState = {
       data: { user: { id: '1', email: 'user@example.com' }, session: { id: 's1' } },
       isPending: false,
     };
     renderWithAuth();
+    expect(await screen.findByText("Couldn't verify your access.")).toBeInTheDocument();
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('Protected Content')).toBeInTheDocument();
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 });
