@@ -35,8 +35,15 @@ Set these in Vercel → Project → Settings → Environment Variables:
 | `DIRECT_URL` | Neon direct connection string | Used for migrations |
 | `NEON_AUTH_JWKS_URL` | From Neon Console → Auth tab | e.g. `https://<project>.neon.tech/.well-known/jwks.json` |
 | `VITE_NEON_AUTH_URL` | From Neon Console → Auth tab | e.g. `https://<project>.neon.tech` |
+| `ADMIN_USER_ID` | Your user id (JWT `sub`) | Grants admin (invite-code) access. Comma-separated for several admins — see below |
 
 > **Important:** `DATABASE_URL` must be the **pooled** connection string (host contains `-pooler`), not the direct one. Serverless functions require connection pooling.
+
+### Admin access (`ADMIN_USER_ID`)
+
+Admin routes (`/api/invite/codes`) are authorized by **user id**, not email. To find your id, sign in to the app once, then read the `id` column of your row in the `User` table (e.g. `SELECT id, email FROM "User";` in the Neon SQL editor) and set it as `ADMIN_USER_ID`.
+
+The legacy `ADMIN_EMAIL` variable is honoured only when `ADMIN_USER_ID` is unset, and only for tokens whose email is verified. If neither is set, nobody is admin.
 
 ### Getting Neon Auth values
 
