@@ -20,10 +20,12 @@ vi.mock('../lib/prisma', () => ({
 
 vi.mock('../middleware/auth', async () => ({
   authMiddleware: (req: any, _res: any, next: any) => {
-    req.user = { id: 'test-user-id', email: 'test@example.com' };
+    req.user = { id: 'test-user-id', email: 'test@example.com', emailVerified: mockAuth.emailVerified };
     next();
   },
 }));
+
+const mockAuth = vi.hoisted(() => ({ emailVerified: true }));
 
 import prisma from '../lib/prisma';
 
@@ -31,6 +33,8 @@ describe('Invite endpoints', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.ADMIN_EMAIL;
+    delete process.env.ADMIN_USER_ID;
+    mockAuth.emailVerified = true;
   });
 
   describe('GET /api/invite/status', () => {
@@ -154,6 +158,40 @@ describe('Invite endpoints', () => {
       const res = await request(app).get('/api/invite/codes');
 
       expect(res.status).toBe(200);
+    });
+
+    it('lets a user whose id is in ADMIN_USER_ID through (comma-separated)', async () => {
+      process.env.ADMIN_USER_ID = 'other-id, test-user-id';
+      mockAuth.emailVerified = false;
+      (prisma.inviteCode.findMany as any).mockResolvedValue([]);
+
+      const res = await request(app).get('/api/invite/codes');
+
+      expect(res.status).toBe(200);
+    });
+
+    it('403s a user not in ADMIN_USER_ID even if their verified email matches ADMIN_EMAIL', async () => {
+      process.env.ADMIN_USER_ID = 'someone-else';
+      process.env.ADMIN_EMAIL = 'test@example.com';
+
+      const res = await request(app).get('/api/invite/codes');
+
+      expect(res.status).toBe(403);
+    });
+
+    it('403s an email match when the email is not verified', async () => {
+      process.env.ADMIN_EMAIL = 'test@example.com';
+      mockAuth.emailVerified = false;
+
+      const res = await request(app).post('/api/invite/codes');
+
+      expect(res.status).toBe(403);
+      expect(prisma.inviteCode.create).not.toHaveBeenCalled();
+    });
+
+    it('403s everyone when neither ADMIN_USER_ID nor ADMIN_EMAIL is configured', async () => {
+      const res = await request(app).get('/api/invite/codes');
+      expect(res.status).toBe(403);
     });
   });
 });

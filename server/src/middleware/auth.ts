@@ -4,6 +4,9 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 export interface AuthPayload {
   id: string;
   email: string;
+  // Whether the identity provider has verified `email`. Never trust `email`
+  // for authorization unless this is true.
+  emailVerified: boolean;
 }
 
 declare global {
@@ -69,6 +72,9 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     const authPayload: AuthPayload = {
       id: payload.sub as string,
       email: (payload.email as string) || '',
+      // Better Auth's JWT plugin serializes the user object, so the claim is
+      // `emailVerified`; also accept the OIDC-standard `email_verified`.
+      emailVerified: payload.emailVerified === true || payload.email_verified === true,
     };
     const expiresAt = payload.exp ? payload.exp * 1000 : Date.now() + 3600_000;
     tokenCache.set(token, { payload: authPayload, expiresAt });
