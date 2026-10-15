@@ -271,6 +271,12 @@ model Quest {
   // "completed for today/this week" state is derived from this, the same
   // way the old Task model worked.
   lastCompletedAt DateTime?
+  // What the current completion actually granted (XP amount and skill),
+  // so revoking undoes exactly that even if xpReward/linkedSkillId were
+  // edited afterwards. Null on legacy rows completed before this existed —
+  // revoke paths then fall back to the current xpReward/linkedSkillId.
+  awardedXP       Int?
+  awardedSkillId  String?
   // Set only on rows created by the one-time "import my tasks" migration,
   // so re-running it is idempotent and never double-imports.
   legacyTaskId    String?       @unique
