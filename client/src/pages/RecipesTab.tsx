@@ -39,7 +39,30 @@ function Metric({ label, value, unit, accent }: { label: string; value: number |
   );
 }
 
+const MEAL_TYPES = [
+  { value: 'breakfast', label: 'Breakfast' },
+  { value: 'lunch', label: 'Lunch' },
+  { value: 'dinner', label: 'Dinner' },
+  { value: 'snack', label: 'Snack' },
+];
+
+function defaultMealType(now = new Date()): string {
+  const h = now.getHours();
+  if (h >= 5 && h < 11) return 'breakfast';
+  if (h >= 11 && h < 15) return 'lunch';
+  if (h >= 17 && h < 22) return 'dinner';
+  return 'snack';
+}
+
+function localDateString(d = new Date()): string {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: () => void }) {
+  const { showToast } = useToast();
+  const [mealType, setMealType] = useState(defaultMealType);
   const [logged, setLogged] = useState(false);
   const [logging, setLogging] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -64,7 +87,7 @@ function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: (
   async function handleLogAsEaten() {
     setLogging(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = localDateString();
       await apiClient.post('/api/food-entries', {
         body: {
           foodName: recipe.name,
@@ -72,13 +95,15 @@ function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: (
           protein: recipe.protein ?? 0,
           carbs: recipe.carbs ?? 0,
           fat: recipe.fat ?? 0,
-          mealType: 'Snack',
+          mealType,
           date: today,
         },
       });
       setLogged(true);
+      showToast(`Logged ${recipe.name}`);
       setTimeout(onClose, 900);
-    } catch {
+    } catch (err) {
+      showToast(errorMessage(err, 'Failed to log recipe'));
       setLogging(false);
     }
   }
@@ -239,6 +264,22 @@ function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: (
           <button className="btn" onClick={handleShare} disabled={sharing}>
             <Share2 size={15} strokeWidth={2.4} />{sharing ? 'Creating…' : 'Share'}
           </button>
+          <select
+            aria-label="Meal type"
+            value={mealType}
+            onChange={(e) => setMealType(e.target.value)}
+            disabled={logging || logged}
+            style={{
+              background: 'var(--surface-inset)',
+              border: '1px solid var(--line-soft)',
+              borderRadius: 'var(--r-sm)',
+              color: 'var(--text)',
+              padding: '8px 12px',
+              fontSize: 13,
+            }}
+          >
+            {MEAL_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
           <button
             className="btn btn-primary"
             onClick={handleLogAsEaten}
