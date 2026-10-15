@@ -4,6 +4,8 @@ import app from '../index';
 
 vi.mock('../lib/prisma', () => ({
   default: {
+    // Invokes the callback with the mocked client itself (see beforeEach).
+    $transaction: vi.fn(),
     mealPrepPlan: {
       findFirst: vi.fn(),
       create: vi.fn(),
@@ -49,10 +51,21 @@ const mockRecipe2 = {
   ],
 };
 
+let inTransaction = false;
+
 describe('Meal Prep endpoints', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (prisma.recipe.count as any).mockResolvedValue(1);
+    inTransaction = false;
+    (prisma.$transaction as any).mockImplementation(async (fn: (tx: unknown) => unknown) => {
+      inTransaction = true;
+      try {
+        return await fn(prisma);
+      } finally {
+        inTransaction = false;
+      }
+    });
   });
 
   describe('GET /api/meal-prep', () => {
@@ -133,6 +146,49 @@ describe('Meal Prep endpoints', () => {
       expect(res.status).toBe(201);
       expect(prisma.mealPrepEntry.deleteMany).toHaveBeenCalledWith({ where: { planId: 'p1' } });
       expect(res.body.entries[0].recipe.name).toBe('Salad');
+    });
+
+    it('returns 400 for duplicate (dayOfWeek, mealType) slots without touching the plan', async () => {
+      const res = await request(app)
+        .post('/api/meal-prep')
+        .send({
+          weekStartDate: '2025-01-06',
+          entries: [
+            { dayOfWeek: 'mon', mealType: 'lunch', recipeId: 'r1' },
+            { dayOfWeek: 'mon', mealType: 'lunch', recipeId: 'r2' },
+          ],
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Duplicate meal slot: mon lunch');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.mealPrepEntry.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.mealPrepPlan.update).not.toHaveBeenCalled();
+    });
+
+    it('runs the delete inside the transaction and returns 500 when the write fails', async () => {
+      const existing = { id: 'p1', userId: 'test-user-id', weekStartDate: '2025-01-06T00:00:00.000Z' };
+      let deleteRanInTransaction = false;
+      (prisma.mealPrepPlan.findFirst as any).mockResolvedValue(existing);
+      (prisma.mealPrepEntry.deleteMany as any).mockImplementation(async () => {
+        deleteRanInTransaction = inTransaction;
+        return { count: 1 };
+      });
+      (prisma.mealPrepPlan.update as any).mockRejectedValue(new Error('Unique constraint failed'));
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const res = await request(app)
+        .post('/api/meal-prep')
+        .send({
+          weekStartDate: '2025-01-06',
+          entries: [{ dayOfWeek: 'tue', mealType: 'lunch', recipeId: 'r2' }],
+        });
+
+      errSpy.mockRestore();
+      expect(res.status).toBe(500);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.mealPrepEntry.deleteMany).toHaveBeenCalledTimes(1);
+      expect(deleteRanInTransaction).toBe(true);
     });
 
     it('rejects a recipeId the user does not own', async () => {
