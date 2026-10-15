@@ -47,10 +47,7 @@ existing behavior go in [`OE_BACKLOG.md`](./OE_BACKLOG.md) instead.
 - **Description:** Feedback from the in-app button is stored in the `Feedback` table but there's no way to read it except querying the DB. Add an admin-only (`requireAdmin`) `GET /api/feedback` and a "Feedback" section in Settings (admin only, like Alpha Invites) listing messages newest-first with user email, page and timestamp.
 
 ### FEAT-006 — Enforce the alpha invite gate at the API level
-- **Status:** Todo
-- **Priority:** P2
-- **Area:** Server — Auth
-- **Description:** The invite gate currently only blocks the UI (`ProtectedRoute`); an unactivated account can still call the API directly. Enforce `User.activated` server-side for all routes except `/api/invite/*`, updating the controller test mocks that stub `prisma.user.upsert()` accordingly.
+- **Status:** Moved → `OE_BACKLOG.md` OE-001 (it's a security bug, not a feature)
 
 ### FEAT-007 — Link training programs to gym-session logging
 - **Status:** Todo
@@ -63,3 +60,9 @@ existing behavior go in [`OE_BACKLOG.md`](./OE_BACKLOG.md) instead.
 - **Priority:** P3
 - **Area:** Client + Server — Body
 - **Description:** Gym sessions can be created and deleted but not edited. Add `PATCH /api/gym-sessions/:id` (replace exercises transactionally) and an edit mode reusing `GymSessionForm`.
+
+### FEAT-009 — Recipe categories and favorites
+- **Status:** Todo
+- **Priority:** P3
+- **Area:** Server + Client — Recipes
+- **Description:** The Recipes tab already shows category and Favorites filter pills, but `Recipe` has no `category`/`favorite`/`tags`/`timeMinutes` fields, so they never match (see OE-067, which hides them in the meantime). Add the fields to the model and API, let users set them in the recipe form, and wire the filters back up.
