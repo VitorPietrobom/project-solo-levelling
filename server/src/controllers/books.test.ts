@@ -16,6 +16,7 @@ vi.mock('../lib/prisma', () => ({
       delete: vi.fn(),
     },
     skill: {
+      findFirst: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
@@ -75,6 +76,18 @@ describe('Book endpoints', () => {
   });
 
   describe('POST /api/books', () => {
+    it('rejects a linkedSkillId the user does not own', async () => {
+      (prisma.skill.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app).post('/api/books').send({
+        title: 'Book', author: 'Author', totalPages: 100000, linkedSkillId: 'victim-skill',
+      });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: 'Skill not found' });
+      expect(prisma.skill.findFirst).toHaveBeenCalledWith({ where: { id: 'victim-skill', userId: 'test-user-id' } });
+      expect(prisma.book.create).not.toHaveBeenCalled();
+    });
+
     it('creates a book with defaults', async () => {
       const created = {
         id: 'b1', userId: 'test-user-id', title: 'Clean Code', author: 'Robert Martin',
@@ -115,6 +128,7 @@ describe('Book endpoints', () => {
         status: 'want_to_read', totalPages: 200, currentPage: 0, notes: null,
         linkedSkillId: 'skill-1', startedAt: null, finishedAt: null,
       };
+      (prisma.skill.findFirst as any).mockResolvedValue({ id: 'skill-1', userId: 'test-user-id' });
       (prisma.book.create as any).mockResolvedValue(created);
 
       const res = await request(app).post('/api/books').send({
@@ -174,12 +188,12 @@ describe('Book endpoints', () => {
       };
       (prisma.book.findFirst as any).mockResolvedValue(existing);
       (prisma.book.update as any).mockResolvedValue({ ...existing, status: 'finished', currentPage: 250, finishedAt: new Date() });
-      (prisma.skill.update as any).mockResolvedValue({});
+      (prisma.skill.updateMany as any).mockResolvedValue({ count: 1 });
 
       const res = await request(app).patch('/api/books/b1').send({ status: 'finished' });
       expect(res.status).toBe(200);
-      expect(prisma.skill.update).toHaveBeenCalledWith({
-        where: { id: 'skill-1' },
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({
+        where: { id: 'skill-1', userId: 'test-user-id' },
         data: expect.objectContaining({ totalXP: { increment: 250 } }),
       });
     });
@@ -194,14 +208,33 @@ describe('Book endpoints', () => {
       (prisma.book.update as any).mockResolvedValue({ ...existing, status: 'reading' });
       (prisma.user.update as any).mockResolvedValue({});
       (prisma.user.updateMany as any).mockResolvedValue({ count: 0 });
-      (prisma.skill.update as any).mockResolvedValue({});
+      (prisma.skill.updateMany as any).mockResolvedValue({ count: 1 });
       (prisma.skill.updateMany as any).mockResolvedValue({ count: 0 });
 
       const res = await request(app).patch('/api/books/b1').send({ status: 'reading' });
 
       expect(res.status).toBe(200);
       expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: BOOK_FINISH_XP } } });
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'skill-1' }, data: { totalXP: { decrement: 250 } } });
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'skill-1', userId: 'test-user-id' }, data: { totalXP: { decrement: 250 } } });
+    });
+
+    it('finishing a book linked to a deleted skill is a silent no-op', async () => {
+      const existing = {
+        id: 'b1', userId: 'test-user-id', title: 'Book', author: 'Author',
+        status: 'reading', totalPages: 250, currentPage: 200,
+        startedAt: new Date(), finishedAt: null, linkedSkillId: 'gone-skill',
+      };
+      (prisma.book.findFirst as any).mockResolvedValue(existing);
+      (prisma.book.update as any).mockResolvedValue({ ...existing, status: 'finished', currentPage: 250, finishedAt: new Date() });
+      (prisma.skill.updateMany as any).mockResolvedValue({ count: 0 });
+
+      const res = await request(app).patch('/api/books/b1').send({ status: 'finished' });
+      expect(res.status).toBe(200);
+      expect(prisma.skill.update).not.toHaveBeenCalled();
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({
+        where: { id: 'gone-skill', userId: 'test-user-id' },
+        data: expect.objectContaining({ totalXP: { increment: 250 } }),
+      });
     });
 
     it('does not award XP when no linked skill', async () => {
@@ -214,7 +247,7 @@ describe('Book endpoints', () => {
       (prisma.book.update as any).mockResolvedValue({ ...existing, status: 'finished', currentPage: 200, finishedAt: new Date() });
 
       await request(app).patch('/api/books/b1').send({ status: 'finished' });
-      expect(prisma.skill.update).not.toHaveBeenCalled();
+      expect(prisma.skill.updateMany).not.toHaveBeenCalled();
     });
 
     it('updates currentPage', async () => {

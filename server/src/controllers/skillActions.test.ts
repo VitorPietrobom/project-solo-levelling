@@ -18,6 +18,7 @@ vi.mock('../lib/prisma', () => ({
     skill: {
       findFirst: vi.fn(),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     user: {
       update: vi.fn().mockResolvedValue({ totalXP: 100 }),
@@ -43,7 +44,7 @@ describe('Skill action endpoints', () => {
     vi.clearAllMocks();
     (prisma.skillActionLog.count as any).mockResolvedValue(0);
     (prisma.skillActionLog.create as any).mockResolvedValue({});
-    (prisma.skill.update as any).mockResolvedValue({});
+    (prisma.skill.updateMany as any).mockResolvedValue({ count: 1 });
     (prisma.user.update as any).mockResolvedValue({ totalXP: 100 });
     (prisma.dailyActivity.upsert as any).mockResolvedValue({});
   });
@@ -118,7 +119,7 @@ describe('Skill action endpoints', () => {
       expect(res.status).toBe(200);
       expect(res.body.xpAwarded).toBe(30);
       expect(res.body.multiplier).toBe(1);
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: expect.objectContaining({ totalXP: { increment: 30 } }) });
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'sk1', userId: 'test-user-id' }, data: expect.objectContaining({ totalXP: { increment: 30 } }) });
       expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { increment: 30 } } });
     });
 

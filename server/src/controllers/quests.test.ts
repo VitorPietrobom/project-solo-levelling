@@ -414,7 +414,7 @@ describe('Quest endpoints', () => {
 
       await request(app).patch('/api/quests/q1/steps/s1');
 
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: expect.objectContaining({ totalXP: { increment: 100 } }) });
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'sk1', userId: 'test-user-id' }, data: expect.objectContaining({ totalXP: { increment: 100 } }) });
     });
 
     it('claws back skill XP when a step is unchecked on a completed linked quest', async () => {
@@ -430,7 +430,7 @@ describe('Quest endpoints', () => {
 
       await request(app).patch('/api/quests/q1/steps/s1');
 
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: { totalXP: { decrement: 100 } } });
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'sk1', userId: 'test-user-id' }, data: { totalXP: { decrement: 100 } } });
     });
 
     it('does not touch a skill when the quest has none linked', async () => {
@@ -446,7 +446,7 @@ describe('Quest endpoints', () => {
 
       await request(app).patch('/api/quests/q1/steps/s1');
 
-      expect(prisma.skill.update).not.toHaveBeenCalled();
+      expect(prisma.skill.updateMany).not.toHaveBeenCalled();
     });
 
     it('grants skill XP on bulk-complete (drag to Done)', async () => {
@@ -461,7 +461,7 @@ describe('Quest endpoints', () => {
 
       await request(app).patch('/api/quests/q1/complete');
 
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: expect.objectContaining({ totalXP: { increment: 60 } }) });
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'sk1', userId: 'test-user-id' }, data: expect.objectContaining({ totalXP: { increment: 60 } }) });
     });
 
     it('claws back skill XP on reset (drag to To Do) when the quest was completed', async () => {
@@ -476,7 +476,7 @@ describe('Quest endpoints', () => {
 
       await request(app).patch('/api/quests/q1/reset');
 
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'sk1' }, data: { totalXP: { decrement: 60 } } });
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'sk1', userId: 'test-user-id' }, data: { totalXP: { decrement: 60 } } });
     });
   });
 
