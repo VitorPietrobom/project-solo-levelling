@@ -74,27 +74,57 @@ describe('apiClient', () => {
     await expect(apiClient.get('/api/data')).rejects.toThrow('Something went wrong');
   });
 
-  it('POST retries once on failure then succeeds', async () => {
+  it('POST that gets a 500 is sent exactly once and throws ApiError', async () => {
+    vi.mocked(fetch).mockResolvedValue(mockResponse(500, null, false));
+
+    await expect(
+      apiClient.post('/api/items', { body: { name: 'test' } }),
+    ).rejects.toBeInstanceOf(ApiError);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('POST does NOT retry when fetch rejects', async () => {
     vi.mocked(fetch)
       .mockRejectedValueOnce(new Error('Network error'))
       .mockResolvedValueOnce(mockResponse(200, { saved: true }));
 
-    const result = await apiClient.post('/api/items', { body: { name: 'test' } });
+    await expect(
+      apiClient.post('/api/items', { body: { name: 'test' } }),
+    ).rejects.toThrow('Network error');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
 
-    expect(result).toEqual({ saved: true });
+  it('PATCH does NOT retry when fetch rejects', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('Network error'));
+    await expect(apiClient.patch('/api/items/1', { body: {} })).rejects.toThrow('Network error');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('DELETE retries once when fetch rejects, then succeeds', async () => {
+    vi.mocked(fetch)
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce(mockResponse(200, { deleted: true }));
+
+    const result = await apiClient.delete('/api/items/1');
+
+    expect(result).toEqual({ deleted: true });
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('POST retries once and throws if retry also fails', async () => {
+  it('PUT retries once and throws if retry also fails', async () => {
     vi.mocked(fetch)
       .mockRejectedValueOnce(new Error('Network error'))
       .mockRejectedValueOnce(new Error('Still failing'));
 
-    await expect(
-      apiClient.post('/api/items', { body: { name: 'test' } }),
-    ).rejects.toThrow('Still failing');
-
+    await expect(apiClient.put('/api/items/1', { body: {} })).rejects.toThrow('Still failing');
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('PUT that gets a 400 is not retried', async () => {
+    vi.mocked(fetch).mockResolvedValue(mockResponse(400, { error: 'Bad input' }, false));
+
+    await expect(apiClient.put('/api/items/1', { body: {} })).rejects.toThrow('Bad input');
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('GET does NOT retry on failure', async () => {
