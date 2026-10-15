@@ -66,6 +66,11 @@ export async function createBook(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    if (linkedSkillId) {
+      const skill = await prisma.skill.findFirst({ where: { id: linkedSkillId, userId } });
+      if (!skill) { res.status(400).json({ error: 'Skill not found' }); return; }
+    }
+
     const validStatuses = ['want_to_read', 'reading', 'finished'];
     const bookStatus = status && validStatuses.includes(status) ? status : 'want_to_read';
 
@@ -162,10 +167,10 @@ export async function updateBook(req: Request, res: Response): Promise<void> {
     const justUnfinished = existing.status === 'finished' && status !== undefined && status !== 'finished';
     if (justFinished) {
       await awardXP(userId, BOOK_FINISH_XP, `book:${bookId}`);
-      if (existing.linkedSkillId) await grantSkillXP(existing.linkedSkillId, existing.totalPages);
+      if (existing.linkedSkillId) await grantSkillXP(userId, existing.linkedSkillId, existing.totalPages);
     } else if (justUnfinished) {
       await revokeXP(userId, BOOK_FINISH_XP);
-      if (existing.linkedSkillId) await revokeSkillXP(existing.linkedSkillId, existing.totalPages);
+      if (existing.linkedSkillId) await revokeSkillXP(userId, existing.linkedSkillId, existing.totalPages);
     }
 
     res.json({ ...updated, xpAwarded: justFinished ? BOOK_FINISH_XP : 0 });

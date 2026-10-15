@@ -82,17 +82,19 @@ export async function revokeXP(userId: string, amount: number): Promise<void> {
 }
 
 /** Grants a skill XP and marks it as practiced right now. */
-export async function grantSkillXP(skillId: string, xp: number): Promise<void> {
-  await prisma.skill.update({
-    where: { id: skillId },
+// Scoped to the owner via updateMany, so a foreign or deleted skill id is a
+// silent no-op rather than a cross-user write or a P2025 throw.
+export async function grantSkillXP(userId: string, skillId: string, xp: number): Promise<void> {
+  await prisma.skill.updateMany({
+    where: { id: skillId, userId },
     data: { totalXP: { increment: xp }, lastActivityAt: new Date() },
   });
 }
 
 /** Undoes a skill XP grant (e.g. un-completing a linked quest/habit). */
-export async function revokeSkillXP(skillId: string, xp: number): Promise<void> {
-  await prisma.skill.update({ where: { id: skillId }, data: { totalXP: { decrement: xp } } });
-  await prisma.skill.updateMany({ where: { id: skillId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+export async function revokeSkillXP(userId: string, skillId: string, xp: number): Promise<void> {
+  await prisma.skill.updateMany({ where: { id: skillId, userId }, data: { totalXP: { decrement: xp } } });
+  await prisma.skill.updateMany({ where: { id: skillId, userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
 }
 
 /** Midnight UTC for "today" — the boundary every daily/streak/reminder calc uses. */
