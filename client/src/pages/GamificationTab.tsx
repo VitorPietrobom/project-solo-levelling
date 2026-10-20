@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   DndContext, useDroppable, PointerSensor, TouchSensor, useSensor, useSensors,
@@ -198,8 +198,18 @@ export default function GamificationTab() {
     setConfirmDelete({ id, name: title });
   }
 
+  // Quests with a step-toggle / complete / reset request in flight. Further
+  // clicks on the same quest are ignored until it settles, so a double tap
+  // can't fire two completes and two quick step toggles can't race (OE-006).
+  const inFlight = useRef(new Set<string>());
+  function trackRequest(questId: string, req: Promise<unknown>) {
+    inFlight.current.add(questId);
+    req.finally(() => inFlight.current.delete(questId)).catch(() => {});
+  }
+
   // Any step, any direction — the checklist inside an expanded quest card.
   function handleToggleStep(questId: string, stepId: string, completed: boolean) {
+    if (inFlight.current.has(questId)) return;
     setQuests((prev) =>
       prev.map((q) => {
         if (q.id !== questId) return q;
@@ -207,13 +217,13 @@ export default function GamificationTab() {
         return { ...q, steps, completed: steps.every((s) => s.completed) };
       }),
     );
-    apiClient.patch(`/api/quests/${questId}/steps/${stepId}`, { body: { completed } })
+    trackRequest(questId, apiClient.patch(`/api/quests/${questId}/steps/${stepId}`, { body: { completed } })
       .then(() => syncStatus())
       .catch((err) => {
         fetchQuests();
         syncStatus();
         showToast(errorMessage(err, 'Failed to update step'));
-      });
+      }));
   }
 
   // Inline priority / due-date / linked-skill edit from inside an expanded
@@ -235,30 +245,31 @@ export default function GamificationTab() {
   // = every step done, reset = every step cleared. Both are coarse
   // shortcuts on top of the real per-step checklist.
   function setQuestCompletion(quest: Quest, complete: boolean) {
+    if (inFlight.current.has(quest.id)) return;
     if (complete) {
       if (quest.completed) return;
       setQuests((prev) => prev.map((q) =>
         q.id === quest.id ? { ...q, completed: true, steps: q.steps.map((s) => ({ ...s, completed: true })) } : q,
       ));
-      apiClient.patch(`/api/quests/${quest.id}/complete`).then(() => {
+      trackRequest(quest.id, apiClient.patch(`/api/quests/${quest.id}/complete`).then(() => {
         if (addXP) addXP(quest.xpReward, quest.title);
         syncStatus();
       }).catch((err) => {
         fetchQuests();
         syncStatus();
         showToast(errorMessage(err, 'Failed to complete quest'));
-      });
+      }));
     } else {
       const alreadyEmpty = quest.steps.every((s) => !s.completed) && !quest.completed;
       if (alreadyEmpty) return;
       setQuests((prev) => prev.map((q) =>
         q.id === quest.id ? { ...q, completed: false, steps: q.steps.map((s) => ({ ...s, completed: false })) } : q,
       ));
-      apiClient.patch(`/api/quests/${quest.id}/reset`).then(() => syncStatus()).catch((err) => {
+      trackRequest(quest.id, apiClient.patch(`/api/quests/${quest.id}/reset`).then(() => syncStatus()).catch((err) => {
         fetchQuests();
         syncStatus();
         showToast(errorMessage(err, 'Failed to reset quest'));
-      });
+      }));
     }
   }
 
