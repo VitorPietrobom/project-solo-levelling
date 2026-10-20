@@ -9,7 +9,11 @@ vi.mock('../lib/prisma', () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
+    quest: { updateMany: vi.fn() },
+    book: { updateMany: vi.fn() },
+    $transaction: vi.fn((ops: unknown[]) => Promise.all(ops)),
     user: {
       upsert: vi.fn().mockResolvedValue({}),
     },
@@ -151,5 +155,29 @@ describe('Skill endpoints', () => {
   it('no longer exposes a manual XP-log endpoint', async () => {
     const res = await request(app).post('/api/skills/s1/log').send({ xp: 25 });
     expect(res.status).toBe(404);
+  });
+
+  describe('DELETE /api/skills/:id', () => {
+    it('clears linkedSkillId on quests and books before deleting the skill', async () => {
+      vi.mocked(prisma.skill.findFirst).mockResolvedValue({ id: 's1', userId: 'test-user-id' } as any);
+      const res = await request(app).delete('/api/skills/s1');
+      expect(res.status).toBe(204);
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.quest.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'test-user-id', linkedSkillId: 's1' }, data: { linkedSkillId: null },
+      });
+      expect(prisma.book.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'test-user-id', linkedSkillId: 's1' }, data: { linkedSkillId: null },
+      });
+      expect(prisma.skill.delete).toHaveBeenCalledWith({ where: { id: 's1' } });
+    });
+
+    it('returns 404 and touches nothing for an unknown skill', async () => {
+      vi.mocked(prisma.skill.findFirst).mockResolvedValue(null);
+      const res = await request(app).delete('/api/skills/nope');
+      expect(res.status).toBe(404);
+      expect(prisma.quest.updateMany).not.toHaveBeenCalled();
+      expect(prisma.skill.delete).not.toHaveBeenCalled();
+    });
   });
 });
