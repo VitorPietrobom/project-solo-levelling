@@ -1,4 +1,8 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
+
+/** The global client or an interactive-transaction client (OE-102). */
+export type Db = Prisma.TransactionClient;
 
 export interface XPResult {
   totalXP: number;
@@ -54,19 +58,19 @@ export async function awardXP(
   userId: string,
   amount: number,
   _source: string,
+  db: Db = prisma,
 ): Promise<XPResult> {
   const today = new Date().toISOString().slice(0, 10);
-  const [user] = await Promise.all([
-    prisma.user.update({
-      where: { id: userId },
-      data: { totalXP: { increment: amount } },
-    }),
-    prisma.dailyActivity.upsert({
-      where: { userId_date: { userId, date: today } },
-      create: { userId, date: today },
-      update: {},
-    }),
-  ]);
+  // Sequential so it's safe inside an interactive transaction.
+  const user = await db.user.update({
+    where: { id: userId },
+    data: { totalXP: { increment: amount } },
+  });
+  await db.dailyActivity.upsert({
+    where: { userId_date: { userId, date: today } },
+    create: { userId, date: today },
+    update: {},
+  });
 
   const totalXP = user.totalXP;
   const level = getCurrentLevel(totalXP);
@@ -76,25 +80,25 @@ export async function awardXP(
 }
 
 /** Undoes an awardXP grant (e.g. un-completing a quest/habit), clamped at 0. */
-export async function revokeXP(userId: string, amount: number): Promise<void> {
-  await prisma.user.update({ where: { id: userId }, data: { totalXP: { decrement: amount } } });
-  await prisma.user.updateMany({ where: { id: userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+export async function revokeXP(userId: string, amount: number, db: Db = prisma): Promise<void> {
+  await db.user.update({ where: { id: userId }, data: { totalXP: { decrement: amount } } });
+  await db.user.updateMany({ where: { id: userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
 }
 
 /** Grants a skill XP and marks it as practiced right now. */
 // Scoped to the owner via updateMany, so a foreign or deleted skill id is a
 // silent no-op rather than a cross-user write or a P2025 throw.
-export async function grantSkillXP(userId: string, skillId: string, xp: number): Promise<void> {
-  await prisma.skill.updateMany({
+export async function grantSkillXP(userId: string, skillId: string, xp: number, db: Db = prisma): Promise<void> {
+  await db.skill.updateMany({
     where: { id: skillId, userId },
     data: { totalXP: { increment: xp }, lastActivityAt: new Date() },
   });
 }
 
 /** Undoes a skill XP grant (e.g. un-completing a linked quest/habit). */
-export async function revokeSkillXP(userId: string, skillId: string, xp: number): Promise<void> {
-  await prisma.skill.updateMany({ where: { id: skillId, userId }, data: { totalXP: { decrement: xp } } });
-  await prisma.skill.updateMany({ where: { id: skillId, userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
+export async function revokeSkillXP(userId: string, skillId: string, xp: number, db: Db = prisma): Promise<void> {
+  await db.skill.updateMany({ where: { id: skillId, userId }, data: { totalXP: { decrement: xp } } });
+  await db.skill.updateMany({ where: { id: skillId, userId, totalXP: { lt: 0 } }, data: { totalXP: 0 } });
 }
 
 /** Midnight UTC for "today" — the boundary every daily/streak/reminder calc uses. */
