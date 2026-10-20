@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import WeightForm from './WeightForm';
+import { localISODate } from '../lib/localDate';
 
 describe('WeightForm', () => {
   const onCreated = vi.fn();
@@ -15,6 +16,11 @@ describe('WeightForm', () => {
     expect(screen.getByLabelText('Weight in kg')).toBeInTheDocument();
     expect(screen.getByLabelText('Entry date')).toBeInTheDocument();
     expect(screen.getByText('Log Entry')).toBeInTheDocument();
+  });
+
+  it('defaults the date to the local day, not the UTC day (OE-030)', () => {
+    render(<WeightForm onCreated={onCreated} />);
+    expect(screen.getByLabelText('Entry date')).toHaveValue(localISODate());
   });
 
   it('calls onCreated with optimistic entry on submit', async () => {

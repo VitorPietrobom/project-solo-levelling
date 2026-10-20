@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { localISODate } from '../lib/localDate';
 import type { WeightEntry } from './WeightChart';
 
 interface WeightFormProps {
@@ -7,7 +8,7 @@ interface WeightFormProps {
 
 export default function WeightForm({ onCreated }: WeightFormProps) {
   const [weight, setWeight] = useState('');
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => localISODate());
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
