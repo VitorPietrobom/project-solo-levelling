@@ -71,7 +71,14 @@ export default function BodyTab() {
     setWeightEntries((prev) => [...prev, optimistic].sort((a, b) => a.date.localeCompare(b.date)));
     setShowWeightForm(false);
     apiClient.post('/api/weight', { body })
-      .then((data) => setWeightEntries((prev) => prev.map((e) => (e.id === optimistic.id ? (data as WeightEntry) : e))))
+      .then((data) => {
+        const saved = data as WeightEntry;
+        // The server may update an existing (e.g. WHOOP) row for that day and
+        // return its id, so drop any stale copy before swapping the temp row.
+        setWeightEntries((prev) => prev
+          .filter((e) => e.id !== saved.id)
+          .map((e) => (e.id === optimistic.id ? saved : e)));
+      })
       .catch((err) => {
         setWeightEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
         showToast(errorMessage(err, 'Failed to save weight entry'));

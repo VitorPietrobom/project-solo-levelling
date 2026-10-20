@@ -81,6 +81,20 @@ describe('BodyTab weight card', () => {
     await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('Weight entry already exists for this date'));
   });
 
+  it('replaces the existing row when the server updates it instead of duplicating it', async () => {
+    mockPost.mockResolvedValue({ id: 'w2', weight: 80, date: '2026-08-05T00:00:00.000Z' });
+    render(<BodyTab />);
+    await waitFor(() => expect(screen.getByText('since Jun 6')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('Log Weight'));
+    await userEvent.type(screen.getByLabelText('Weight in kg'), '80');
+    await userEvent.click(screen.getByText('Log Entry'));
+
+    await waitFor(() => expect(mockPost).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getAllByLabelText('Edit weight entry from Aug 5')).toHaveLength(1));
+    expect(screen.getAllByLabelText(/^Edit weight entry from/)).toHaveLength(2);
+  });
+
   it('edits a weight entry in place via PATCH', async () => {
     render(<BodyTab />);
     await waitFor(() => expect(screen.getByText('since Jun 6')).toBeInTheDocument());
