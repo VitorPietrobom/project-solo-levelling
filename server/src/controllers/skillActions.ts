@@ -114,7 +114,7 @@ export async function logSkillAction(req: Request, res: Response): Promise<void>
     await prisma.skillActionLog.create({
       data: { skillActionId: action.id, skillId: action.skillId, userId, xpAwarded },
     });
-    await grantSkillXP(action.skillId, xpAwarded);
+    await grantSkillXP(userId, action.skillId, xpAwarded);
     const xp = await awardXP(userId, xpAwarded, `skill-action:${action.id}`);
 
     res.json({ xpAwarded, multiplier, countToday: countToday + 1, xp });
