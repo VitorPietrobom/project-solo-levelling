@@ -24,9 +24,11 @@ vi.mock('../lib/prisma', () => ({
       createMany: vi.fn().mockResolvedValue({ count: 0 }),
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       delete: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
     },
     user: {
       update: vi.fn().mockResolvedValue({ totalXP: 0 }),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       upsert: vi.fn().mockResolvedValue({}),
     },
     dailyActivity: { upsert: vi.fn().mockResolvedValue({}) },
@@ -210,6 +212,25 @@ describe('Knowledge graph endpoints', () => {
       expect(res.status).toBe(200);
       expect(prisma.knowledgeNode.delete).toHaveBeenCalledWith({ where: { id: 'n1' } });
     });
+
+    it('revokes node XP plus XP for cascaded manual edges', async () => {
+      (prisma.knowledgeNode.findFirst as any).mockResolvedValue({ id: 'n1', bookId: null, legacyId: null });
+      (prisma.knowledgeEdge.count as any).mockResolvedValue(2);
+      const res = await request(app).delete('/api/knowledge/n1');
+      expect(res.status).toBe(200);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'test-user-id' },
+        data: { totalXP: { decrement: NODE_XP + 2 * LINK_XP } },
+      });
+    });
+
+    it('does not revoke node XP for a book-synced node', async () => {
+      (prisma.knowledgeNode.findFirst as any).mockResolvedValue({ id: 'n1', bookId: 'b1', legacyId: null });
+      (prisma.knowledgeEdge.count as any).mockResolvedValue(0);
+      const res = await request(app).delete('/api/knowledge/n1');
+      expect(res.status).toBe(200);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('POST /api/knowledge/edges', () => {
@@ -252,6 +273,23 @@ describe('Knowledge graph endpoints', () => {
       (prisma.knowledgeEdge.findFirst as any).mockResolvedValue(null);
       const res = await request(app).delete('/api/knowledge/edges/e1');
       expect(res.status).toBe(404);
+    });
+
+    it('revokes link XP when a manual edge is deleted', async () => {
+      (prisma.knowledgeEdge.findFirst as any).mockResolvedValue({ id: 'e1', auto: false });
+      const res = await request(app).delete('/api/knowledge/edges/e1');
+      expect(res.status).toBe(200);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'test-user-id' },
+        data: { totalXP: { decrement: LINK_XP } },
+      });
+    });
+
+    it('does not revoke XP for an auto edge', async () => {
+      (prisma.knowledgeEdge.findFirst as any).mockResolvedValue({ id: 'e1', auto: true });
+      const res = await request(app).delete('/api/knowledge/edges/e1');
+      expect(res.status).toBe(200);
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
 });

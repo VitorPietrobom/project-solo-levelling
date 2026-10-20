@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { awardXP } from '../services/xp';
+import { awardXP, revokeXP } from '../services/xp';
 
 export const LESSON_XP = 15;
 
@@ -80,6 +80,7 @@ export async function deleteLesson(req: Request, res: Response): Promise<void> {
     }
 
     await prisma.lessonLearned.delete({ where: { id: lessonId } });
+    await revokeXP(userId, LESSON_XP);
     res.json({ message: 'Lesson deleted' });
   } catch (err) {
     console.error(err);

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { awardXP } from '../services/xp';
+import { awardXP, revokeXP } from '../services/xp';
 
 export const JOURNAL_XP = 10;
 
@@ -75,6 +75,7 @@ export async function deleteJournalEntry(req: Request, res: Response): Promise<v
     }
 
     await prisma.journalEntry.delete({ where: { id: entryId } });
+    await revokeXP(userId, JOURNAL_XP);
     res.json({ message: 'Journal entry deleted' });
   } catch (err) {
     console.error(err);
