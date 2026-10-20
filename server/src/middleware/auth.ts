@@ -69,9 +69,16 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   try {
     const { payload } = await jwtVerify(token, JWKS);
+    // User.email is @unique, so an empty-string fallback would collide across
+    // accounts and 500 forever — reject tokens without sub/email instead.
+    if (typeof payload.sub !== 'string' || !payload.sub || typeof payload.email !== 'string' || !payload.email) {
+      console.error('[auth] 401: token missing sub or email claim');
+      res.status(401).json({ error: 'Invalid token' });
+      return;
+    }
     const authPayload: AuthPayload = {
-      id: payload.sub as string,
-      email: (payload.email as string) || '',
+      id: payload.sub,
+      email: payload.email,
       // Better Auth's JWT plugin serializes the user object, so the claim is
       // `emailVerified`; also accept the OIDC-standard `email_verified`.
       emailVerified: payload.emailVerified === true || payload.email_verified === true,
