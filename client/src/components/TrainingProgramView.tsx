@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isPending } from '../lib/pending';
 
 export interface ProgramExercise {
   id: string;
@@ -111,7 +112,7 @@ export default function TrainingProgramView({ programs, onActivate, onDelete }: 
       {otherPrograms.length > 0 && (
         <div className="space-y-2">
           {otherPrograms.map((program) => (
-            <div key={program.id} className="bg-card rounded-lg p-3 border border-border flex items-center justify-between">
+            <div key={program.id} className={`bg-card rounded-lg p-3 border border-border flex items-center justify-between${isPending(program.id) ? ' opacity-60' : ''}`} aria-busy={isPending(program.id) || undefined}>
               <div>
                 <span className="text-text-primary text-sm font-medium">{program.name}</span>
                 <span className="text-text-secondary text-xs ml-2">
@@ -121,14 +122,16 @@ export default function TrainingProgramView({ programs, onActivate, onDelete }: 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onActivate(program.id)}
-                  className="text-accent-info text-xs hover:opacity-80"
+                  disabled={isPending(program.id)}
+                  className="text-accent-info text-xs hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
                   aria-label={`Activate ${program.name}`}
                 >
                   Activate
                 </button>
                 <button
                   onClick={() => onDelete(program.id)}
-                  className="text-accent-warning text-xs hover:opacity-80"
+                  disabled={isPending(program.id)}
+                  className="text-accent-warning text-xs hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
                   aria-label={`Delete ${program.name}`}
                 >
                   ✕

@@ -1,3 +1,5 @@
+import { isPending } from '../lib/pending';
+
 export interface GymSession {
   id: string;
   date: string;
@@ -29,7 +31,7 @@ export default function GymSessionLog({ sessions, onDelete }: GymSessionLogProps
   return (
     <div className="space-y-3" role="list" aria-label="Gym sessions">
       {sessions.map((session) => (
-        <div key={session.id} className="bg-card rounded-lg p-4 border border-border" role="listitem">
+        <div key={session.id} className={`bg-card rounded-lg p-4 border border-border${isPending(session.id) ? ' opacity-60' : ''}`} role="listitem" aria-busy={isPending(session.id) || undefined}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-text-primary font-semibold">
               {new Date(session.date).toLocaleDateString('en-US', {
@@ -43,7 +45,8 @@ export default function GymSessionLog({ sessions, onDelete }: GymSessionLogProps
               {onDelete && (
                 <button
                   onClick={() => onDelete(session.id)}
-                  className="text-accent-warning text-xs hover:opacity-80"
+                  disabled={isPending(session.id)}
+                  className="text-accent-warning text-xs hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
                   aria-label={`Delete session from ${session.date}`}
                 >
                   ✕

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pencil, X, Check } from 'lucide-react';
 import type { WeightEntry } from './WeightChart';
+import { isPending } from '../lib/pending';
 
 interface WeightEntryListProps {
   entries: WeightEntry[];
@@ -42,19 +43,22 @@ function Row({ entry, onUpdate, onDelete }: { entry: WeightEntry; onUpdate: (id:
     );
   }
 
+  const pending = isPending(entry.id);
   return (
-    <div className="flex items-center justify-between text-sm px-3 py-2 rounded hover:bg-secondary group">
+    <div className={`flex items-center justify-between text-sm px-3 py-2 rounded hover:bg-secondary group${pending ? ' opacity-60' : ''}`} aria-busy={pending || undefined}>
       <span className="text-text-secondary">{shortDate(entry.date)}</span>
       <div className="flex items-center gap-3">
         <span className="text-text-primary font-mono">{entry.weight} kg</span>
         <button
           onClick={() => { setDraft(String(entry.weight)); setEditing(true); }}
-          className="text-text-secondary hover:opacity-80"
+          disabled={pending}
+          className="text-text-secondary hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label={`Edit weight entry from ${shortDate(entry.date)}`}
         ><Pencil size={13} /></button>
         <button
           onClick={() => onDelete(entry.id)}
-          className="text-accent-warning hover:opacity-80"
+          disabled={pending}
+          className="text-accent-warning hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label={`Delete weight entry from ${shortDate(entry.date)}`}
         ><X size={13} /></button>
       </div>
