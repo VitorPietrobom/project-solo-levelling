@@ -103,14 +103,19 @@ export default function DietTab() {
     optimistic: FoodEntry,
     body: { foodName: string; calories: number; mealType: string; date: string },
   ) {
-    setFoodEntries((prev) => [...prev, optimistic]);
+    // Only show the row optimistically if it belongs to the day being viewed;
+    // entries for other days just refresh the weekly chart once saved.
+    const visible = optimistic.date === selectedDate;
+    if (visible) setFoodEntries((prev) => [...prev, optimistic]);
     setShowFoodForm(false);
     apiClient
       .post('/api/food-entries', { body })
       .then((data) => {
-        setFoodEntries((prev) =>
-          prev.map((e) => (e.id === optimistic.id ? (data as FoodEntry) : e)),
-        );
+        if (visible) {
+          setFoodEntries((prev) =>
+            prev.map((e) => (e.id === optimistic.id ? (data as FoodEntry) : e)),
+          );
+        }
         bumpFoodRefresh();
       })
       .catch((err) => {
@@ -120,7 +125,8 @@ export default function DietTab() {
   }
 
   function handleFoodImport(entries: { optimistic: FoodEntry; body: any }[]) {
-    setFoodEntries((prev) => [...prev, ...entries.map((e) => e.optimistic)]);
+    const visible = entries.filter((e) => e.optimistic.date === selectedDate).map((e) => e.optimistic);
+    if (visible.length) setFoodEntries((prev) => [...prev, ...visible]);
     setShowFoodImport(false);
     // Fire all POSTs in parallel, then refresh the weekly chart once
     // everything has settled rather than once per entry.
@@ -241,7 +247,7 @@ export default function DietTab() {
           </div>
           {showFoodForm && (
             <div style={{ marginBottom: 16 }}>
-              <FoodEntryForm onCreated={handleFoodEntryCreated} />
+              <FoodEntryForm onCreated={handleFoodEntryCreated} defaultDate={selectedDate} />
             </div>
           )}
           {showFoodImport && (

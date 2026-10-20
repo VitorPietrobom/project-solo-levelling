@@ -88,4 +88,17 @@ describe('FoodEntryForm', () => {
     const optimistic = onCreated.mock.calls[0][0];
     expect(optimistic.id).toMatch(/^temp-/);
   });
+
+  it('uses defaultDate for the date field and submitted entry', async () => {
+    render(<FoodEntryForm onCreated={onCreated} defaultDate="2026-01-06" />);
+    expect(screen.getByLabelText('Entry date')).toHaveValue('2026-01-06');
+
+    await userEvent.type(screen.getByLabelText('Food name'), 'Rice');
+    await userEvent.type(screen.getByLabelText('Calories'), '200');
+    await userEvent.click(screen.getByRole('button', { name: 'Log Food' }));
+
+    const [optimistic, body] = onCreated.mock.calls[0];
+    expect(optimistic.date).toBe('2026-01-06');
+    expect(body.date).toBe('2026-01-06');
+  });
 });
