@@ -58,7 +58,14 @@ describe('WeightChart', () => {
     // A date stored as UTC midnight must render as the same calendar day
     // everywhere, regardless of the viewer's local offset — otherwise a
     // west-of-UTC user sees every point shifted a day earlier than reality.
-    render(<WeightChart entries={[{ id: 'w1', weight: 80, date: '2026-08-19T00:00:00.000Z' }]} />);
-    expect(screen.getByText('Aug 19')).toBeInTheDocument();
+    // Freeze "now" so the fixture stays inside the default 30-day window.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-25T12:00:00.000Z'));
+    try {
+      render(<WeightChart entries={[{ id: 'w1', weight: 80, date: '2026-08-19T00:00:00.000Z' }]} />);
+      expect(screen.getByText('Aug 19')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
