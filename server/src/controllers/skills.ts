@@ -81,7 +81,13 @@ export async function deleteSkill(req: Request, res: Response): Promise<void> {
     const id = req.params.id as string;
     const skill = await prisma.skill.findFirst({ where: { id, userId } });
     if (!skill) { res.status(404).json({ error: 'Skill not found' }); return; }
-    await prisma.skill.delete({ where: { id } });
+    // linkedSkillId has no FK, so clear dangling links on quests/books in the
+    // same transaction; otherwise later complete/reset flows target a ghost skill.
+    await prisma.$transaction([
+      prisma.quest.updateMany({ where: { userId, linkedSkillId: id }, data: { linkedSkillId: null } }),
+      prisma.book.updateMany({ where: { userId, linkedSkillId: id }, data: { linkedSkillId: null } }),
+      prisma.skill.delete({ where: { id } }),
+    ]);
     res.status(204).end();
   } catch (err) {
     console.error(err);
