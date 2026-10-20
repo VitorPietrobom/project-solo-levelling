@@ -66,4 +66,10 @@ describe('WeightEntryList', () => {
 
     expect(onDelete).toHaveBeenCalledWith('w2');
   });
+
+  it('disables edit/delete on optimistic temp rows', () => {
+    render(<WeightEntryList entries={[{ id: 'temp-123', weight: 86, date: '2026-08-06T00:00:00.000Z' }]} onUpdate={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.getByLabelText('Edit weight entry from Aug 6')).toBeDisabled();
+    expect(screen.getByLabelText('Delete weight entry from Aug 6')).toBeDisabled();
+  });
 });

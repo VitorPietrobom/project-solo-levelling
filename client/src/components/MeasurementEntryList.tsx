@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pencil, X, Check } from 'lucide-react';
 import type { Measurement } from './MeasurementList';
+import { isPending } from '../lib/pending';
 
 interface MeasurementEntryListProps {
   measurements: Measurement[];
@@ -48,19 +49,22 @@ function Row({ entry, onUpdate, onDelete }: { entry: Measurement; onUpdate: (id:
     );
   }
 
+  const pending = isPending(entry.id);
   return (
-    <div className="flex items-center justify-between text-sm px-3 py-2 rounded hover:bg-secondary">
+    <div className={`flex items-center justify-between text-sm px-3 py-2 rounded hover:bg-secondary${pending ? ' opacity-60' : ''}`} aria-busy={pending || undefined}>
       <span className="text-text-secondary">{label}</span>
       <div className="flex items-center gap-3">
         <span className="text-text-primary font-mono">{entry.value} cm</span>
         <button
           onClick={() => { setDraft(String(entry.value)); setEditing(true); }}
-          className="text-text-secondary hover:opacity-80"
+          disabled={pending}
+          className="text-text-secondary hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label={`Edit ${label}`}
         ><Pencil size={13} /></button>
         <button
           onClick={() => onDelete(entry.id)}
-          className="text-accent-warning hover:opacity-80"
+          disabled={pending}
+          className="text-accent-warning hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label={`Delete ${label}`}
         ><X size={13} /></button>
       </div>

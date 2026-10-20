@@ -111,4 +111,10 @@ describe('TrainingProgramView', () => {
     render(<TrainingProgramView programs={[program]} onActivate={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText('3×20')).toBeInTheDocument();
   });
+
+  it('disables activate/delete on an optimistic temp program', () => {
+    render(<TrainingProgramView programs={[activeProgram, { ...inactiveProgram, id: 'temp-1' }]} onActivate={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.getByLabelText('Activate Full Body')).toBeDisabled();
+    expect(screen.getByLabelText('Delete Full Body')).toBeDisabled();
+  });
 });
