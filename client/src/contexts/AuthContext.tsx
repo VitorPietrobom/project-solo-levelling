@@ -60,8 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await authClient.signOut();
-    window.location.href = '/login';
+    try {
+      await authClient.signOut();
+    } catch {
+      // Still leave the app if the auth server is unreachable (offline/outage);
+      // the session cookie is invalid or will be re-checked on /login.
+    } finally {
+      window.location.href = '/login';
+    }
   }, []);
 
   return (
