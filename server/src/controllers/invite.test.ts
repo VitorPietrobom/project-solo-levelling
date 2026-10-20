@@ -38,6 +38,17 @@ describe('Invite endpoints', () => {
   });
 
   describe('GET /api/invite/status', () => {
+    it('returns 409 when the email is already linked to another account', async () => {
+      (prisma.user.upsert as any).mockRejectedValue(
+        Object.assign(new Error('unique'), { code: 'P2002', meta: { target: ['email'] } }),
+      );
+
+      const res = await request(app).get('/api/invite/status');
+
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe('EMAIL_CONFLICT');
+    });
+
     it('reports activated: false for a brand new user', async () => {
       (prisma.user.upsert as any).mockResolvedValue({ id: 'test-user-id', activated: false });
 

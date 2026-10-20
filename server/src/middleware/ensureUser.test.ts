@@ -63,4 +63,21 @@ describe('ensureUser', () => {
     expect(upsert).toHaveBeenCalledTimes(2);
     expect(next).toHaveBeenCalled();
   });
+
+  it('returns 409 (not 500) when the email belongs to another account', async () => {
+    upsert.mockRejectedValue(Object.assign(new Error('unique'), { code: 'P2002', meta: { target: ['email'] } }));
+    const next = vi.fn() as NextFunction;
+    const res = mockRes();
+    await ensureUser(mockReq(), res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'EMAIL_CONFLICT' }));
+  });
+
+  it('still returns 500 for other unique violations', async () => {
+    upsert.mockRejectedValue(Object.assign(new Error('unique'), { code: 'P2002', meta: { target: ['id'] } }));
+    const res = mockRes();
+    await ensureUser(mockReq(), res, vi.fn() as NextFunction);
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
 });

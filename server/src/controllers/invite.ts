@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import prisma from '../lib/prisma';
+import { upsertUserRow, EmailConflictError, EMAIL_CONFLICT_BODY } from '../lib/userRow';
 
 // GET /api/invite/status — not gated by ensureUser (it IS the way an
 // unactivated user finds out they're unactivated), so it does its own
@@ -8,13 +9,13 @@ import prisma from '../lib/prisma';
 export async function getInviteStatus(req: Request, res: Response): Promise<void> {
   try {
     const { id, email } = req.user!;
-    const user = await prisma.user.upsert({
-      where: { id },
-      update: {},
-      create: { id, email, activated: false },
-    });
+    const user = await upsertUserRow(id, email);
     res.json({ activated: user.activated });
   } catch (err) {
+    if (err instanceof EmailConflictError) {
+      res.status(409).json(EMAIL_CONFLICT_BODY);
+      return;
+    }
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -45,7 +46,7 @@ export async function redeemInvite(req: Request, res: Response): Promise<void> {
     }
 
     // Ensure the user row exists before the code->user foreign key is set.
-    await prisma.user.upsert({ where: { id }, update: {}, create: { id, email, activated: false } });
+    await upsertUserRow(id, email);
 
     try {
       await prisma.$transaction([
@@ -62,6 +63,10 @@ export async function redeemInvite(req: Request, res: Response): Promise<void> {
 
     res.json({ activated: true });
   } catch (err) {
+    if (err instanceof EmailConflictError) {
+      res.status(409).json(EMAIL_CONFLICT_BODY);
+      return;
+    }
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
