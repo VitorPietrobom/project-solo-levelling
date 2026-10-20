@@ -213,7 +213,7 @@ describe('Quest endpoints', () => {
       expect(res.body.completed).toBe(true);
       expect(prisma.quest.update).toHaveBeenCalledWith({
         where: { id: 'q1' },
-        data: { completed: true },
+        data: { completed: true, awardedXP: 100, awardedSkillId: undefined },
       });
       expect(prisma.user.update).toHaveBeenCalled();
     });
@@ -277,7 +277,7 @@ describe('Quest endpoints', () => {
       const res = await request(app).patch('/api/quests/q1/steps/s1');
 
       expect(res.status).toBe(200);
-      expect(prisma.quest.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { completed: false } });
+      expect(prisma.quest.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { completed: false, awardedXP: null, awardedSkillId: null } });
       expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: 100 } } });
     });
 
@@ -555,7 +555,7 @@ describe('Quest endpoints', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.completed).toBe(true);
-      expect(prisma.quest.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { lastCompletedAt: expect.any(Date) } });
+      expect(prisma.quest.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { lastCompletedAt: expect.any(Date), awardedXP: 20, awardedSkillId: null } });
     });
 
     it('is a no-op completing a recurring quest already done this period', async () => {
@@ -578,8 +578,107 @@ describe('Quest endpoints', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.completed).toBe(false);
-      expect(prisma.quest.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { lastCompletedAt: null } });
+      expect(prisma.quest.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { lastCompletedAt: null, awardedXP: null, awardedSkillId: null } });
       expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: 20 } } });
+    });
+  });
+
+  describe('awarded XP is locked in at completion (OE-004)', () => {
+    // These tests simulate a small stateful DB so the full exploit sequence
+    // (complete → edit xpReward → undo) runs through the real controllers.
+    function useStatefulQuest(initial: any) {
+      const row: any = { ...initial };
+      (prisma.quest.findFirst as any).mockImplementation(async () => ({ ...row, steps: row.steps.map((s: any) => ({ ...s })) }));
+      (prisma.quest.findUnique as any).mockImplementation(async () => ({ ...row, steps: row.steps.map((s: any) => ({ ...s })) }));
+      (prisma.quest.update as any).mockImplementation(async ({ data }: any) => {
+        Object.assign(row, data);
+        return { ...row };
+      });
+      (prisma.questStep.update as any).mockImplementation(async ({ where, data }: any) => {
+        const step = row.steps.find((s: any) => s.id === where.id);
+        Object.assign(step, data);
+        return step;
+      });
+      (prisma.questStep.updateMany as any).mockImplementation(async ({ data }: any) => {
+        row.steps.forEach((s: any) => Object.assign(s, data));
+        return { count: row.steps.length };
+      });
+      (prisma.user.update as any).mockResolvedValue({ totalXP: 0 });
+      (prisma.skill.findFirst as any).mockImplementation(async ({ where }: any) => ({ id: where.id, userId: 'test-user-id' }));
+      return row;
+    }
+
+    it('recurring habit: complete at 1000, edit to 1, reset revokes 1000', async () => {
+      const row = useStatefulQuest({
+        id: 'q1', userId: 'test-user-id', xpReward: 1000, recurrence: 'daily', completed: false,
+        lastCompletedAt: null, linkedSkillId: null, awardedXP: null, awardedSkillId: null, steps: [],
+      });
+
+      await request(app).patch('/api/quests/q1/complete');
+      expect(row.awardedXP).toBe(1000);
+      expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ totalXP: { increment: 1000 } }) }));
+
+      await request(app).patch('/api/quests/q1').send({ xpReward: 1 });
+      expect(row.xpReward).toBe(1);
+      expect(row.awardedXP).toBe(1000);
+
+      (prisma.user.update as any).mockClear();
+      await request(app).patch('/api/quests/q1/reset');
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: 1000 } } });
+      expect(row.awardedXP).toBeNull();
+      expect(row.awardedSkillId).toBeNull();
+    });
+
+    it('one-time quest via steps: complete at 1000, edit to 1, uncheck revokes 1000', async () => {
+      const row = useStatefulQuest({
+        id: 'q1', userId: 'test-user-id', xpReward: 1000, recurrence: null, completed: false,
+        lastCompletedAt: null, linkedSkillId: null, awardedXP: null, awardedSkillId: null,
+        steps: [{ id: 's1', description: 'Step 1', sortOrder: 0, completed: false }],
+      });
+
+      await request(app).patch('/api/quests/q1/steps/s1');
+      expect(row.completed).toBe(true);
+      expect(row.awardedXP).toBe(1000);
+
+      await request(app).patch('/api/quests/q1').send({ xpReward: 1 });
+
+      (prisma.user.update as any).mockClear();
+      await request(app).patch('/api/quests/q1/steps/s1');
+      expect(row.completed).toBe(false);
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: 1000 } } });
+      expect(row.awardedXP).toBeNull();
+    });
+
+    it('changing linkedSkillId after completion revokes from the originally-awarded skill', async () => {
+      const row = useStatefulQuest({
+        id: 'q1', userId: 'test-user-id', xpReward: 50, recurrence: null, completed: false,
+        lastCompletedAt: null, linkedSkillId: 'skA', awardedXP: null, awardedSkillId: null,
+        steps: [{ id: 's1', description: 'Step 1', sortOrder: 0, completed: false }],
+      });
+
+      await request(app).patch('/api/quests/q1/complete');
+      expect(row.awardedSkillId).toBe('skA');
+
+      await request(app).patch('/api/quests/q1').send({ linkedSkillId: 'skB' });
+      expect(row.linkedSkillId).toBe('skB');
+
+      (prisma.skill.updateMany as any).mockClear();
+      await request(app).patch('/api/quests/q1/reset');
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'skA', userId: 'test-user-id' }, data: { totalXP: { decrement: 50 } } });
+      expect(prisma.skill.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'skB' } }));
+    });
+
+    it('legacy completed row with null awardedXP falls back to current xpReward/linkedSkillId', async () => {
+      useStatefulQuest({
+        id: 'q1', userId: 'test-user-id', xpReward: 75, recurrence: null, completed: true,
+        lastCompletedAt: null, linkedSkillId: 'skL', awardedXP: null, awardedSkillId: null,
+        steps: [{ id: 's1', description: 'Step 1', sortOrder: 0, completed: true }],
+      });
+
+      await request(app).patch('/api/quests/q1/reset');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: 75 } } });
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'skL', userId: 'test-user-id' }, data: { totalXP: { decrement: 75 } } });
     });
   });
 });
