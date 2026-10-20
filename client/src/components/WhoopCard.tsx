@@ -12,6 +12,8 @@ interface WhoopLatest {
 
 interface WhoopStatus {
   connected: boolean;
+  // WHOOP rejected our refresh token; only a fresh OAuth consent fixes it.
+  needsReauth?: boolean;
   syncedAt?: string | null;
   latest?: WhoopLatest | null;
 }
@@ -86,7 +88,7 @@ export default function WhoopCard({ onSynced }: { onSynced?: () => void } = {}) 
       setError('Whoop connection was not completed.');
       return;
     }
-    if (!status.connected) return;
+    if (!status.connected || status.needsReauth) return;
     if (justConnected || isWhoopSyncStale(status.syncedAt)) {
       handleSync();
     }
@@ -110,8 +112,12 @@ export default function WhoopCard({ onSynced }: { onSynced?: () => void } = {}) 
       const data = (await apiClient.post('/api/whoop/sync')) as WhoopStatus & { weightLogged?: boolean };
       setStatus(data);
       if (data.weightLogged) onSynced?.(); // WHOOP added today's bodyweight — refresh the chart
-    } catch {
-      setError('Could not sync Whoop data. Try reconnecting.');
+    } catch (err) {
+      if ((err as { status?: number })?.status === 409) {
+        setStatus((s) => (s ? { ...s, needsReauth: true } : s));
+      } else {
+        setError('Could not sync Whoop data. Try reconnecting.');
+      }
     } finally {
       setSyncing(false);
     }
@@ -165,6 +171,14 @@ export default function WhoopCard({ onSynced }: { onSynced?: () => void } = {}) 
     <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
       {header}
       {error && <p style={{ color: 'var(--warn)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
+      {status.needsReauth && (
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ color: 'var(--warn)', fontSize: 13, marginBottom: 8 }}>Your Whoop authorization expired. Reconnect to keep syncing.</p>
+          <button className="btn btn-primary" onClick={handleConnect}>
+            <Activity size={15} strokeWidth={2.4} />Reconnect Whoop
+          </button>
+        </div>
+      )}
 
       {!l || (!l.recovery && !l.sleep && !l.strain) ? (
         <p style={{ color: 'var(--text-faint)', fontSize: 13 }}>
