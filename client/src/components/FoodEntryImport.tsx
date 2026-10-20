@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FoodEntry } from './CalorieTracker';
+import { localISODate } from '../lib/localDate';
 
 interface FoodEntryImportProps {
   onImport: (entries: { optimistic: FoodEntry; body: any }[]) => void;
@@ -50,7 +51,7 @@ export default function FoodEntryImport({ onImport, defaultDate }: FoodEntryImpo
       }
 
       // Date precedence: per-entry date → top-level "date" → the day you're viewing → today.
-      const fallbackDate = defaultDate || new Date().toISOString().split('T')[0];
+      const fallbackDate = defaultDate || localISODate();
       const dayDate = typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? data.date : fallbackDate;
       const result = entries.map((e: any, i: number) => {
         const date = e.date || dayDate;

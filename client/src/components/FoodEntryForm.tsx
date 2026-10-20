@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FoodEntry } from './CalorieTracker';
+import { localISODate } from '../lib/localDate';
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
@@ -24,7 +25,7 @@ export default function FoodEntryForm({ onCreated }: FoodEntryFormProps) {
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
   const [mealType, setMealType] = useState<MealType>('breakfast');
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => localISODate());
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {

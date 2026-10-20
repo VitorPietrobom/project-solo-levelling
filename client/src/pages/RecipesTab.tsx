@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Zap, Clock, X, Sparkles, Share2 } from 'lucide-react';
 import { shareRecipe } from '../lib/recipeShare';
+import { localISODate } from '../lib/localDate';
 import { apiClient, errorMessage } from '../lib/apiClient';
 import { useToast } from '../contexts/ToastContext';
 import type { Recipe, Ingredient } from '../components/RecipeList';
@@ -54,12 +55,6 @@ function defaultMealType(now = new Date()): string {
   return 'snack';
 }
 
-function localDateString(d = new Date()): string {
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
 function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: () => void }) {
   const { showToast } = useToast();
   const [mealType, setMealType] = useState(defaultMealType);
@@ -87,7 +82,7 @@ function RecipeModal({ recipe, onClose }: { recipe: RecipeWithMacros; onClose: (
   async function handleLogAsEaten() {
     setLogging(true);
     try {
-      const today = localDateString();
+      const today = localISODate();
       await apiClient.post('/api/food-entries', {
         body: {
           foodName: recipe.name,
