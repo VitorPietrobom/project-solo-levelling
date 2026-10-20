@@ -33,6 +33,46 @@ Rules:
 
 Start by replying "Ready — send your first meal." and nothing else.`;
 
+const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
+type MealType = (typeof MEAL_TYPES)[number];
+
+function toMealType(value: unknown): MealType | null {
+  if (value === undefined || value === null || value === '') return 'snack';
+  if (typeof value !== 'string') return null;
+  const v = value.trim().toLowerCase();
+  if ((MEAL_TYPES as readonly string[]).includes(v)) return v as MealType;
+  if (v === 'brunch') return 'lunch';
+  if (v === 'supper') return 'dinner';
+  if (v === 'snacks' || v === 'dessert') return 'snack';
+  return null;
+}
+
+function toNonNegative(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return 0;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/**
+ * Coerce one AI-produced entry into the shape the server accepts
+ * (integer calories, numeric macros, lowercase mealType, non-empty name).
+ * Returns an error string when the entry can't be salvaged.
+ */
+export function normalizeFoodEntry(e: any): { fields: { foodName: string; calories: number; protein: number; carbs: number; fat: number; mealType: MealType; date?: string } } | { error: string } {
+  if (!e || typeof e !== 'object') return { error: 'not an object' };
+  const foodName = typeof e.foodName === 'string' ? e.foodName.trim() : '';
+  if (!foodName) return { error: 'missing foodName' };
+  const cal = toNonNegative(e.calories);
+  if (cal === null) return { error: `${foodName}: invalid calories` };
+  const protein = toNonNegative(e.protein);
+  const carbs = toNonNegative(e.carbs);
+  const fat = toNonNegative(e.fat);
+  if (protein === null || carbs === null || fat === null) return { error: `${foodName}: invalid macros` };
+  const mealType = toMealType(e.mealType);
+  if (!mealType) return { error: `${foodName}: invalid mealType "${e.mealType}"` };
+  return { fields: { foodName, calories: Math.round(cal), protein, carbs, fat, mealType, ...(typeof e.date === 'string' && e.date ? { date: e.date } : {}) } };
+}
+
 export default function FoodEntryImport({ onImport, defaultDate }: FoodEntryImportProps) {
   const [json, setJson] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +82,7 @@ export default function FoodEntryImport({ onImport, defaultDate }: FoodEntryImpo
     setError(null);
     try {
       const data = JSON.parse(json);
-      const entries = data.entries || [data];
+      const entries = Array.isArray(data) ? data : data?.entries || [data];
 
       if (!Array.isArray(entries) || entries.length === 0) {
         setError('JSON must have an "entries" array with at least one food item');
@@ -52,17 +92,14 @@ export default function FoodEntryImport({ onImport, defaultDate }: FoodEntryImpo
       // Date precedence: per-entry date → top-level "date" → the day you're viewing → today.
       const fallbackDate = defaultDate || new Date().toISOString().split('T')[0];
       const dayDate = typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? data.date : fallbackDate;
-      const result = entries.map((e: any, i: number) => {
-        const date = e.date || dayDate;
-        const fields = {
-          foodName: e.foodName,
-          calories: e.calories || 0,
-          protein: e.protein || 0,
-          carbs: e.carbs || 0,
-          fat: e.fat || 0,
-          mealType: e.mealType || 'snack',
-          date,
-        };
+      const normalized = entries.map((e: any) => normalizeFoodEntry(e));
+      const errors = normalized.flatMap((n: any, i: number) => ('error' in n ? [`Entry ${i + 1}: ${n.error}`] : []));
+      if (errors.length > 0) {
+        setError(`Nothing imported. Fix these entries: ${errors.join('; ')}`);
+        return;
+      }
+      const result = normalized.map((n: any, i: number) => {
+        const fields = { ...n.fields, date: n.fields.date || dayDate };
         return { optimistic: { id: `temp-${Date.now()}-${i}`, ...fields } as FoodEntry, body: fields };
       });
 
