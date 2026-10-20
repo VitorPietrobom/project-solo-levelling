@@ -179,7 +179,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-024 (server side), OE-030, OE-036, OE-088
 
 ### OE-016 — Food entries logged via "+ Log Food" go to today, but appear under the selected day
-- **Status:** Todo
+- **Status:** Done (#85)
 - **Severity:** High · **Confidence:** High
 - **Area:** Client — Diet / food log
 - **Location:** `client/src/components/FoodEntryForm.tsx:27`; `client/src/pages/DietTab.tsx:114, 131, 252`
@@ -206,7 +206,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Bounded concurrency (`Promise.allSettled` in chunks of ~5), `AbortSignal.timeout(8000)` on every fetch, batch upserts in one `$transaction`, process oldest `syncedAt` first, stop at ~25s.
 
 ### OE-019 — Concurrent WHOOP token refreshes can disconnect the user
-- **Status:** Todo
+- **Status:** Done (#86)
 - **Severity:** High · **Confidence:** Medium
 - **Area:** Server — WHOOP OAuth
 - **Location:** `server/src/controllers/whoop.ts:122-150`
@@ -228,7 +228,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 ## Medium
 
 ### OE-021 — Missing email claim or reused email bricks an account with permanent 500s
-- **Status:** Todo
+- **Status:** Done (#87)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — ensureUser / schema
 - **Location:** `server/src/middleware/auth.ts:75`; `server/src/middleware/ensureUser.ts:16`; `server/src/controllers/invite.ts:11, 48`; schema `User.email @unique`
@@ -313,7 +313,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-009, OE-024
 
 ### OE-030 — Body forms default to the UTC date
-- **Status:** Todo
+- **Status:** Done (#88)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Body
 - **Location:** `client/src/components/WeightForm.tsx:10`; `MeasurementForm.tsx:16`; `GymSessionForm.tsx:28`
@@ -386,7 +386,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** On 401, `authClient.signOut()` first, guard `location.pathname !== '/login'`, and use a module-level flag so only one redirect fires.
 
 ### OE-038 — Logout does nothing if signOut fails
-- **Status:** Todo
+- **Status:** Done (#89)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — auth
 - **Location:** `client/src/contexts/AuthContext.tsx:62-65`
@@ -395,7 +395,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** `try { await authClient.signOut(); } finally { window.location.href = '/login'; }`.
 
 ### OE-039 — Service worker caches error pages as the offline app shell
-- **Status:** Todo
+- **Status:** Done (#91)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — PWA / service worker
 - **Location:** `client/public/sw.js:33-39`
@@ -470,7 +470,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Validate integer sets/reps ≥1 and weight ≥0 per named exercise with an inline error; don't fall back to defaults.
 
 ### OE-047 — Every create/delete of knowledge nodes, edges, journal and lessons farms XP
-- **Status:** Todo
+- **Status:** Done (#90)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — Learning / knowledge / journal / lessons
 - **Location:** `server/src/controllers/knowledge.ts:384, 449, 488, 506`; `journal.ts:58`; `lessons.ts:63`
@@ -946,7 +946,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Require word boundaries for `_` emphasis; reject `//` in `safeHref`; optionally render `[[Title]]` as a node link.
 
 ### OE-101 — WeightChart UTC-label test fails now that its fixture date is out of range
-- **Status:** Todo
+- **Status:** Done (#92)
 - **Severity:** Low · **Confidence:** High
 - **Area:** Client — tests / WeightChart
 - **Location:** `client/src/components/WeightChart.test.tsx` ("labels points by their UTC date, not the browser's local timezone")
@@ -955,7 +955,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Freeze time in the test (`vi.useFakeTimers()` + `vi.setSystemTime(...)`) or build fixture dates relative to today, and keep asserting the UTC-vs-local labelling it was written for.
 
 ### OE-102 — Quest complete/reset XP changes aren't atomic with the quest state write
-- **Status:** Todo
+- **Status:** Done (#93)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — quests / XP
 - **Location:** `server/src/controllers/quests.ts` (`toggleStep`, `resetQuest`, `completeQuestAll`)
