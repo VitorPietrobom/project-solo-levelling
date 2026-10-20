@@ -142,7 +142,7 @@ export async function getNode(req: Request, res: Response): Promise<void> {
 export async function createNode(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.id;
-    const { kind, title, content, tags, linkedSkillId, bookId, date } = req.body;
+    const { kind, title, content, tags, linkedSkillId, date } = req.body;
 
     if (!title || typeof title !== 'string' || title.trim() === '') {
       res.status(400).json({ error: 'Title is required' });
@@ -162,7 +162,6 @@ export async function createNode(req: Request, res: Response): Promise<void> {
         content: body,
         tags: cleanTags(tags),
         linkedSkillId: linkedSkillId || null,
-        bookId: bookId || null,
         date: typeof date === 'string' && date ? new Date(`${date.slice(0, 10)}T00:00:00Z`) : null,
       },
     });
@@ -188,7 +187,7 @@ export async function updateNode(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const { kind, title, content, tags, linkedSkillId, bookId, date } = req.body;
+    const { kind, title, content, tags, linkedSkillId, date } = req.body;
     const data: Record<string, unknown> = {};
 
     if (title !== undefined) {
@@ -208,7 +207,6 @@ export async function updateNode(req: Request, res: Response): Promise<void> {
     if (content !== undefined) data.content = typeof content === 'string' ? content : '';
     if (tags !== undefined) data.tags = cleanTags(tags);
     if (linkedSkillId !== undefined) data.linkedSkillId = linkedSkillId || null;
-    if (bookId !== undefined) data.bookId = bookId || null;
     if (date !== undefined) data.date = typeof date === 'string' && date ? new Date(`${date.slice(0, 10)}T00:00:00Z`) : null;
 
     const updated = await prisma.knowledgeNode.update({ where: { id }, data });
