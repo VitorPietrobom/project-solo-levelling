@@ -1,7 +1,26 @@
 // Project Arise service worker — app-shell offline + safe caching.
-// Bump CACHE version to force clients to refresh cached assets.
+// Bump CACHE version to force clients to refresh cached assets (stale /assets/* are also pruned on each healthy navigation).
 const CACHE = 'arise-v2';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
+
+function isCacheable(res) {
+  return !!res && res.ok && res.type === 'basic';
+}
+
+// Delete cached hashed build assets (/assets/*) the current shell no longer references,
+// so the cache doesn't grow across deploys.
+function pruneAssets(cache, html) {
+  return cache.keys().then((reqs) =>
+    Promise.all(
+      reqs
+        .filter((req) => {
+          const path = new URL(req.url).pathname;
+          return path.startsWith('/assets/') && !html.includes(path);
+        })
+        .map((req) => cache.delete(req)),
+    ),
+  );
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(APP_SHELL)).then(() => self.skipWaiting()));
@@ -32,8 +51,18 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('/index.html', copy));
+          // Only a healthy same-origin page may become the offline shell — never a 500/404.
+          if (isCacheable(res)) {
+            const copy = res.clone();
+            event.waitUntil(
+              copy.text().then((html) =>
+                caches.open(CACHE).then((c) =>
+                  c.put('/index.html', new Response(html, { headers: copy.headers }))
+                    .then(() => pruneAssets(c, html)),
+                ),
+              ),
+            );
+          }
           return res;
         })
         .catch(() => caches.match('/index.html')),
@@ -46,7 +75,7 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       const network = fetch(request)
         .then((res) => {
-          if (res && res.status === 200) {
+          if (isCacheable(res)) {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(request, copy));
           }
