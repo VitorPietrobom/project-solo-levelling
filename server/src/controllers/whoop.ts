@@ -109,7 +109,7 @@ export async function whoopCallback(req: Request, res: Response): Promise<void> 
     await prisma.whoopConnection.upsert({
       where: { userId },
       create: { userId, accessToken: tok.access_token, refreshToken: tok.refresh_token, expiresAt, scope: tok.scope },
-      update: { accessToken: tok.access_token, refreshToken: tok.refresh_token, expiresAt, scope: tok.scope },
+      update: { accessToken: tok.access_token, refreshToken: tok.refresh_token, expiresAt, scope: tok.scope, needsReauth: false },
     });
     res.redirect(`${origin}/body?whoop=connected`);
   } catch (err) {
@@ -118,11 +118,31 @@ export async function whoopCallback(req: Request, res: Response): Promise<void> 
   }
 }
 
+// Sentinel returned when WHOOP rejected our refresh token: the user has to
+// reconnect, retrying won't help.
+export const WHOOP_REAUTH = 'reauth' as const;
+
 // Ensure a non-expired access token, refreshing when needed.
-async function freshAccessToken(userId: string): Promise<string | null> {
+//
+// WHOOP rotates refresh tokens, so two concurrent refreshes (manual sync + cron,
+// or two taps) race: the loser presents an already-consumed token. We use a
+// compare-and-swap on the refresh token we read so only one refresh is
+// persisted, and when ours fails or loses we re-read the row and use the
+// winner's token instead of treating it as a disconnect.
+export async function freshAccessToken(userId: string): Promise<string | typeof WHOOP_REAUTH | null> {
   const conn = await prisma.whoopConnection.findUnique({ where: { userId } });
   if (!conn) return null;
+  if (conn.needsReauth) return WHOOP_REAUTH;
   if (conn.expiresAt.getTime() - Date.now() > 60 * 1000) return conn.accessToken;
+
+  // Someone else may have rotated the token since we read it.
+  const usableWinner = async (): Promise<string | null> => {
+    const now = await prisma.whoopConnection.findUnique({ where: { userId } });
+    if (now && now.refreshToken !== conn.refreshToken && now.expiresAt.getTime() - Date.now() > 60 * 1000) {
+      return now.accessToken;
+    }
+    return null;
+  };
 
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
@@ -131,22 +151,43 @@ async function freshAccessToken(userId: string): Promise<string | null> {
     client_secret: clientSecret(),
     scope: 'offline',
   });
-  const r = await fetch(WHOOP_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-  if (!r.ok) return null;
+  let r: globalThis.Response;
+  try {
+    r = await fetch(WHOOP_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+  } catch {
+    return null; // network blip — transient, don't flag the connection
+  }
+  if (!r.ok) {
+    const winner = await usableWinner();
+    if (winner) return winner;
+    if (r.status === 400 || r.status === 401) {
+      // Only flag if the row still holds the token WHOOP just rejected.
+      await prisma.whoopConnection.updateMany({
+        where: { userId, refreshToken: conn.refreshToken },
+        data: { needsReauth: true },
+      });
+      return WHOOP_REAUTH;
+    }
+    return null;
+  }
   const tok = await r.json() as { access_token: string; refresh_token?: string; expires_in: number };
   const expiresAt = new Date(Date.now() + (tok.expires_in ?? 3600) * 1000);
-  await prisma.whoopConnection.update({
-    where: { userId },
+  const { count } = await prisma.whoopConnection.updateMany({
+    where: { userId, refreshToken: conn.refreshToken },
     data: {
       accessToken: tok.access_token,
       refreshToken: tok.refresh_token ?? conn.refreshToken,
       expiresAt,
+      needsReauth: false,
     },
   });
+  // Lost the race: another refresh already wrote newer tokens. Ours is still a
+  // valid access token for this request, so use it but don't overwrite theirs.
+  if (count === 0) return (await usableWinner()) ?? tok.access_token;
   return tok.access_token;
 }
 
@@ -172,8 +213,9 @@ async function whoopGet(token: string, path: string): Promise<any | null> {
 // pass, any day nobody opened the app got no weight row at all even though
 // Whoop had a real reading that day (Whoop's own app shows it; ours never
 // captured it). Returns null if there's no valid connection to sync.
-async function performWhoopSync(userId: string): Promise<{ syncedAt: Date | null; latest: unknown; weightLogged: boolean } | null> {
+async function performWhoopSync(userId: string): Promise<{ syncedAt: Date | null; latest: unknown; weightLogged: boolean } | typeof WHOOP_REAUTH | null> {
   const token = await freshAccessToken(userId);
+  if (token === WHOOP_REAUTH) return WHOOP_REAUTH;
   if (!token) return null;
 
   const [recovery, sleep, cycles, workouts, profile, body] = await Promise.all([
@@ -277,6 +319,10 @@ async function performWhoopSync(userId: string): Promise<{ syncedAt: Date | null
 // POST /api/whoop/sync — pull latest recovery, sleep, strain, and workouts.
 export async function syncWhoop(req: Request, res: Response): Promise<void> {
   const result = await performWhoopSync(req.user!.id);
+  if (result === WHOOP_REAUTH) {
+    res.status(409).json({ error: 'Whoop authorization expired — reconnect Whoop', code: 'WHOOP_REAUTH' });
+    return;
+  }
   if (!result) { res.status(400).json({ error: 'Whoop not connected' }); return; }
   res.json({ connected: true, ...result });
 }
@@ -334,7 +380,7 @@ export async function syncInChunks(
     const chunk = userIds.slice(i, i + opts.concurrency);
     const results = await Promise.allSettled(chunk.map((id) => worker(id)));
     results.forEach((r, j) => {
-      if (r.status === 'fulfilled' && r.value) { synced++; return; }
+      if (r.status === 'fulfilled' && r.value && r.value !== WHOOP_REAUTH) { synced++; return; }
       if (r.status === 'rejected') console.error(`[whoop] cron sync failed for user ${chunk[j]}`, r.reason);
       failed++;
     });
@@ -346,7 +392,7 @@ export async function syncInChunks(
 export async function whoopStatus(req: Request, res: Response): Promise<void> {
   const conn = await prisma.whoopConnection.findUnique({ where: { userId: req.user!.id } });
   if (!conn) { res.json({ connected: false }); return; }
-  res.json({ connected: true, syncedAt: conn.syncedAt, latest: conn.latest ?? null });
+  res.json({ connected: true, needsReauth: conn.needsReauth, syncedAt: conn.syncedAt, latest: conn.latest ?? null });
 }
 
 // DELETE /api/whoop — disconnect.

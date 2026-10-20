@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import app from '../index';
-import { reconcileWhoopWeight, syncInChunks } from './whoop';
+import { reconcileWhoopWeight, syncInChunks, freshAccessToken, WHOOP_REAUTH } from './whoop';
 
 vi.mock('../lib/prisma', () => ({
   default: {
     whoopConnection: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      updateMany: vi.fn(),
     },
     user: {
       upsert: vi.fn().mockResolvedValue({}),
@@ -114,5 +115,75 @@ describe('syncInChunks', () => {
     // chunk 1 starts at t=0 (→20), chunk 2 blocked.
     expect(worker).toHaveBeenCalledTimes(2);
     expect(out).toEqual({ synced: 2, failed: 0, skipped: 3 });
+  });
+});
+
+describe('freshAccessToken (OE-019)', () => {
+  const expired = { userId: 'u1', accessToken: 'old-a', refreshToken: 'r1', expiresAt: new Date(0), needsReauth: false };
+  const fresh = (rt: string, at: string) => ({ ...expired, refreshToken: rt, accessToken: at, expiresAt: new Date(Date.now() + 3600_000) });
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('persists the refresh via compare-and-swap on the old refresh token', async () => {
+    (prisma.whoopConnection.findUnique as any).mockResolvedValue(expired);
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ access_token: 'a2', refresh_token: 'r2', expires_in: 3600 }) });
+    (prisma.whoopConnection.updateMany as any).mockResolvedValue({ count: 1 });
+
+    expect(await freshAccessToken('u1')).toBe('a2');
+    expect(prisma.whoopConnection.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: 'u1', refreshToken: 'r1' },
+      data: expect.objectContaining({ refreshToken: 'r2', accessToken: 'a2', needsReauth: false }),
+    }));
+  });
+
+  it("uses the winner's token when a concurrent refresh consumed ours", async () => {
+    (prisma.whoopConnection.findUnique as any)
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(fresh('r2', 'winner-a'));
+    fetchMock.mockResolvedValue({ ok: false, status: 400 });
+
+    expect(await freshAccessToken('u1')).toBe('winner-a');
+    expect(prisma.whoopConnection.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite the winner when our CAS loses', async () => {
+    (prisma.whoopConnection.findUnique as any)
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(fresh('r3', 'winner-a'));
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ access_token: 'a2', refresh_token: 'r2', expires_in: 3600 }) });
+    (prisma.whoopConnection.updateMany as any).mockResolvedValue({ count: 0 });
+
+    expect(await freshAccessToken('u1')).toBe('winner-a');
+    expect(prisma.whoopConnection.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('flags needsReauth when WHOOP rejects the refresh and nobody else rotated it', async () => {
+    (prisma.whoopConnection.findUnique as any).mockResolvedValue(expired);
+    fetchMock.mockResolvedValue({ ok: false, status: 400 });
+    (prisma.whoopConnection.updateMany as any).mockResolvedValue({ count: 1 });
+
+    expect(await freshAccessToken('u1')).toBe(WHOOP_REAUTH);
+    expect(prisma.whoopConnection.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', refreshToken: 'r1' },
+      data: { needsReauth: true },
+    });
+  });
+
+  it('short-circuits to reauth for an already-flagged connection', async () => {
+    (prisma.whoopConnection.findUnique as any).mockResolvedValue({ ...expired, needsReauth: true });
+    expect(await freshAccessToken('u1')).toBe(WHOOP_REAUTH);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('treats a 5xx refresh failure as transient (no flag)', async () => {
+    (prisma.whoopConnection.findUnique as any).mockResolvedValue(expired);
+    fetchMock.mockResolvedValue({ ok: false, status: 503 });
+    expect(await freshAccessToken('u1')).toBeNull();
+    expect(prisma.whoopConnection.updateMany).not.toHaveBeenCalled();
   });
 });

@@ -244,6 +244,8 @@ model WhoopConnection {
   whoopUserId  String?
   latest       Json?
   syncedAt     DateTime?
+  // Set when WHOOP rejects our refresh token; the user must re-authorize.
+  needsReauth  Boolean   @default(false)
   createdAt    DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

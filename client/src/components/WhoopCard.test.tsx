@@ -96,3 +96,24 @@ describe('WhoopCard auto-sync', () => {
     expect(window.location.search).toBe('');
   });
 });
+
+describe('WhoopCard reauth (OE-019)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.replaceState({}, '', '/body');
+  });
+
+  it('shows a Reconnect prompt and skips auto-sync when the connection needs reauth', async () => {
+    mockGet.mockResolvedValueOnce({ connected: true, needsReauth: true, syncedAt: '2020-01-01T00:00:00.000Z', latest: null });
+    render(<WhoopCard />);
+    expect(await screen.findByText(/Reconnect Whoop/)).toBeTruthy();
+    expect(mockPost).not.toHaveBeenCalled();
+  });
+
+  it('turns a 409 from sync into a Reconnect prompt', async () => {
+    mockGet.mockResolvedValueOnce({ connected: true, syncedAt: '2020-01-01T00:00:00.000Z', latest: null });
+    mockPost.mockRejectedValueOnce(Object.assign(new Error('expired'), { status: 409 }));
+    render(<WhoopCard />);
+    expect(await screen.findByText(/Reconnect Whoop/)).toBeTruthy();
+  });
+});
