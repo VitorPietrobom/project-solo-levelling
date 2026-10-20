@@ -1,6 +1,8 @@
 import { getAuthToken } from './neonAuth';
 
-const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+// Only idempotent methods are safe to re-send after a network failure: the
+// server may have already processed the first attempt. POST and PATCH are not.
+const RETRYABLE_METHODS = ['PUT', 'DELETE'];
 
 interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
   body?: unknown;
@@ -72,18 +74,17 @@ async function request(
     init.body = JSON.stringify(body);
   }
 
-  const isMutation = MUTATION_METHODS.includes(method);
-
+  let response: Response;
   try {
-    const response = await fetch(url, init);
-    return await handleResponse(response);
+    response = await fetch(url, init);
   } catch (error) {
-    if (!isMutation) throw error;
-
-    // Single automatic retry for mutation methods
-    const retryResponse = await fetch(url, init);
-    return await handleResponse(retryResponse);
+    // Only genuine network failures (fetch rejecting) are retried, and only
+    // for idempotent methods. HTTP error responses are never retried.
+    if (!RETRYABLE_METHODS.includes(method)) throw error;
+    response = await fetch(url, init);
   }
+
+  return handleResponse(response);
 }
 
 export const apiClient = {
