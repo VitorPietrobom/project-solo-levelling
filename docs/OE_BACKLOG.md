@@ -33,7 +33,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 ## Critical
 
 ### OE-001 — Enforce the alpha invite gate on the server (and stop the client failing open)
-- **Status:** In review (#71)
+- **Status:** Done (#71)
 - **Severity:** Critical · **Confidence:** High
 - **Area:** Server — auth / invite gate (+ Client — ProtectedRoute)
 - **Location:** `server/src/middleware/ensureUser.ts:16-20`; `server/prisma/schema.prisma` (`User.activated @default(true)`); `client/src/components/ProtectedRoute.tsx:19,43-47`
@@ -43,7 +43,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-003, OE-021, OE-049
 
 ### OE-002 — "Log as eaten" on a recipe never works (wrong mealType casing)
-- **Status:** In review (#70)
+- **Status:** Done (#70)
 - **Severity:** Critical · **Confidence:** High
 - **Area:** Client — Recipes
 - **Location:** `client/src/pages/RecipesTab.tsx:75,81-83`
@@ -52,7 +52,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Send `'snack'` (better: let the user pick the meal). Show `showToast(errorMessage(err, 'Failed to log recipe'))` in the catch, and bump the Diet refresh on success.
 
 ### OE-003 — Admin access is decided by an unverified email claim
-- **Status:** In review (#68)
+- **Status:** Done (#68)
 - **Severity:** Critical · **Confidence:** Medium (depends on Neon Auth email-verification settings)
 - **Area:** Server — requireAdmin
 - **Location:** `server/src/middleware/requireAdmin.ts:6-10`; `server/src/middleware/auth.ts:73-76`
@@ -65,7 +65,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 ## High
 
 ### OE-004 — Changing a quest's xpReward / linked skill after completion mints or destroys XP
-- **Status:** In review (#72)
+- **Status:** Done (#72)
 - **Severity:** High · **Confidence:** High
 - **Area:** Server — quests / XP (+ Client — HabitRow, QuestCard)
 - **Location:** `server/src/controllers/quests.ts:159-182, 229-234, 263-265, 278-279`; `client/src/components/HabitRow.tsx:41`
@@ -94,7 +94,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Server: flip state with `updateMany({where:{id, completed:false}})` and award only when `count===1`; recompute `allDone` from the DB inside `$transaction` after the step write; for recurring quests condition on `lastCompletedAt`. Client: ignore toggles for a quest with a request in flight.
 
 ### OE-007 — Books can grant/revoke XP on another user's skill (IDOR)
-- **Status:** In review (#67)
+- **Status:** Done (#67)
 - **Severity:** High · **Confidence:** High
 - **Area:** Server — Learning / books / XP
 - **Location:** `server/src/controllers/books.ts:82, 165, 168`; `server/src/services/xp.ts:85-97`
@@ -103,7 +103,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Validate `prisma.skill.findFirst({where:{id, userId}})` on create/update (400 otherwise). Make grant/revoke `updateMany({where:{id, userId}})` so they're scoped and missing skills are no-ops.
 
 ### OE-008 — Nutrition XP can be claimed for any past or future date
-- **Status:** In review (#66)
+- **Status:** Done (#66)
 - **Severity:** High · **Confidence:** High
 - **Area:** Server — nutrition XP
 - **Location:** `server/src/controllers/nutrition.ts:261-283`; `server/src/controllers/food-entries.ts:51-72`
@@ -112,7 +112,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Only allow claims for today±1 day (timezone slack); return 400 otherwise. Optionally reject food entries dated in the future.
 
 ### OE-009 — Saving a meal-prep plan can wipe the whole week (non-transactional replace)
-- **Status:** In review (#65)
+- **Status:** Done (#65)
 - **Severity:** High · **Confidence:** High
 - **Area:** Server — meal prep
 - **Location:** `server/src/controllers/meal-prep.ts:94-118`
@@ -122,7 +122,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-040
 
 ### OE-010 — API client re-sends every failed POST/PUT/PATCH/DELETE (duplicates, redirect loops)
-- **Status:** In review (#73)
+- **Status:** Done (#73)
 - **Severity:** High · **Confidence:** High
 - **Area:** Client — API layer
 - **Location:** `client/src/lib/apiClient.ts:77-86`
@@ -131,7 +131,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Wrap only `await fetch(...)` in the try/catch; call `handleResponse` outside it. Only retry idempotent methods (PUT/DELETE), or send an idempotency key for POST.
 
 ### OE-011 — Pressing Enter in a delete confirmation always confirms, even on Cancel
-- **Status:** In review (#69)
+- **Status:** Done (#69)
 - **Severity:** High · **Confidence:** High
 - **Area:** Client — UI / ConfirmDialog
 - **Location:** `client/src/components/ui/ConfirmDialog.tsx:11-14`
