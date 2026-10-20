@@ -21,6 +21,8 @@ interface SpecialQuestBoard {
 
 interface Props {
   onXpChange?: (amount: number, label: string) => void;
+  /** Called after every toggle request settles so XP/level can be refetched. */
+  onSettled?: () => void;
 }
 
 const SECTIONS: { key: keyof SpecialQuestBoard; label: string; resetHint: string }[] = [
@@ -63,7 +65,7 @@ function QuestRow({ quest, onToggle }: { quest: SpecialQuest; onToggle: (q: Spec
   );
 }
 
-export default function SpecialQuestPanel({ onXpChange }: Props) {
+export default function SpecialQuestPanel({ onXpChange, onSettled }: Props) {
   const { showToast } = useToast();
   const [board, setBoard] = useState<SpecialQuestBoard | null>(null);
 
@@ -77,13 +79,16 @@ export default function SpecialQuestPanel({ onXpChange }: Props) {
     if (!board) return;
     const prevBoard = board;
     setBoard({ ...board, [quest.category]: board[quest.category].map((q) => (q.id === quest.id ? { ...q, completed } : q)) });
-    if (completed && onXpChange) onXpChange(quest.xpReward, quest.title);
-    else if (!completed && onXpChange) onXpChange(-quest.xpReward, quest.title);
 
-    apiClient.patch(`/api/special-quests/${quest.id}`, { body: { completed } }).catch((err) => {
-      setBoard(prevBoard);
-      showToast(errorMessage(err, 'Failed to update quest'));
-    });
+    apiClient.patch(`/api/special-quests/${quest.id}`, { body: { completed } })
+      .then(() => {
+        if (completed && onXpChange) onXpChange(quest.xpReward, quest.title);
+      })
+      .catch((err) => {
+        setBoard(prevBoard);
+        showToast(errorMessage(err, 'Failed to update quest'));
+      })
+      .finally(() => onSettled?.());
   }
 
   if (!board) return null;

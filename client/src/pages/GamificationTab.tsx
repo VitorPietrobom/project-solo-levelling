@@ -33,6 +33,7 @@ interface GamificationStatus {
 interface OutletCtx {
   status: GamificationStatus | null;
   addXP: (amount: number, label: string) => void;
+  refreshStatus: () => void;
 }
 
 // A small pool of flavor lines, picked deterministically by level so the
@@ -102,7 +103,7 @@ function KanbanColumn({ label, children }: { label: string; children: React.Reac
 }
 
 export default function GamificationTab() {
-  const { status, addXP } = (useOutletContext() ?? {}) as Partial<OutletCtx>;
+  const { status, addXP, refreshStatus } = (useOutletContext() ?? {}) as Partial<OutletCtx>;
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
 
@@ -127,6 +128,13 @@ export default function GamificationTab() {
   const fetchStatus = useCallback(async () => {
     try { setLocalStatus((await apiClient.get('/api/gamification/status')) as GamificationStatus); } catch { /* silently fail */ }
   }, []);
+
+  // After any XP-affecting request settles: refresh both this page's card and
+  // the Dashboard header from the server.
+  const syncStatus = useCallback(() => {
+    fetchStatus();
+    refreshStatus?.();
+  }, [fetchStatus, refreshStatus]);
 
   useEffect(() => {
     Promise.all([fetchQuests(), fetchSkills(), fetchStatus()]).finally(() => setLoading(false));
@@ -165,12 +173,15 @@ export default function GamificationTab() {
 
   function handleHabitToggle(id: string, completed: boolean) {
     const habit = quests.find((q) => q.id === id);
-    if (habit && completed && addXP) addXP(habit.xpReward, habit.title);
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, completed } : q)));
     apiClient.patch(`/api/quests/${id}/${completed ? 'complete' : 'reset'}`)
-      .then(() => fetchStatus())
+      .then(() => {
+        if (habit && completed && addXP) addXP(habit.xpReward, habit.title);
+        syncStatus();
+      })
       .catch((err) => {
         fetchQuests();
+        syncStatus();
         showToast(errorMessage(err, 'Failed to update habit'));
       });
   }
@@ -197,9 +208,10 @@ export default function GamificationTab() {
       }),
     );
     apiClient.patch(`/api/quests/${questId}/steps/${stepId}`, { body: { completed } })
-      .then(() => fetchStatus())
+      .then(() => syncStatus())
       .catch((err) => {
         fetchQuests();
+        syncStatus();
         showToast(errorMessage(err, 'Failed to update step'));
       });
   }
@@ -228,9 +240,12 @@ export default function GamificationTab() {
       setQuests((prev) => prev.map((q) =>
         q.id === quest.id ? { ...q, completed: true, steps: q.steps.map((s) => ({ ...s, completed: true })) } : q,
       ));
-      if (addXP) addXP(quest.xpReward, quest.title);
-      apiClient.patch(`/api/quests/${quest.id}/complete`).then(() => fetchStatus()).catch((err) => {
+      apiClient.patch(`/api/quests/${quest.id}/complete`).then(() => {
+        if (addXP) addXP(quest.xpReward, quest.title);
+        syncStatus();
+      }).catch((err) => {
         fetchQuests();
+        syncStatus();
         showToast(errorMessage(err, 'Failed to complete quest'));
       });
     } else {
@@ -239,8 +254,9 @@ export default function GamificationTab() {
       setQuests((prev) => prev.map((q) =>
         q.id === quest.id ? { ...q, completed: false, steps: q.steps.map((s) => ({ ...s, completed: false })) } : q,
       ));
-      apiClient.patch(`/api/quests/${quest.id}/reset`).then(() => fetchStatus()).catch((err) => {
+      apiClient.patch(`/api/quests/${quest.id}/reset`).then(() => syncStatus()).catch((err) => {
         fetchQuests();
+        syncStatus();
         showToast(errorMessage(err, 'Failed to reset quest'));
       });
     }
@@ -338,7 +354,7 @@ export default function GamificationTab() {
         </div>
       </div>
 
-      <SpecialQuestPanel onXpChange={addXP ? (amount, label) => addXP(amount, label) : undefined} />
+      <SpecialQuestPanel onXpChange={addXP ? (amount, label) => addXP(amount, label) : undefined} onSettled={syncStatus} />
 
       {/* Quests kanban — one-time goals only */}
       <section className="card arise-in" style={{ padding: 'var(--pad)' }}>

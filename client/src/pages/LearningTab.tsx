@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
 import { apiClient, errorMessage } from '../lib/apiClient';
-import { useAriseAddXP } from '../components/Dashboard';
+import { useAriseAddXP, useAriseRefreshStatus } from '../components/Dashboard';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useToast } from '../contexts/ToastContext';
 import BookList from '../components/BookList';
@@ -16,6 +16,7 @@ const BOOK_FINISH_XP = 80;
 
 export default function LearningTab() {
   const addXP = useAriseAddXP();
+  const refreshStatus = useAriseRefreshStatus();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
 
@@ -57,12 +58,17 @@ export default function LearningTab() {
   function handleBookUpdateStatus(id: string, status: Book['status']) {
     const wasFinished = books.find((b) => b.id === id)?.status === 'finished';
     setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
-    if (status === 'finished' && !wasFinished) addXP(BOOK_FINISH_XP, 'Finished a book');
     bumpStats();
-    apiClient.patch(`/api/books/${id}`, { body: { status } }).catch((err) => {
-      fetchBooks();
-      showToast(errorMessage(err, 'Failed to update book status'));
-    });
+    apiClient.patch(`/api/books/${id}`, { body: { status } })
+      .then(() => {
+        if (status === 'finished' && !wasFinished) addXP(BOOK_FINISH_XP, 'Finished a book');
+        else refreshStatus();
+      })
+      .catch((err) => {
+        fetchBooks();
+        refreshStatus();
+        showToast(errorMessage(err, 'Failed to update book status'));
+      });
   }
   function handleBookUpdateProgress(id: string, currentPage: number) {
     setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, currentPage } : b)));
