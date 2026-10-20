@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import app from '../index';
 
-vi.mock('../lib/prisma', () => ({
-  default: {
+vi.mock('../lib/prisma', () => {
+  const db: any = {
+    // Interactive transactions run against the same mock client (OE-102).
+    $transaction: vi.fn((fn: any) => fn(db)),
     dailyActivity: {
       upsert: vi.fn().mockResolvedValue({}),
     },
@@ -31,8 +33,9 @@ vi.mock('../lib/prisma', () => ({
       update: vi.fn().mockResolvedValue({}),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
-  },
-}));
+  };
+  return { default: db };
+});
 
 vi.mock('../middleware/auth', async () => ({
   authMiddleware: (req: any, _res: any, next: any) => {
@@ -524,6 +527,52 @@ describe('Quest endpoints', () => {
       await request(app).patch('/api/quests/q1/reset');
 
       expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'sk1', userId: 'test-user-id' }, data: { totalXP: { decrement: 60 } } });
+    });
+  });
+
+  describe('state write and XP are atomic (OE-102)', () => {
+    const quest = {
+      id: 'q1', userId: 'test-user-id', xpReward: 60, completed: false, linkedSkillId: 'sk1',
+      recurrence: null, lastCompletedAt: null, steps: [{ id: 's1', completed: false }],
+    };
+
+    it('runs the completion flip and XP award in one transaction', async () => {
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+      (prisma.user.update as any).mockResolvedValue({ totalXP: 60 });
+      (prisma.quest.findUnique as any).mockResolvedValue({ ...quest, completed: true });
+      let inTx = false;
+      const order: string[] = [];
+      (prisma.$transaction as any).mockImplementationOnce(async (fn: any) => { inTx = true; try { return await fn(prisma); } finally { inTx = false; } });
+      (prisma.quest.updateMany as any).mockImplementationOnce(async () => { order.push(`quest:${inTx}`); return { count: 1 }; });
+      (prisma.user.update as any).mockImplementationOnce(async () => { order.push(`xp:${inTx}`); return { totalXP: 60 }; });
+
+      await request(app).patch('/api/quests/q1/complete');
+
+      expect(order).toEqual(['quest:true', 'xp:true']);
+    });
+
+    it('returns 500 and surfaces the failure when the XP write fails inside the transaction', async () => {
+      (prisma.quest.findFirst as any).mockResolvedValue(quest);
+      (prisma.user.update as any).mockRejectedValueOnce(new Error('db down'));
+      vi.spyOn(console, 'error').mockImplementationOnce(() => {});
+
+      const res = await request(app).patch('/api/quests/q1/complete');
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(res.status).toBe(500);
+    });
+
+    it('toggleStep and reset also go through a transaction', async () => {
+      (prisma.quest.findFirst as any).mockResolvedValue({ ...quest, steps: [{ id: 's1', completed: false }] });
+      (prisma.questStep.count as any).mockResolvedValue(0);
+      (prisma.user.update as any).mockResolvedValue({ totalXP: 60 });
+      (prisma.quest.findUnique as any).mockResolvedValue({ ...quest, completed: true });
+      await request(app).patch('/api/quests/q1/steps/s1');
+
+      (prisma.quest.findFirst as any).mockResolvedValue({ ...quest, completed: true, steps: [{ id: 's1', completed: true }] });
+      await request(app).patch('/api/quests/q1/reset');
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
     });
   });
 
