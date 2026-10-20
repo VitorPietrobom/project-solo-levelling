@@ -244,6 +244,27 @@ describe('GamificationTab', () => {
     expect(addXP).not.toHaveBeenCalled();
   });
 
+  it('ignores further step toggles on a quest while one request is in flight (OE-006)', async () => {
+    let settle!: () => void;
+    mockPatch.mockImplementationOnce(() => new Promise<void>((r) => { settle = r; }));
+    render(<GamificationTab />);
+    await waitFor(() => expect(screen.getByText('Morning run')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText(/Expand quest/));
+    fireEvent.click(screen.getByLabelText('Buy a guitar'));
+    // The card moves to "In Progress" (remounting collapsed); reopen it.
+    fireEvent.click(screen.getByLabelText(/Expand quest/));
+    fireEvent.click(screen.getByLabelText('Learn chords'));
+
+    expect(mockPatch).toHaveBeenCalledTimes(1);
+    expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/steps/s1', { body: { completed: true } });
+
+    settle();
+    await waitFor(() => expect(mockGet).toHaveBeenCalledWith('/api/gamification/status'));
+    fireEvent.click(screen.getByLabelText('Learn chords'));
+    await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/steps/s2', { body: { completed: true } }));
+  });
+
   it('editing a habit saves via PATCH', async () => {
     render(<GamificationTab />);
     await waitFor(() => expect(screen.getByText('Morning run')).toBeInTheDocument());

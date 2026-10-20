@@ -236,20 +236,29 @@ export async function toggleStep(req: Request, res: Response): Promise<void> {
 
     await prisma.questStep.update({ where: { id: stepId }, data: { completed: nextCompleted } });
 
-    const nextSteps = quest.steps.map((s) => (s.id === stepId ? nextCompleted : s.completed));
-    const allDone = nextSteps.every(Boolean);
-    const wasCompleted = quest.completed;
+    // Recompute from the DB rather than the snapshot read above: two
+    // concurrent toggles of the last two steps would each see the other as
+    // still open, and neither would complete the quest (OE-006).
+    const openSteps = await prisma.questStep.count({ where: { questId, completed: false } });
+    const allDone = openSteps === 0;
 
-    if (allDone && !wasCompleted) {
-      await prisma.quest.update({
-        where: { id: questId },
+    // Flip the quest's state with a conditional write so only the request
+    // that actually performs the transition awards/revokes XP.
+    if (allDone) {
+      const { count } = await prisma.quest.updateMany({
+        where: { id: questId, completed: false },
         data: { completed: true, awardedXP: quest.xpReward, awardedSkillId: quest.linkedSkillId },
       });
-      await awardXP(userId, quest.xpReward, `quest:${questId}`);
-      if (quest.linkedSkillId) await grantSkillXP(userId, quest.linkedSkillId, quest.xpReward);
-    } else if (!allDone && wasCompleted) {
-      await prisma.quest.update({ where: { id: questId }, data: { completed: false, ...clearedAward } });
-      await revokeAward(userId, quest);
+      if (count === 1) {
+        await awardXP(userId, quest.xpReward, `quest:${questId}`);
+        if (quest.linkedSkillId) await grantSkillXP(userId, quest.linkedSkillId, quest.xpReward);
+      }
+    } else {
+      const { count } = await prisma.quest.updateMany({
+        where: { id: questId, completed: true },
+        data: { completed: false, ...clearedAward },
+      });
+      if (count === 1) await revokeAward(userId, quest);
     }
 
     const updated = await prisma.quest.findUnique({ where: { id: questId }, include: questInclude });
@@ -278,8 +287,13 @@ export async function resetQuest(req: Request, res: Response): Promise<void> {
       const wasCompleted = isCompletedForPeriod(quest.recurrence, quest.lastCompletedAt);
       if (!wasCompleted) { res.json(withComputedCompleted(quest)); return; }
 
-      await prisma.quest.update({ where: { id }, data: { lastCompletedAt: null, ...clearedAward } });
-      await revokeAward(userId, quest);
+      // Conditional on the lastCompletedAt we read, so concurrent resets
+      // revoke only once (OE-006).
+      const { count } = await prisma.quest.updateMany({
+        where: { id, lastCompletedAt: quest.lastCompletedAt },
+        data: { lastCompletedAt: null, ...clearedAward },
+      });
+      if (count === 1) await revokeAward(userId, quest);
 
       const updated = await prisma.quest.findUnique({ where: { id }, include: questInclude });
       res.json(withComputedCompleted(updated!));
@@ -291,8 +305,11 @@ export async function resetQuest(req: Request, res: Response): Promise<void> {
 
     await prisma.questStep.updateMany({ where: { questId: id }, data: { completed: false } });
 
-    if (quest.completed) await revokeAward(userId, quest);
-    await prisma.quest.update({ where: { id }, data: { completed: false, ...clearedAward } });
+    const { count } = await prisma.quest.updateMany({
+      where: { id, completed: true },
+      data: { completed: false, ...clearedAward },
+    });
+    if (count === 1) await revokeAward(userId, quest);
 
     const updated = await prisma.quest.findUnique({ where: { id }, include: questInclude });
     res.json(withComputedCompleted(updated!));
@@ -336,12 +353,16 @@ export async function completeQuestAll(req: Request, res: Response): Promise<voi
         res.json(withComputedCompleted(quest));
         return;
       }
-      await prisma.quest.update({
-        where: { id },
+      // Conditional on the lastCompletedAt we read, so a double tap awards
+      // only once (OE-006).
+      const { count } = await prisma.quest.updateMany({
+        where: { id, lastCompletedAt: quest.lastCompletedAt },
         data: { lastCompletedAt: new Date(), awardedXP: quest.xpReward, awardedSkillId: quest.linkedSkillId },
       });
-      await awardXP(userId, quest.xpReward, `quest:${id}`);
-      if (quest.linkedSkillId) await grantSkillXP(userId, quest.linkedSkillId, quest.xpReward);
+      if (count === 1) {
+        await awardXP(userId, quest.xpReward, `quest:${id}`);
+        if (quest.linkedSkillId) await grantSkillXP(userId, quest.linkedSkillId, quest.xpReward);
+      }
 
       const updated = await prisma.quest.findUnique({ where: { id }, include: questInclude });
       res.json(withComputedCompleted(updated!));
@@ -351,12 +372,14 @@ export async function completeQuestAll(req: Request, res: Response): Promise<voi
     if (quest.completed) { res.json(quest); return; }
 
     await prisma.questStep.updateMany({ where: { questId: id }, data: { completed: true } });
-    await prisma.quest.update({
-      where: { id },
+    const { count } = await prisma.quest.updateMany({
+      where: { id, completed: false },
       data: { completed: true, awardedXP: quest.xpReward, awardedSkillId: quest.linkedSkillId },
     });
-    await awardXP(userId, quest.xpReward, `quest:${id}`);
-    if (quest.linkedSkillId) await grantSkillXP(userId, quest.linkedSkillId, quest.xpReward);
+    if (count === 1) {
+      await awardXP(userId, quest.xpReward, `quest:${id}`);
+      if (quest.linkedSkillId) await grantSkillXP(userId, quest.linkedSkillId, quest.xpReward);
+    }
 
     const updated = await prisma.quest.findUnique({ where: { id }, include: questInclude });
     res.json(withComputedCompleted(updated!));
