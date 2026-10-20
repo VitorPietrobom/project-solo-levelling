@@ -24,9 +24,9 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 |---|---|
 | Critical | 3 |
 | High | 17 |
-| Medium | 47 |
+| Medium | 48 |
 | Low | 34 |
-| **Total** | **101** |
+| **Total** | **102** |
 
 ---
 
@@ -75,7 +75,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-005, OE-006, OE-035
 
 ### OE-005 — Deleting a skill makes linked quests drain user XP on every reset
-- **Status:** Todo
+- **Status:** Done (#76)
 - **Severity:** High · **Confidence:** High
 - **Area:** Server — quests / skills / XP
 - **Location:** `server/src/controllers/quests.ts:229-234, 263-265, 275-281, 325-327, 336-339`; `server/src/controllers/skills.ts:84`; schema `Quest.linkedSkillId`
@@ -85,7 +85,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-004, OE-007
 
 ### OE-006 — Concurrent complete / step-toggle requests double-award XP or never complete
-- **Status:** Todo
+- **Status:** Done (#83)
 - **Severity:** High · **Confidence:** High
 - **Area:** Server — quests (+ Client — GamificationTab)
 - **Location:** `server/src/controllers/quests.ts:204-235, 314-339`; `client/src/pages/GamificationTab.tsx:191-205, 225-235`
@@ -140,7 +140,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Remove the global Enter handler (or skip when `e.target` is a button). Auto-focus Cancel, add `role="dialog"`/`aria-modal`, trap focus, close on Escape.
 
 ### OE-012 — Dashboard XP / level header drifts from the server
-- **Status:** Todo
+- **Status:** Done (#82)
 - **Severity:** High · **Confidence:** High
 - **Area:** Client — Dashboard / Status
 - **Location:** `client/src/components/Dashboard.tsx:54-67, 77-87`; `client/src/pages/GamificationTab.tsx:168, 231`; `client/src/components/SpecialQuestPanel.tsx:207-213`; `client/src/components/SkillActionList.tsx:129-130`
@@ -150,7 +150,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-031, OE-059, OE-065
 
 ### OE-013 — Optimistic (temp-id) rows on the Body tab can be edited/deleted before they exist
-- **Status:** Todo
+- **Status:** Done (#78)
 - **Severity:** High · **Confidence:** High
 - **Area:** Client — Body
 - **Location:** `client/src/pages/BodyTab.tsx:70-126`; `client/src/components/WeightEntryList.tsx:51-59`; `MeasurementEntryList.tsx:61-65`; `GymSessionLog.tsx:43-50`; `TrainingProgramView.tsx:122-133`
@@ -160,7 +160,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-041, OE-042, OE-063 (same pattern in other tabs)
 
 ### OE-014 — Logging a manual weight over a WHOOP entry shows two points for that day
-- **Status:** Todo
+- **Status:** Done (#79)
 - **Severity:** High · **Confidence:** High
 - **Area:** Client — Body / weight
 - **Location:** `client/src/pages/BodyTab.tsx:74`; server `server/src/controllers/weight.ts:53-62`
@@ -169,7 +169,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** In `.then`, remove any other entry with `id === data.id` before replacing the temp row (or refetch after create).
 
 ### OE-015 — Diet "today" and week-Monday use UTC (wrong day; meal-plan import rejected)
-- **Status:** Todo
+- **Status:** Done (#81)
 - **Severity:** High · **Confidence:** High
 - **Area:** Client — Diet / Recipes / dates
 - **Location:** `client/src/pages/DietTab.tsx:24-31, 36`; `MealPrepForm.tsx:21-28`; `FoodEntryForm.tsx:27`; `FoodEntryImport.tsx:53`; `BarcodeFoodForm.tsx:43`; `MealPlanImport.tsx:108`; `RecipesTab.tsx:67`
@@ -188,7 +188,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Pass `defaultDate={selectedDate}`. Only add rows whose `date === selectedDate`; always `bumpFoodRefresh()`.
 
 ### OE-017 — AI food-import JSON isn't normalized (floats, "Lunch", missing names all 400)
-- **Status:** Todo
+- **Status:** Done (#80)
 - **Severity:** High · **Confidence:** High
 - **Area:** Client — Diet / AI import
 - **Location:** `client/src/components/FoodEntryImport.tsx:45-66`
@@ -197,7 +197,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Normalize per entry (`Math.round(Number(calories))`, `Number()` macros, lowercase/map mealType, default `snack`), accept a top-level array, reject invalid entries in the form's error area instead of posting.
 
 ### OE-018 — WHOOP daily cron can't finish within Vercel's 30s limit
-- **Status:** Todo
+- **Status:** Done (#75)
 - **Severity:** High · **Confidence:** High
 - **Area:** Server — WHOOP cron
 - **Location:** `server/src/controllers/whoop.ts:290`; `vercel.json` (`maxDuration: 30`)
@@ -215,7 +215,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Serialize per user (row lock in `$transaction` and re-check `expiresAt`, or compare-and-swap `updateMany({where:{userId, refreshToken}})`). On 400/401 from refresh, flag `needsReauth` and return a distinct error the client turns into a "Reconnect" prompt.
 
 ### OE-020 — Book-node sync silently deletes user notes that have a bookId
-- **Status:** Todo
+- **Status:** Done (#77)
 - **Severity:** High · **Confidence:** High
 - **Area:** Server — Learning / knowledge
 - **Location:** `server/src/controllers/knowledge.ts:378, 424`; `server/src/services/bookNodes.ts:24-27, 59-64, 69-71`
@@ -953,3 +953,13 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Problem:** The test can't find the "Aug 19" label anymore. It fails on `main` too, so it's date-dependent rather than a regression — most likely its fixture dates fall outside the chart's default time-range window now that "today" has moved on.
 - **Impact:** The client suite is red on every branch, which hides real failures.
 - **Fix:** Freeze time in the test (`vi.useFakeTimers()` + `vi.setSystemTime(...)`) or build fixture dates relative to today, and keep asserting the UTC-vs-local labelling it was written for.
+
+### OE-102 — Quest complete/reset XP changes aren't atomic with the quest state write
+- **Status:** Todo
+- **Severity:** Medium · **Confidence:** High
+- **Area:** Server — quests / XP
+- **Location:** `server/src/controllers/quests.ts` (`toggleStep`, `resetQuest`, `completeQuestAll`)
+- **Problem:** OE-006 made the state flip conditional (no double awards) and OE-005 made missing skills harmless, but the conditional write, `awardXP`/`revokeXP` and skill XP still commit separately.
+- **Impact:** A crash or DB error between the writes leaves the quest completed without XP (or reset with XP kept).
+- **Fix:** Wrap each flow's conditional update + XP writes in one `prisma.$transaction` (interactive), keeping the `count === 1` guard.
+- **Related:** OE-005, OE-006
