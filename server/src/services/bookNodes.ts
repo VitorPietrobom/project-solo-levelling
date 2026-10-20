@@ -12,6 +12,14 @@ export function bookNodeBody(author: string, status: string, currentPage: number
 }
 
 /**
+ * Only nodes this module created (kind 'source', legacyId `book:<id>`) are
+ * book projections; user notes must never be touched even if they carry a bookId.
+ */
+function bookNodeWhere(userId: string) {
+  return { userId, kind: 'source' as const, bookId: { not: null }, legacyId: { startsWith: 'book:' } };
+}
+
+/**
  * Projects the bookshelf into the graph as `source` nodes.
  *
  * The bookshelf stays the system of record — these nodes exist so notes can
@@ -23,7 +31,7 @@ export async function syncBookNodes(userId: string): Promise<{ created: number; 
   const [books, nodes] = await Promise.all([
     prisma.book.findMany({ where: { userId } }),
     prisma.knowledgeNode.findMany({
-      where: { userId, bookId: { not: null } },
+      where: bookNodeWhere(userId),
       select: { id: true, bookId: true, title: true, content: true },
     }),
   ]);
@@ -68,5 +76,5 @@ export async function syncBookNodes(userId: string): Promise<{ created: number; 
 
 /** Removes a single book's graph node (and, by cascade, its edges). */
 export async function removeBookNode(userId: string, bookId: string): Promise<void> {
-  await prisma.knowledgeNode.deleteMany({ where: { userId, bookId } });
+  await prisma.knowledgeNode.deleteMany({ where: { userId, bookId, kind: 'source', legacyId: bookNodeKey(bookId) } });
 }

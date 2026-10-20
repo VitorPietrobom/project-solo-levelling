@@ -119,6 +119,15 @@ describe('Knowledge graph endpoints', () => {
       }));
     });
 
+    it('ignores a client-supplied bookId (OE-020)', async () => {
+      (prisma.knowledgeNode.create as any).mockResolvedValue({ id: 'n1', title: 'New', content: '', kind: 'note' });
+
+      await request(app).post('/api/knowledge').send({ title: 'New', bookId: 'b1' });
+
+      const data = (prisma.knowledgeNode.create as any).mock.calls[0][0].data;
+      expect(data.bookId).toBeUndefined();
+    });
+
     it('rejects an empty title', async () => {
       const res = await request(app).post('/api/knowledge').send({ title: '  ' });
       expect(res.status).toBe(400);
@@ -174,6 +183,15 @@ describe('Knowledge graph endpoints', () => {
       const res = await request(app).patch('/api/knowledge/n1').send({ title: 'B' });
 
       expect(res.status).toBe(200);
+      expect(prisma.knowledgeNode.update).toHaveBeenCalledWith({ where: { id: 'n1' }, data: { title: 'B' } });
+    });
+
+    it('ignores a client-supplied bookId (OE-020)', async () => {
+      (prisma.knowledgeNode.findFirst as any).mockResolvedValue({ id: 'n1', title: 'A', content: '' });
+      (prisma.knowledgeNode.update as any).mockResolvedValue({ id: 'n1', title: 'B', content: '' });
+
+      await request(app).patch('/api/knowledge/n1').send({ title: 'B', bookId: 'x' });
+
       expect(prisma.knowledgeNode.update).toHaveBeenCalledWith({ where: { id: 'n1' }, data: { title: 'B' } });
     });
   });
