@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { localISODate } from '../lib/localDate';
 import type { GymSession } from './GymSessionLog';
 
 interface GymSessionFormProps {
@@ -25,7 +26,7 @@ const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads
 const emptyExercise = (): FormExercise => ({ name: '', sets: '3', reps: '10', weight: '0', muscleGroups: [] });
 
 export default function GymSessionForm({ onCreated }: GymSessionFormProps) {
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => localISODate());
   const [notes, setNotes] = useState('');
   const [exercises, setExercises] = useState<FormExercise[]>([emptyExercise()]);
   const [error, setError] = useState<string | null>(null);

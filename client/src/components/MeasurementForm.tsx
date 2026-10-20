@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { localISODate } from '../lib/localDate';
 import type { Measurement } from './MeasurementList';
 
 interface MeasurementFormProps {
@@ -13,7 +14,7 @@ const TYPES: Measurement['type'][] = ['chest', 'waist', 'hips', 'arms', 'thighs'
 export default function MeasurementForm({ onCreated }: MeasurementFormProps) {
   const [type, setType] = useState<Measurement['type']>('chest');
   const [value, setValue] = useState('');
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => localISODate());
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
