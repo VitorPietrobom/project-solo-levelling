@@ -75,6 +75,18 @@ export async function createOrUpdateMealPrepPlan(req: Request, res: Response): P
       }
     }
 
+    // Reject duplicate (dayOfWeek, mealType) slots before touching the DB —
+    // they would violate @@unique([planId, dayOfWeek, mealType]) mid-write.
+    const seenSlots = new Set<string>();
+    for (const entry of entries) {
+      const slot = `${entry.dayOfWeek} ${entry.mealType}`;
+      if (seenSlots.has(slot)) {
+        res.status(400).json({ error: `Duplicate meal slot: ${slot}` });
+        return;
+      }
+      seenSlots.add(slot);
+    }
+
     // Every recipeId must belong to this user — otherwise someone else's
     // recipe (name, ingredients, macros) could be linked into this plan and
     // read back via getMealPrepPlan/getGroceryList.
@@ -85,62 +97,44 @@ export async function createOrUpdateMealPrepPlan(req: Request, res: Response): P
       return;
     }
 
-    // Upsert: find existing plan for this week, delete old entries, create new ones
-    const existing = await prisma.mealPrepPlan.findFirst({
-      where: { userId, weekStartDate: date },
-    });
+    const entryCreates = entries.map((e: { dayOfWeek: string; mealType: string; recipeId: string }) => ({
+      dayOfWeek: e.dayOfWeek as DayOfWeek,
+      mealType: e.mealType as MealType,
+      recipe: { connect: { id: e.recipeId } },
+    }));
+    const includeEntries = {
+      entries: {
+        include: {
+          recipe: {
+            include: { ingredients: true },
+          },
+        },
+        orderBy: { dayOfWeek: 'asc' as const },
+      },
+    };
 
-    let plan;
-    if (existing) {
-      // Delete old entries and create new ones
-      await prisma.mealPrepEntry.deleteMany({ where: { planId: existing.id } });
-      plan = await prisma.mealPrepPlan.update({
-        where: { id: existing.id },
-        data: {
-          entries: {
-            create: entries.map((e: { dayOfWeek: string; mealType: string; recipeId: string }) => ({
-              dayOfWeek: e.dayOfWeek as DayOfWeek,
-              mealType: e.mealType as MealType,
-              recipe: { connect: { id: e.recipeId } },
-            })),
-          },
-        },
-        include: {
-          entries: {
-            include: {
-              recipe: {
-                include: { ingredients: true },
-              },
-            },
-            orderBy: { dayOfWeek: 'asc' as const },
-          },
-        },
+    // Upsert in one transaction: find existing plan for this week, delete old
+    // entries, create new ones. If anything fails (constraint violation, a
+    // recipe deleted concurrently, ...) the delete rolls back and the user's
+    // existing week plan survives.
+    const plan = await prisma.$transaction(async (tx) => {
+      const existing = await tx.mealPrepPlan.findFirst({
+        where: { userId, weekStartDate: date },
       });
-    } else {
-      plan = await prisma.mealPrepPlan.create({
-        data: {
-          userId,
-          weekStartDate: date,
-          entries: {
-            create: entries.map((e: { dayOfWeek: string; mealType: string; recipeId: string }) => ({
-              dayOfWeek: e.dayOfWeek as DayOfWeek,
-              mealType: e.mealType as MealType,
-              recipe: { connect: { id: e.recipeId } },
-            })),
-          },
-        },
-        include: {
-          entries: {
-            include: {
-              recipe: {
-                include: { ingredients: true },
-              },
-            },
-            orderBy: { dayOfWeek: 'asc' as const },
-          },
-        },
+
+      if (existing) {
+        await tx.mealPrepEntry.deleteMany({ where: { planId: existing.id } });
+        return tx.mealPrepPlan.update({
+          where: { id: existing.id },
+          data: { entries: { create: entryCreates } },
+          include: includeEntries,
+        });
+      }
+      return tx.mealPrepPlan.create({
+        data: { userId, weekStartDate: date, entries: { create: entryCreates } },
+        include: includeEntries,
       });
-    }
+    });
 
     res.status(201).json(plan);
   } catch (err) {
