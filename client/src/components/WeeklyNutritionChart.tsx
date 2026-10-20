@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Flame, Activity, Settings2, TrendingDown, Brain, Zap, Check } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 import { useAriseAddXP } from './Dashboard';
+import { mondayOf } from '../lib/localDate';
 
 interface Macro { calories: number; protein: number; carbs: number; fat: number }
 interface FoodEntry { calories: number; protein: number; carbs: number; fat: number }
@@ -40,15 +41,6 @@ const ROWS: { key: keyof Macro; label: string; unit: string; color: string }[] =
   { key: 'carbs', label: 'Carbs', unit: 'g', color: 'var(--good)' },
 ];
 
-// Monday (YYYY-MM-DD) of the week containing the given date, computed on
-// plain date components so it never shifts with the viewer's timezone.
-function mondayOf(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dt = new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1));
-  const day = dt.getUTCDay();
-  dt.setUTCDate(dt.getUTCDate() + (day === 0 ? -6 : 1 - day));
-  return dt.toISOString().slice(0, 10);
-}
 function addDays(dateStr: string, n: number): string {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1));

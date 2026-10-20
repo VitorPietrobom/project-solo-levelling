@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Copy, Check, Sparkles, ChefHat, AlertCircle } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
+import { localISODate } from '../lib/localDate';
 
 interface Macro { calories: number; protein: number; carbs: number; fat: number }
 interface TargetResponse {
@@ -105,7 +106,7 @@ export default function MealPlanImport({ weekStartDate, onImported }: Props) {
 
   const fetchTarget = useCallback(async () => {
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localISODate();
       setTarget((await apiClient.get(`/api/nutrition/target?date=${today}`)) as TargetResponse);
     } catch { setTarget(null); }
   }, []);

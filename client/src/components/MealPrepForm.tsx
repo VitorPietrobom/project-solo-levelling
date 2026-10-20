@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { Recipe } from './RecipeList';
+import { currentMonday } from '../lib/localDate';
 
 interface MealPrepFormProps {
   recipes: Recipe[];
@@ -18,17 +19,8 @@ const MEAL_LABELS: Record<string, string> = {
   breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack',
 };
 
-function getCurrentMonday(): string {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diff);
-  return monday.toISOString().split('T')[0];
-}
-
 export default function MealPrepForm({ recipes, onCreated }: MealPrepFormProps) {
-  const [weekStartDate, setWeekStartDate] = useState(getCurrentMonday);
+  const [weekStartDate, setWeekStartDate] = useState(() => currentMonday());
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 

@@ -19,21 +19,13 @@ import WeeklyNutritionChart from '../components/WeeklyNutritionChart';
 import NutritionAiPrompt from '../components/NutritionAiPrompt';
 import { apiClient, errorMessage } from '../lib/apiClient';
 import { useToast } from '../contexts/ToastContext';
+import { localISODate, currentMonday } from '../lib/localDate';
 
-// The Monday that opens the current week, YYYY-MM-DD (local).
-function getCurrentMonday(): string {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diff);
-  return monday.toISOString().split('T')[0];
-}
 
 export default function DietTab() {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => localISODate());
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
   const [showFoodForm, setShowFoodForm] = useState(false);
   const [showFoodImport, setShowFoodImport] = useState(false);
@@ -332,7 +324,7 @@ export default function DietTab() {
         {showMealPrepAi && (
           <div style={{ marginBottom: 16 }}>
             <MealPlanImport
-              weekStartDate={getCurrentMonday()}
+              weekStartDate={currentMonday()}
               onImported={(plan) => { setMealPrepPlan(plan as MealPrepPlanData); setShowMealPrepAi(false); fetchMealPrepPlan(); }}
             />
           </div>

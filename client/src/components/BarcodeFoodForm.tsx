@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiClient, errorMessage } from '../lib/apiClient';
 import type { FoodEntry } from './CalorieTracker';
+import { localISODate } from '../lib/localDate';
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
@@ -40,7 +41,7 @@ export default function BarcodeFoodForm({ code, defaultDate, onCreated, onCancel
   const [foodName, setFoodName] = useState('');
   const [grams, setGrams] = useState(100);
   const [mealType, setMealType] = useState<MealType>('breakfast');
-  const [date, setDate] = useState(defaultDate ?? new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(defaultDate ?? localISODate());
   const [error, setError] = useState<string | null>(null);
 
   // Shown when the barcode isn't in Open Food Facts or our own fallback
