@@ -257,28 +257,60 @@ export async function getNutritionTarget(req: Request, res: Response): Promise<v
   res.json(result);
 }
 
+/**
+ * True when dateStr (YYYY-MM-DD) is within one calendar day of the server's
+ * current UTC date (yesterday … tomorrow). The ±1 day tolerates user
+ * timezones while preventing XP claims for arbitrary past or future dates.
+ */
+export function isWithinClaimWindow(dateStr: string, now: Date = new Date()): boolean {
+  const today = ymd(now);
+  return dateStr === today || dateStr === addDaysStr(today, -1) || dateStr === addDaysStr(today, 1);
+}
+
 // POST /api/nutrition/claim  { date }  — award daily nutrition XP once per day.
 export async function claimNutritionXp(req: Request, res: Response): Promise<void> {
-  const userId = req.user!.id;
-  const dateStr = typeof req.body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.date)
-    ? req.body.date
-    : new Date().toISOString().slice(0, 10);
-
-  const day = await computeNutrition(userId, dateStr);
-  if (!day) { res.status(404).json({ error: 'User not found' }); return; }
-  if (day.adherence.claimed) { res.json({ awarded: false, alreadyClaimed: true, xp: DAILY_XP }); return; }
-  if (!day.adherence.eligible) {
-    res.status(400).json({ awarded: false, error: 'Day targets not met yet', adherence: day.adherence });
-    return;
-  }
-
-  // Idempotent insert guards against double-claims from concurrent requests.
   try {
-    await prisma.nutritionXpClaim.create({ data: { userId, date: dateStr, xp: DAILY_XP } });
-  } catch {
-    res.json({ awarded: false, alreadyClaimed: true, xp: DAILY_XP });
-    return;
+    const userId = req.user!.id;
+    const dateStr = typeof req.body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.date)
+      ? req.body.date
+      : new Date().toISOString().slice(0, 10);
+
+    if (!isWithinClaimWindow(dateStr)) {
+      res.status(400).json({ error: 'Can only claim nutrition XP for today' });
+      return;
+    }
+
+    const day = await computeNutrition(userId, dateStr);
+    if (!day) { res.status(404).json({ error: 'User not found' }); return; }
+    if (day.adherence.claimed) { res.json({ awarded: false, alreadyClaimed: true, xp: DAILY_XP }); return; }
+    if (!day.adherence.eligible) {
+      res.status(400).json({ awarded: false, error: 'Day targets not met yet', adherence: day.adherence });
+      return;
+    }
+
+    // Idempotent insert guards against double-claims from concurrent requests.
+    let claimId: string;
+    try {
+      const claim = await prisma.nutritionXpClaim.create({ data: { userId, date: dateStr, xp: DAILY_XP } });
+      claimId = claim.id;
+    } catch {
+      res.json({ awarded: false, alreadyClaimed: true, xp: DAILY_XP });
+      return;
+    }
+
+    // awardXP runs on the global client (it can't join an interactive
+    // transaction), so if awarding fails, remove the claim so the two stay
+    // consistent and the user can retry.
+    let xpResult;
+    try {
+      xpResult = await awardXP(userId, DAILY_XP, `nutrition:${dateStr}`);
+    } catch (err) {
+      await prisma.nutritionXpClaim.delete({ where: { id: claimId } }).catch(() => undefined);
+      throw err;
+    }
+    res.json({ awarded: true, xp: DAILY_XP, ...xpResult });
+  } catch (err) {
+    console.error('claimNutritionXp failed:', err);
+    res.status(500).json({ error: 'Failed to claim nutrition XP' });
   }
-  const xpResult = await awardXP(userId, DAILY_XP, `nutrition:${dateStr}`);
-  res.json({ awarded: true, xp: DAILY_XP, ...xpResult });
 }
