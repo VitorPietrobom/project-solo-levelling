@@ -9,6 +9,8 @@ interface FoodEntryFormProps {
     optimistic: FoodEntry,
     body: { foodName: string; calories: number; protein: number; carbs: number; fat: number; mealType: string; date: string },
   ) => void;
+  /** Initial value for the date field (YYYY-MM-DD); defaults to local today. */
+  defaultDate?: string;
 }
 
 const MEAL_OPTIONS: { label: string; value: MealType }[] = [
@@ -18,14 +20,14 @@ const MEAL_OPTIONS: { label: string; value: MealType }[] = [
   { label: 'Snack', value: 'snack' },
 ];
 
-export default function FoodEntryForm({ onCreated }: FoodEntryFormProps) {
+export default function FoodEntryForm({ onCreated, defaultDate }: FoodEntryFormProps) {
   const [foodName, setFoodName] = useState('');
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
   const [mealType, setMealType] = useState<MealType>('breakfast');
-  const [date, setDate] = useState(() => localISODate());
+  const [date, setDate] = useState(() => defaultDate ?? localISODate());
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
