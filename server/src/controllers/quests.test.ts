@@ -662,10 +662,10 @@ describe('Quest endpoints', () => {
       await request(app).patch('/api/quests/q1').send({ linkedSkillId: 'skB' });
       expect(row.linkedSkillId).toBe('skB');
 
-      (prisma.skill.update as any).mockClear();
+      (prisma.skill.updateMany as any).mockClear();
       await request(app).patch('/api/quests/q1/reset');
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'skA' }, data: { totalXP: { decrement: 50 } } });
-      expect(prisma.skill.update).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'skB' } }));
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'skA', userId: 'test-user-id' }, data: { totalXP: { decrement: 50 } } });
+      expect(prisma.skill.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'skB' } }));
     });
 
     it('legacy completed row with null awardedXP falls back to current xpReward/linkedSkillId', async () => {
@@ -678,7 +678,7 @@ describe('Quest endpoints', () => {
       await request(app).patch('/api/quests/q1/reset');
 
       expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'test-user-id' }, data: { totalXP: { decrement: 75 } } });
-      expect(prisma.skill.update).toHaveBeenCalledWith({ where: { id: 'skL' }, data: { totalXP: { decrement: 75 } } });
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({ where: { id: 'skL', userId: 'test-user-id' }, data: { totalXP: { decrement: 75 } } });
     });
   });
 });
