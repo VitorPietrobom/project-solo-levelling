@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import app from '../index';
-import { reconcileWhoopWeight } from './whoop';
+import { reconcileWhoopWeight, syncInChunks } from './whoop';
 
 vi.mock('../lib/prisma', () => ({
   default: {
@@ -80,6 +80,39 @@ describe('GET /api/whoop/cron-sync', () => {
     const res = await request(app).get('/api/whoop/cron-sync').set('Authorization', 'Bearer test-secret');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ total: 2, synced: 0, failed: 2 });
+    expect(res.body).toEqual({ total: 2, synced: 0, failed: 2, skipped: 0 });
+    expect(prisma.whoopConnection.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: { syncedAt: { sort: 'asc', nulls: 'first' } },
+    }));
+  });
+});
+
+describe('syncInChunks', () => {
+  it('runs at most `concurrency` workers at once and tallies results', async () => {
+    let active = 0;
+    let peak = 0;
+    const worker = vi.fn(async (id: string) => {
+      active++; peak = Math.max(peak, active);
+      await new Promise((r) => setTimeout(r, 1));
+      active--;
+      if (id === 'bad') throw new Error('boom');
+      return id === 'none' ? null : {};
+    });
+    const ids = ['a', 'b', 'bad', 'c', 'none', 'd', 'e'];
+    const out = await syncInChunks(ids, worker, { concurrency: 3, deadline: Infinity });
+    expect(peak).toBeLessThanOrEqual(3);
+    expect(worker).toHaveBeenCalledTimes(7);
+    expect(out).toEqual({ synced: 5, failed: 2, skipped: 0 });
+  });
+
+  it('stops starting new chunks once the deadline passes', async () => {
+    let t = 0;
+    const worker = vi.fn(async () => { t += 10; return {}; });
+    const out = await syncInChunks(['a', 'b', 'c', 'd', 'e'], worker, {
+      concurrency: 2, deadline: 15, now: () => t,
+    });
+    // chunk 1 starts at t=0 (→20), chunk 2 blocked.
+    expect(worker).toHaveBeenCalledTimes(2);
+    expect(out).toEqual({ synced: 2, failed: 0, skipped: 3 });
   });
 });

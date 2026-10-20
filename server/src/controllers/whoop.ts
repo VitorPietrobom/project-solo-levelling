@@ -150,9 +150,15 @@ async function freshAccessToken(userId: string): Promise<string | null> {
   return tok.access_token;
 }
 
+// Per-request cap so one slow WHOOP response can't eat the whole cron budget.
+const WHOOP_FETCH_TIMEOUT_MS = 8000;
+
 async function whoopGet(token: string, path: string): Promise<any | null> {
   try {
-    const r = await fetch(`${WHOOP_API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch(`${WHOOP_API}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(WHOOP_FETCH_TIMEOUT_MS),
+    });
     if (!r.ok) return null;
     return await r.json();
   } catch {
@@ -187,6 +193,7 @@ async function performWhoopSync(userId: string): Promise<{ syncedAt: Date | null
   // nutrition engine can compute a trailing TDEE average.
   const KJ_TO_KCAL = 1 / 4.184;
   if (Array.isArray(cycles?.records)) {
+    const upserts = [];
     for (const c of cycles.records) {
       const kj = c?.score?.kilojoule;
       const start = c?.start;
@@ -194,12 +201,14 @@ async function performWhoopSync(userId: string): Promise<{ syncedAt: Date | null
       const date = String(start).slice(0, 10); // YYYY-MM-DD
       const calories = Math.round(kj * KJ_TO_KCAL);
       if (calories <= 0) continue;
-      await prisma.whoopDaily.upsert({
+      upserts.push(prisma.whoopDaily.upsert({
         where: { userId_date: { userId, date } },
         create: { userId, date, calories, strain: c?.score?.strain ?? null },
         update: { calories, strain: c?.score?.strain ?? null },
-      });
+      }));
     }
+    // One round-trip batch instead of up to 14 serial upserts.
+    if (upserts.length) await prisma.$transaction(upserts);
   }
 
   const latest = {
@@ -284,19 +293,53 @@ export async function cronSyncAllWhoop(req: Request, res: Response): Promise<voi
     return;
   }
 
-  const connections = await prisma.whoopConnection.findMany({ select: { userId: true } });
+  const startedAt = Date.now();
+  // Oldest-synced first, so users cut off by the time budget today go first tomorrow.
+  const connections = await prisma.whoopConnection.findMany({
+    select: { userId: true },
+    orderBy: { syncedAt: { sort: 'asc', nulls: 'first' } },
+  });
+  const outcome = await syncInChunks(
+    connections.map((c) => c.userId),
+    performWhoopSync,
+    { concurrency: CRON_CONCURRENCY, deadline: startedAt + CRON_BUDGET_MS },
+  );
+  if (outcome.skipped > 0) {
+    console.warn(`[whoop] cron time budget reached; ${outcome.skipped} user(s) deferred to next run`);
+  }
+  res.json({ total: connections.length, ...outcome });
+}
+
+// Vercel kills the function at 30s (vercel.json maxDuration); stop starting new
+// work comfortably before that so the response (and logs) still go out.
+const CRON_CONCURRENCY = 5;
+const CRON_BUDGET_MS = 25_000;
+
+/**
+ * Runs `worker` over `userIds` in chunks of `concurrency` (allSettled, so one
+ * failure never aborts the rest), and stops starting new chunks once `deadline`
+ * (epoch ms) has passed. Remaining users are counted as skipped.
+ */
+export async function syncInChunks(
+  userIds: string[],
+  worker: (userId: string) => Promise<unknown>,
+  opts: { concurrency: number; deadline: number; now?: () => number },
+): Promise<{ synced: number; failed: number; skipped: number }> {
+  const now = opts.now ?? Date.now;
   let synced = 0;
   let failed = 0;
-  for (const { userId } of connections) {
-    try {
-      const result = await performWhoopSync(userId);
-      if (result) synced++; else failed++;
-    } catch (err) {
-      console.error(`[whoop] cron sync failed for user ${userId}`, err);
+  let i = 0;
+  for (; i < userIds.length; i += opts.concurrency) {
+    if (now() >= opts.deadline) break;
+    const chunk = userIds.slice(i, i + opts.concurrency);
+    const results = await Promise.allSettled(chunk.map((id) => worker(id)));
+    results.forEach((r, j) => {
+      if (r.status === 'fulfilled' && r.value) { synced++; return; }
+      if (r.status === 'rejected') console.error(`[whoop] cron sync failed for user ${chunk[j]}`, r.reason);
       failed++;
-    }
+    });
   }
-  res.json({ total: connections.length, synced, failed });
+  return { synced, failed, skipped: Math.max(0, userIds.length - i) };
 }
 
 // GET /api/whoop/status — connection state + last synced snapshot.
