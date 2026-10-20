@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { SkillAction } from './SkillList';
 import { apiClient, errorMessage } from '../lib/apiClient';
+import { useAriseRefreshStatus } from './Dashboard';
 import { useToast } from '../contexts/ToastContext';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function SkillActionList({ skillId, onLogged }: Props) {
+  const refreshStatus = useAriseRefreshStatus();
   const { showToast } = useToast();
   const [actions, setActions] = useState<SkillAction[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -57,6 +59,7 @@ export default function SkillActionList({ skillId, onLogged }: Props) {
     try {
       const res = (await apiClient.post(`/api/skill-actions/${action.id}/log`)) as { xpAwarded: number; multiplier: number };
       onLogged();
+      refreshStatus();
       setFlash({
         actionId: action.id,
         text: res.multiplier < 1 ? `+${res.xpAwarded} XP (×${res.multiplier} today)` : `+${res.xpAwarded} XP`,

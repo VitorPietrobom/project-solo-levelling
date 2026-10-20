@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -51,20 +51,34 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const toastId = useRef(0);
 
-  useEffect(() => {
-    apiClient
-      .get('/api/gamification/status')
-      .then((data) => setStatus(data as GamificationStatus))
-      .catch(() => {
-        // Use sensible defaults if API not available
-        setStatus({
-          level: 1,
-          totalXP: 0,
-          streak: 0,
-          progress: { current: 0, required: 1000, percentage: 0 },
-        });
+  const levelRef = useRef<number | null>(null);
+
+  // Single source of truth for the header: always refetch from the server
+  // after any XP-affecting request settles (OE-012). Never patch locally.
+  const refreshStatus = useCallback(async () => {
+    try {
+      const next = (await apiClient.get('/api/gamification/status')) as GamificationStatus;
+      const prevLevel = levelRef.current;
+      levelRef.current = next.level;
+      setStatus(next);
+      if (prevLevel !== null && next.level > prevLevel) {
+        setLevelUp(true);
+        setTimeout(() => setLevelUp(false), 2200);
+      }
+    } catch {
+      // Use sensible defaults if API not available (first load only)
+      setStatus((prev) => prev ?? {
+        level: 1,
+        totalXP: 0,
+        streak: 0,
+        progress: { current: 0, required: 1000, percentage: 0 },
       });
+    }
   }, []);
+
+  useEffect(() => {
+    refreshStatus();
+  }, [refreshStatus]);
 
   // Trigger entrance animation on route change
   useEffect(() => {
@@ -74,22 +88,23 @@ export default function Dashboard() {
     return () => clearTimeout(id);
   }, [location.pathname]);
 
-  const addXP = (amount: number, label: string) => {
-    const id = ++toastId.current;
-    setToasts((prev) => [...prev, { id, amount, label }]);
-    setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), 2600);
-
-    // Optimistically bump totalXP for immediate feedback; the tab re-fetches
-    // the real value from the server after the action completes.
-    if (status) {
-      setStatus({ ...status, totalXP: status.totalXP + amount });
+  // Toast only — call it after the server confirmed the award. The header
+  // numbers come from refreshStatus(), which addXP also kicks off.
+  const addXP = useCallback((amount: number, label: string) => {
+    if (amount > 0) {
+      const id = ++toastId.current;
+      setToasts((prev) => [...prev, { id, amount, label }]);
+      setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), 2600);
     }
-  };
+    refreshStatus();
+  }, [refreshStatus]);
 
-  // Expose addXP globally for child tabs to use
+  // Expose helpers globally for child components outside the Outlet context
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__ariseAddXP = addXP;
-  });
+    const w = window as unknown as Record<string, unknown>;
+    w.__ariseAddXP = addXP;
+    w.__ariseRefreshStatus = refreshStatus;
+  }, [addXP, refreshStatus]);
 
   const currentNav = NAV.find((n) =>
     n.path === '/' ? location.pathname === '/' : location.pathname.startsWith(n.path),
@@ -319,7 +334,7 @@ export default function Dashboard() {
           className="arise-in"
           style={{ padding: 'clamp(16px, 4vw, 32px) clamp(16px, 4vw, 32px) 80px', maxWidth: 1280, margin: '0 auto' }}
         >
-          <Outlet context={{ status, addXP }} />
+          <Outlet context={{ status, addXP, refreshStatus }} />
         </main>
       </div>
 
@@ -422,5 +437,15 @@ export function useAriseAddXP(): (amount: number, label: string) => void {
       | ((amount: number, label: string) => void)
       | undefined;
     if (fn) fn(amount, label);
+  };
+}
+
+// Refetch the header XP/level from the server after an XP-affecting request.
+export function useAriseRefreshStatus(): () => void {
+  return () => {
+    const fn = (window as unknown as Record<string, unknown>).__ariseRefreshStatus as
+      | (() => void)
+      | undefined;
+    if (fn) fn();
   };
 }

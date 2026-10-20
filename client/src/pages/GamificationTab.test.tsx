@@ -44,6 +44,7 @@ vi.mock('../contexts/ToastContext', () => ({
 }));
 
 const addXP = vi.fn();
+const refreshStatus = vi.fn();
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
@@ -51,6 +52,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
     useOutletContext: () => ({
       status: { level: 4, totalXP: 900, streak: 5, hunterName: 'Shadow', progress: { current: 100, required: 500, percentage: 20 } },
       addXP,
+      refreshStatus,
     }),
   };
 });
@@ -157,7 +159,7 @@ describe('GamificationTab', () => {
     fireEvent.pointerUp(document, { clientX: 550, clientY: 50 });
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/quests/q1/complete'));
-    expect(addXP).toHaveBeenCalledWith(100, 'Learn Guitar');
+    await waitFor(() => expect(addXP).toHaveBeenCalledWith(100, 'Learn Guitar'));
     // dnd-kit removes its document-level listeners (a stray one of which
     // captures and stops all click events) 50ms after drag end, not
     // immediately — wait it out so a leftover listener can't break a click
@@ -227,7 +229,19 @@ describe('GamificationTab', () => {
     await userEvent.click(screen.getByTitle('Mark complete'));
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledWith('/api/quests/h1/complete'));
-    expect(addXP).toHaveBeenCalledWith(25, 'Morning run');
+    await waitFor(() => expect(addXP).toHaveBeenCalledWith(25, 'Morning run'));
+    expect(refreshStatus).toHaveBeenCalled();
+  });
+
+  it('does not award XP when completing a habit fails, but still resyncs the header', async () => {
+    mockPatch.mockRejectedValueOnce(new Error('boom'));
+    render(<GamificationTab />);
+    await waitFor(() => expect(screen.getByText('Morning run')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByTitle('Mark complete'));
+
+    await waitFor(() => expect(refreshStatus).toHaveBeenCalled());
+    expect(addXP).not.toHaveBeenCalled();
   });
 
   it('editing a habit saves via PATCH', async () => {

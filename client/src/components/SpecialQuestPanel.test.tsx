@@ -58,16 +58,18 @@ describe('SpecialQuestPanel', () => {
     expect(screen.getByLabelText('Mark "Drink enough water" incomplete')).toBeInTheDocument();
   });
 
-  it('un-completing a quest revokes XP', async () => {
+  it('un-completing a quest resyncs XP from the server instead of a local subtraction', async () => {
     mockGet.mockResolvedValue(board);
     mockPatch.mockResolvedValue({});
     const onXpChange = vi.fn();
-    render(<SpecialQuestPanel onXpChange={onXpChange} />);
+    const onSettled = vi.fn();
+    render(<SpecialQuestPanel onXpChange={onXpChange} onSettled={onSettled} />);
 
     await waitFor(() => expect(screen.getByText('Read a full book')).toBeInTheDocument());
     await userEvent.click(screen.getByLabelText('Mark "Read a full book" incomplete'));
 
-    expect(onXpChange).toHaveBeenCalledWith(-120, 'Read a full book');
+    await waitFor(() => expect(onSettled).toHaveBeenCalled());
+    expect(onXpChange).not.toHaveBeenCalled();
     expect(mockPatch).toHaveBeenCalledWith('/api/special-quests/m-finish-book', { body: { completed: false } });
   });
 
