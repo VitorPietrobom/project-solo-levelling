@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { awardXP } from '../services/xp';
+import { awardXP, revokeXP } from '../services/xp';
 import { syncBookNodes } from '../services/bookNodes';
 
 export const NODE_XP = 12;
@@ -231,7 +231,14 @@ export async function deleteNode(req: Request, res: Response): Promise<void> {
       res.status(404).json({ error: 'Node not found' });
       return;
     }
+    // Manual edges touching this node cascade away with it, so take back their
+    // link XP too. Book-synced and legacy-imported nodes never earned node XP.
+    const manualEdges = await prisma.knowledgeEdge.count({
+      where: { userId, auto: false, OR: [{ fromId: id }, { toId: id }] },
+    });
     await prisma.knowledgeNode.delete({ where: { id } });
+    const earned = (node.bookId || node.legacyId ? 0 : NODE_XP) + manualEdges * LINK_XP;
+    if (earned > 0) await revokeXP(userId, earned);
     res.json({ message: 'Node deleted' });
   } catch (err) {
     console.error(err);
@@ -289,6 +296,8 @@ export async function deleteEdge(req: Request, res: Response): Promise<void> {
       return;
     }
     await prisma.knowledgeEdge.delete({ where: { id } });
+    // Only manual links award XP; auto (wiki-link/seeded) edges never did.
+    if (!edge.auto) await revokeXP(userId, LINK_XP);
     res.json({ message: 'Edge deleted' });
   } catch (err) {
     console.error(err);

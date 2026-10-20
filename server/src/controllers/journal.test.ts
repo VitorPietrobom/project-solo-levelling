@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import app from '../index';
+import { JOURNAL_XP } from './journal';
 
 vi.mock('../lib/prisma', () => ({
   default: {
@@ -17,6 +18,7 @@ vi.mock('../lib/prisma', () => ({
       upsert: vi.fn().mockResolvedValue({}),
       // awardXP persists the new total.
       update: vi.fn().mockResolvedValue({ totalXP: 0 }),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   },
 }));
@@ -125,6 +127,10 @@ describe('Journal endpoints', () => {
 
       const res = await request(app).delete('/api/journal/j1');
       expect(res.status).toBe(200);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'test-user-id' },
+        data: { totalXP: { decrement: JOURNAL_XP } },
+      });
       expect(res.body.message).toBe('Journal entry deleted');
     });
 
