@@ -397,6 +397,30 @@ describe('Quest endpoints', () => {
       }));
     });
 
+    it('rejects switching a completed one-time quest to recurring (OE-023)', async () => {
+      (prisma.quest.findFirst as any).mockResolvedValue({ id: 'q1', userId: 'test-user-id', recurrence: null, completed: true, lastCompletedAt: null });
+      const res = await request(app).patch('/api/quests/q1').send({ recurrence: 'daily' });
+      expect(res.status).toBe(409);
+      expect(prisma.quest.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects switching a recurring quest completed this period (OE-023)', async () => {
+      (prisma.quest.findFirst as any).mockResolvedValue({ id: 'q1', userId: 'test-user-id', recurrence: 'daily', completed: false, lastCompletedAt: new Date() });
+      const res = await request(app).patch('/api/quests/q1').send({ recurrence: null });
+      expect(res.status).toBe(409);
+      expect(prisma.quest.update).not.toHaveBeenCalled();
+    });
+
+    it('resets stale completion fields when switching modes (OE-023)', async () => {
+      (prisma.quest.findFirst as any).mockResolvedValue({ id: 'q1', userId: 'test-user-id', recurrence: 'daily', completed: true, lastCompletedAt: new Date('2020-01-01') });
+      (prisma.quest.update as any).mockResolvedValue({ id: 'q1', recurrence: null, completed: false, lastCompletedAt: null });
+      const res = await request(app).patch('/api/quests/q1').send({ recurrence: null });
+      expect(res.status).toBe(200);
+      expect(prisma.quest.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: { recurrence: null, completed: false, lastCompletedAt: null },
+      }));
+    });
+
     it('clears the due date when sent null', async () => {
       (prisma.quest.findFirst as any).mockResolvedValue({ id: 'q1', userId: 'test-user-id' });
       (prisma.quest.update as any).mockResolvedValue({ id: 'q1', dueDate: null });
