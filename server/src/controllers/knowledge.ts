@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { parseCalendarDate } from '../lib/calendarDate';
 import { awardXP, revokeXP } from '../services/xp';
 import { syncBookNodes } from '../services/bookNodes';
 
@@ -152,6 +153,11 @@ export async function createNode(req: Request, res: Response): Promise<void> {
       res.status(400).json({ error: 'Invalid kind' });
       return;
     }
+    const nodeDate = date ? parseCalendarDate(date) : null;
+    if (date && !nodeDate) {
+      res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+      return;
+    }
 
     const body = typeof content === 'string' ? content : '';
     const node = await prisma.knowledgeNode.create({
@@ -162,7 +168,7 @@ export async function createNode(req: Request, res: Response): Promise<void> {
         content: body,
         tags: cleanTags(tags),
         linkedSkillId: linkedSkillId || null,
-        date: typeof date === 'string' && date ? new Date(`${date.slice(0, 10)}T00:00:00Z`) : null,
+        date: nodeDate,
       },
     });
 
@@ -207,7 +213,14 @@ export async function updateNode(req: Request, res: Response): Promise<void> {
     if (content !== undefined) data.content = typeof content === 'string' ? content : '';
     if (tags !== undefined) data.tags = cleanTags(tags);
     if (linkedSkillId !== undefined) data.linkedSkillId = linkedSkillId || null;
-    if (date !== undefined) data.date = typeof date === 'string' && date ? new Date(`${date.slice(0, 10)}T00:00:00Z`) : null;
+    if (date !== undefined) {
+      const nodeDate = date ? parseCalendarDate(date) : null;
+      if (date && !nodeDate) {
+        res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+        return;
+      }
+      data.date = nodeDate;
+    }
 
     const updated = await prisma.knowledgeNode.update({ where: { id }, data });
 

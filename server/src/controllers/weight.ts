@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { parseCalendarDate } from '../lib/calendarDate';
 
 export async function listWeightEntries(req: Request, res: Response): Promise<void> {
   try {
@@ -10,8 +11,22 @@ export async function listWeightEntries(req: Request, res: Response): Promise<vo
 
     if (start || end) {
       const dateFilter: Record<string, Date> = {};
-      if (typeof start === 'string') dateFilter.gte = new Date(start);
-      if (typeof end === 'string') dateFilter.lte = new Date(end);
+      if (start !== undefined) {
+        const d = parseCalendarDate(start);
+        if (!d) {
+          res.status(400).json({ error: 'start must be in YYYY-MM-DD format' });
+          return;
+        }
+        dateFilter.gte = d;
+      }
+      if (end !== undefined) {
+        const d = parseCalendarDate(end);
+        if (!d) {
+          res.status(400).json({ error: 'end must be in YYYY-MM-DD format' });
+          return;
+        }
+        dateFilter.lte = d;
+      }
       where.date = dateFilter;
     }
 
@@ -42,7 +57,11 @@ export async function createWeightEntry(req: Request, res: Response): Promise<vo
       return;
     }
 
-    const entryDate = new Date(date);
+    const entryDate = parseCalendarDate(date);
+    if (!entryDate) {
+      res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+      return;
+    }
 
     // Check for duplicate userId+date
     const existing = await prisma.weightEntry.findUnique({

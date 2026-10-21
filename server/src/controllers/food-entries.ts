@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { parseCalendarDate } from '../lib/calendarDate';
 
 const VALID_MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
@@ -12,11 +13,16 @@ export async function listFoodEntries(req: Request, res: Response): Promise<void
       res.status(400).json({ error: 'Date query parameter is required' });
       return;
     }
+    const day = parseCalendarDate(date);
+    if (!day) {
+      res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+      return;
+    }
 
     const entries = await prisma.foodEntry.findMany({
       where: {
         userId,
-        date: new Date(date),
+        date: day,
       },
       orderBy: { date: 'asc' as const },
     });
@@ -52,6 +58,11 @@ export async function createFoodEntry(req: Request, res: Response): Promise<void
       res.status(400).json({ error: 'Date is required' });
       return;
     }
+    const parsedDate = parseCalendarDate(date);
+    if (!parsedDate) {
+      res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+      return;
+    }
 
     for (const [label, value] of [['protein', protein], ['carbs', carbs], ['fat', fat]] as const) {
       if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
@@ -69,7 +80,7 @@ export async function createFoodEntry(req: Request, res: Response): Promise<void
         carbs: typeof carbs === 'number' ? carbs : 0,
         fat: typeof fat === 'number' ? fat : 0,
         mealType,
-        date: new Date(date),
+        date: parsedDate,
       },
     });
 

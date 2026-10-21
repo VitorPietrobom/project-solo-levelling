@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { parseCalendarDate } from '../lib/calendarDate';
 import { calculateSoreness } from '../services/soreness';
 
 export async function listGymSessions(req: Request, res: Response): Promise<void> {
@@ -35,6 +36,11 @@ export async function createGymSession(req: Request, res: Response): Promise<voi
       res.status(400).json({ error: 'Date is required' });
       return;
     }
+    const parsedDate = parseCalendarDate(date);
+    if (!parsedDate) {
+      res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+      return;
+    }
 
     if (!Array.isArray(exercises) || exercises.length === 0) {
       res.status(400).json({ error: 'At least one exercise is required' });
@@ -63,7 +69,7 @@ export async function createGymSession(req: Request, res: Response): Promise<voi
     const session = await prisma.gymSession.create({
       data: {
         userId,
-        date: new Date(date),
+        date: parsedDate,
         notes: notes || null,
         exercises: {
           create: exercises.map((ex: any) => ({
