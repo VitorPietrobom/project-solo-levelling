@@ -12,6 +12,11 @@ interface TrainingProgramFormProps {
       }[];
     },
   ) => void;
+  /** Pre-fill from a previous submission whose save failed (OE-045). */
+  initial?: {
+    name: string;
+    days: { dayOfWeek: string; exercises: { name: string; sets: number; reps: number; targetWeight: number }[] }[];
+  };
 }
 
 interface FormExercise {
@@ -39,9 +44,16 @@ const DAY_OPTIONS = [
 const emptyExercise = (): FormExercise => ({ name: '', sets: '3', reps: '10', targetWeight: '0' });
 const emptyDay = (): FormDay => ({ dayOfWeek: 'mon', exercises: [emptyExercise()] });
 
-export default function TrainingProgramForm({ onCreated }: TrainingProgramFormProps) {
-  const [name, setName] = useState('');
-  const [days, setDays] = useState<FormDay[]>([emptyDay()]);
+export default function TrainingProgramForm({ onCreated, initial }: TrainingProgramFormProps) {
+  const [name, setName] = useState(() => initial?.name ?? '');
+  const [days, setDays] = useState<FormDay[]>(() => (initial?.days.length
+    ? initial.days.map((d) => ({
+      dayOfWeek: d.dayOfWeek,
+      exercises: d.exercises.map((ex) => ({
+        name: ex.name, sets: String(ex.sets), reps: String(ex.reps), targetWeight: String(ex.targetWeight),
+      })),
+    }))
+    : [emptyDay()]));
   const [error, setError] = useState<string | null>(null);
 
   function updateDay(dayIndex: number, field: keyof FormDay, value: string) {

@@ -41,6 +41,16 @@ export default function BodyTab() {
   const [heatmap, setHeatmap] = useState<Record<string, number>>({});
   const [programs, setPrograms] = useState<TrainingProgram[]>([]);
   const [showProgramForm, setShowProgramForm] = useState(false);
+  // OE-045: forms close optimistically on submit, so when a save fails we keep
+  // the submitted body here and reopen the form pre-filled with it instead of
+  // dropping the user's input. `draftKey` remounts an already-open form so it
+  // picks up the restored values.
+  type GymBody = Parameters<typeof handleGymSessionImported>[1];
+  const [weightDraft, setWeightDraft] = useState<{ weight: number; date: string } | undefined>();
+  const [measurementDraft, setMeasurementDraft] = useState<{ type: string; value: number; date: string } | undefined>();
+  const [gymDraft, setGymDraft] = useState<{ source: 'manual' | 'import'; body: GymBody } | undefined>();
+  const [programDraft, setProgramDraft] = useState<Parameters<typeof handleProgramCreated>[1] | undefined>();
+  const [draftKey, setDraftKey] = useState(0);
 
   const fetchWeight = useCallback(async () => {
     try { setWeightEntries((await apiClient.get('/api/weight')) as WeightEntry[]); } catch { /* silently fail */ }
@@ -70,6 +80,7 @@ export default function BodyTab() {
   function handleWeightCreated(optimistic: WeightEntry, body: { weight: number; date: string }) {
     setWeightEntries((prev) => [...prev, optimistic].sort((a, b) => a.date.localeCompare(b.date)));
     setShowWeightForm(false);
+    setWeightDraft(undefined);
     apiClient.post('/api/weight', { body })
       .then((data) => {
         const saved = data as WeightEntry;
@@ -82,6 +93,9 @@ export default function BodyTab() {
       .catch((err) => {
         setWeightEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
         showToast(errorMessage(err, 'Failed to save weight entry'));
+        setWeightDraft(body);
+        setDraftKey((k) => k + 1);
+        setShowWeightForm(true);
       });
   }
 
@@ -124,26 +138,36 @@ export default function BodyTab() {
   function handleMeasurementCreated(optimistic: Measurement, body: { type: string; value: number; date: string }) {
     setMeasurements((prev) => [...prev, optimistic].sort((a, b) => a.date.localeCompare(b.date)));
     setShowMeasurementForm(false);
+    setMeasurementDraft(undefined);
     apiClient.post('/api/measurements', { body })
       .then((data) => setMeasurements((prev) => prev.map((m) => (m.id === optimistic.id ? (data as Measurement) : m))))
       .catch((err) => {
         setMeasurements((prev) => prev.filter((m) => m.id !== optimistic.id));
         showToast(errorMessage(err, 'Failed to save measurement'));
+        setMeasurementDraft(body);
+        setDraftKey((k) => k + 1);
+        setShowMeasurementForm(true);
       });
   }
 
   function handleGymSessionImported(
     optimistic: GymSession,
     body: { date: string; notes: string; exercises: { name: string; sets: number; reps: number; weight: number; muscleGroups: string[] }[] },
+    source: 'manual' | 'import' = 'import',
   ) {
     setGymSessions((prev) => [optimistic, ...prev]);
     setShowImport(false);
     setShowManualSession(false);
+    setGymDraft(undefined);
     apiClient.post('/api/gym-sessions', { body })
       .then((data) => { setGymSessions((prev) => prev.map((s) => (s.id === optimistic.id ? (data as GymSession) : s))); fetchHeatmap(); })
       .catch((err) => {
         setGymSessions((prev) => prev.filter((s) => s.id !== optimistic.id));
         showToast(errorMessage(err, 'Failed to import gym session'));
+        setGymDraft({ source, body });
+        setDraftKey((k) => k + 1);
+        setShowManualSession(source === 'manual');
+        setShowImport(source === 'import');
       });
   }
 
@@ -161,11 +185,15 @@ export default function BodyTab() {
   ) {
     setPrograms((prev) => [optimistic, ...prev]);
     setShowProgramForm(false);
+    setProgramDraft(undefined);
     apiClient.post('/api/training-programs', { body })
       .then((data) => setPrograms((prev) => prev.map((p) => (p.id === optimistic.id ? (data as TrainingProgram) : p))))
       .catch((err) => {
         setPrograms((prev) => prev.filter((p) => p.id !== optimistic.id));
         showToast(errorMessage(err, 'Failed to create training program'));
+        setProgramDraft(body);
+        setDraftKey((k) => k + 1);
+        setShowProgramForm(true);
       });
   }
 
@@ -219,11 +247,11 @@ export default function BodyTab() {
               )}
             </div>
           </div>
-          <button className="btn btn-ghost" onClick={() => setShowWeightForm(!showWeightForm)}>
+          <button className="btn btn-ghost" onClick={() => { setShowWeightForm(!showWeightForm); setWeightDraft(undefined); }}>
             <Plus size={15} strokeWidth={2.4} />{showWeightForm ? 'Cancel' : 'Log Weight'}
           </button>
         </div>
-        {showWeightForm && <div style={{ marginBottom: 16 }}><WeightForm onCreated={handleWeightCreated} /></div>}
+        {showWeightForm && <div style={{ marginBottom: 16 }}><WeightForm key={draftKey} initial={weightDraft} onCreated={handleWeightCreated} /></div>}
         <WeightChart entries={weightEntries} />
         <div style={{ marginTop: 16 }}>
           <WeightEntryList entries={weightEntries} onUpdate={handleWeightUpdated} onDelete={handleWeightDeleted} />
@@ -235,11 +263,11 @@ export default function BodyTab() {
         <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
             <h3 style={{ fontSize: 17 }}>Measurements</h3>
-            <button className="btn btn-ghost" onClick={() => setShowMeasurementForm(!showMeasurementForm)}>
+            <button className="btn btn-ghost" onClick={() => { setShowMeasurementForm(!showMeasurementForm); setMeasurementDraft(undefined); }}>
               <Plus size={15} strokeWidth={2.4} />{showMeasurementForm ? 'Cancel' : 'Log All'}
             </button>
           </div>
-          {showMeasurementForm && <div style={{ marginBottom: 16 }}><MeasurementForm onCreated={handleMeasurementCreated} /></div>}
+          {showMeasurementForm && <div style={{ marginBottom: 16 }}><MeasurementForm key={draftKey} initial={measurementDraft} onCreated={handleMeasurementCreated} /></div>}
           <BodyMeasurementDiagram measurements={measurements} />
           <div style={{ marginTop: 16 }}>
             <MeasurementEntryList measurements={measurements} onUpdate={handleMeasurementUpdated} onDelete={handleMeasurementDeleted} />
@@ -261,16 +289,16 @@ export default function BodyTab() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <h3 style={{ fontSize: 17 }}>Recent Sessions</h3>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-ghost" onClick={() => { setShowManualSession(!showManualSession); setShowImport(false); }}>
+              <button className="btn btn-ghost" onClick={() => { setShowManualSession(!showManualSession); setShowImport(false); setGymDraft(undefined); }}>
                 <Plus size={15} strokeWidth={2.4} />{showManualSession ? 'Cancel' : 'Log Session'}
               </button>
-              <button className="btn btn-ghost" onClick={() => { setShowImport(!showImport); setShowManualSession(false); }}>
+              <button className="btn btn-ghost" onClick={() => { setShowImport(!showImport); setShowManualSession(false); setGymDraft(undefined); }}>
                 <Plus size={15} strokeWidth={2.4} />{showImport ? 'Cancel' : 'Import from Hevy'}
               </button>
             </div>
           </div>
-          {showManualSession && <div style={{ marginBottom: 16 }}><GymSessionForm onCreated={handleGymSessionImported} /></div>}
-          {showImport && <div style={{ marginBottom: 16 }}><GymSessionImport onImport={handleGymSessionImported} /></div>}
+          {showManualSession && <div style={{ marginBottom: 16 }}><GymSessionForm key={draftKey} initial={gymDraft?.source === 'manual' ? gymDraft.body : undefined} onCreated={(o, b) => handleGymSessionImported(o, b, 'manual')} /></div>}
+          {showImport && <div style={{ marginBottom: 16 }}><GymSessionImport key={draftKey} initial={gymDraft?.source === 'import' ? gymDraft.body : undefined} onImport={(o, b) => handleGymSessionImported(o, b, 'import')} /></div>}
           {gymSessions.length > 0 ? (
             <GymSessionLog sessions={gymSessions} onDelete={handleGymSessionDeleted} />
           ) : (
@@ -283,11 +311,11 @@ export default function BodyTab() {
         <section className="card arise-in" style={{ padding: 'var(--pad)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
             <h3 style={{ fontSize: 17 }}>Training Programs</h3>
-            <button className="btn btn-ghost" onClick={() => setShowProgramForm(!showProgramForm)}>
+            <button className="btn btn-ghost" onClick={() => { setShowProgramForm(!showProgramForm); setProgramDraft(undefined); }}>
               <Plus size={15} strokeWidth={2.4} />{showProgramForm ? 'Cancel' : 'New Program'}
             </button>
           </div>
-          {showProgramForm && <div style={{ marginBottom: 16 }}><TrainingProgramForm onCreated={handleProgramCreated} /></div>}
+          {showProgramForm && <div style={{ marginBottom: 16 }}><TrainingProgramForm key={draftKey} initial={programDraft} onCreated={handleProgramCreated} /></div>}
           <TrainingProgramView programs={programs} onActivate={handleProgramActivate} onDelete={handleProgramDelete} />
         </section>
       </div>

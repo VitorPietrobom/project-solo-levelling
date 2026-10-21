@@ -4,11 +4,13 @@ import type { WeightEntry } from './WeightChart';
 
 interface WeightFormProps {
   onCreated: (optimistic: WeightEntry, body: { weight: number; date: string }) => void;
+  /** Pre-fill from a previous submission whose save failed (OE-045). */
+  initial?: { weight: number; date: string };
 }
 
-export default function WeightForm({ onCreated }: WeightFormProps) {
-  const [weight, setWeight] = useState('');
-  const [date, setDate] = useState(() => localISODate());
+export default function WeightForm({ onCreated, initial }: WeightFormProps) {
+  const [weight, setWeight] = useState(() => (initial ? String(initial.weight) : ''));
+  const [date, setDate] = useState(() => initial?.date ?? localISODate());
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {

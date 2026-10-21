@@ -11,6 +11,12 @@ interface GymSessionFormProps {
       exercises: { name: string; sets: number; reps: number; weight: number; muscleGroups: string[] }[];
     },
   ) => void;
+  /** Pre-fill from a previous submission whose save failed (OE-045). */
+  initial?: {
+    date: string;
+    notes: string;
+    exercises: { name: string; sets: number; reps: number; weight: number; muscleGroups: string[] }[];
+  };
 }
 
 interface FormExercise {
@@ -25,10 +31,14 @@ const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads
 
 const emptyExercise = (): FormExercise => ({ name: '', sets: '3', reps: '10', weight: '0', muscleGroups: [] });
 
-export default function GymSessionForm({ onCreated }: GymSessionFormProps) {
-  const [date, setDate] = useState(() => localISODate());
-  const [notes, setNotes] = useState('');
-  const [exercises, setExercises] = useState<FormExercise[]>([emptyExercise()]);
+export default function GymSessionForm({ onCreated, initial }: GymSessionFormProps) {
+  const [date, setDate] = useState(() => initial?.date ?? localISODate());
+  const [notes, setNotes] = useState(() => initial?.notes ?? '');
+  const [exercises, setExercises] = useState<FormExercise[]>(() => (initial?.exercises.length
+    ? initial.exercises.map((ex) => ({
+      name: ex.name, sets: String(ex.sets), reps: String(ex.reps), weight: String(ex.weight), muscleGroups: [...ex.muscleGroups],
+    }))
+    : [emptyExercise()]));
   const [error, setError] = useState<string | null>(null);
 
   function updateExercise(index: number, field: keyof FormExercise, value: string) {
