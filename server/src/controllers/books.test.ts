@@ -262,6 +262,32 @@ describe('Book endpoints', () => {
       const res = await request(app).patch('/api/books/b1').send({ currentPage: 150 });
       expect(res.status).toBe(200);
     });
+
+    it('returns 400 when currentPage exceeds totalPages', async () => {
+      const existing = {
+        id: 'b1', userId: 'test-user-id', title: 'Book', author: 'Author',
+        status: 'reading', totalPages: 300, currentPage: 50,
+        startedAt: new Date(), finishedAt: null, linkedSkillId: null,
+      };
+      (prisma.book.findFirst as any).mockResolvedValue(existing);
+
+      const res = await request(app).patch('/api/books/b1').send({ currentPage: 99999 });
+      expect(res.status).toBe(400);
+      expect(prisma.book.update).not.toHaveBeenCalled();
+    });
+
+    it('accepts currentPage equal to totalPages', async () => {
+      const existing = {
+        id: 'b1', userId: 'test-user-id', title: 'Book', author: 'Author',
+        status: 'reading', totalPages: 300, currentPage: 50,
+        startedAt: new Date(), finishedAt: null, linkedSkillId: null,
+      };
+      (prisma.book.findFirst as any).mockResolvedValue(existing);
+      (prisma.book.update as any).mockResolvedValue({ ...existing, currentPage: 300 });
+
+      const res = await request(app).patch('/api/books/b1').send({ currentPage: 300 });
+      expect(res.status).toBe(200);
+    });
   });
 
   describe('DELETE /api/books/:id', () => {
