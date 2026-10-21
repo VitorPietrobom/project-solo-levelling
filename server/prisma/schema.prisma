@@ -473,7 +473,7 @@ model FoodEntry {
 // entry outlives the user who happened to add it.
 model CustomFoodProduct {
   id              String   @id @default(uuid())
-  barcode         String   @unique
+  barcode         String
   foodName        String
   caloriesPer100g Int
   proteinPer100g  Float    @default(0)
@@ -483,6 +483,11 @@ model CustomFoodProduct {
   createdAt       DateTime @default(now())
 
   createdBy User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  // Each user owns (and can overwrite) their own entry per barcode; lookups
+  // prefer the requester's own row and fall back to the oldest shared one.
+  @@unique([barcode, createdByUserId])
+  @@index([barcode])
 }
 
 model Recipe {
