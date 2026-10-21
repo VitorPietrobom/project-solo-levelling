@@ -43,6 +43,20 @@ export default function KnowledgeGraph({ nodes, edges, selectedId, matchIds, onS
     computeDegrees(simRef.current, simEdges);
   }, [nodeIds, simEdges]);
 
+  // Wheel zoom. React registers onWheel as passive, so preventDefault() there
+  // is ignored and the page scrolls too; attach a non-passive listener instead.
+  const hasNodes = nodes.length > 0;
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    function handleWheel(e: WheelEvent) {
+      e.preventDefault();
+      setView((v) => ({ ...v, scale: Math.max(0.3, Math.min(3, v.scale * (e.deltaY < 0 ? 1.12 : 0.89))) }));
+    }
+    svg.addEventListener('wheel', handleWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', handleWheel);
+  }, [hasNodes]);
+
   // Animation loop — stops itself once the layout settles, restarts on change.
   useEffect(() => {
     let alive = true;
@@ -127,10 +141,6 @@ export default function KnowledgeGraph({ nodes, edges, selectedId, matchIds, onS
     panRef.current = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
   }
 
-  function handleWheel(e: React.WheelEvent) {
-    e.preventDefault();
-    setView((v) => ({ ...v, scale: Math.max(0.3, Math.min(3, v.scale * (e.deltaY < 0 ? 1.12 : 0.89))) }));
-  }
 
   function fitToView() {
     const list = [...simRef.current.values()];
@@ -182,7 +192,6 @@ export default function KnowledgeGraph({ nodes, edges, selectedId, matchIds, onS
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
         onPointerCancel={endDrag}
-        onWheel={handleWheel}
         style={{ display: 'block', cursor: panRef.current ? 'grabbing' : 'grab' }}
       >
         <g transform={`translate(${(svgRef.current?.clientWidth ?? 0) / 2 + view.tx}, ${height / 2 + view.ty}) scale(${view.scale})`}>
