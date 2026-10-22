@@ -9,10 +9,9 @@ import type { Book } from '../components/BookList';
 import BookForm from '../components/BookForm';
 import LearningStats from '../components/LearningStats';
 import KnowledgeSection from '../components/KnowledgeSection';
+import { applyBookStatus } from '../lib/bookStatus';
 
 interface Skill { id: string; name: string }
-
-const BOOK_FINISH_XP = 80;
 
 export default function LearningTab() {
   const addXP = useAriseAddXP();
@@ -56,15 +55,20 @@ export default function LearningTab() {
       });
   }
   function handleBookUpdateStatus(id: string, status: Book['status']) {
-    const wasFinished = books.find((b) => b.id === id)?.status === 'finished';
-    setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
-    bumpStats();
+    const prevBook = books.find((b) => b.id === id);
+    if (!prevBook || prevBook.status === status) return;
+    setBooks((prev) => prev.map((b) => (b.id === id ? applyBookStatus(b, status) : b)));
     apiClient.patch(`/api/books/${id}`, { body: { status } })
-      .then(() => {
-        if (status === 'finished' && !wasFinished) addXP(BOOK_FINISH_XP, 'Finished a book');
+      .then((data) => {
+        const { xpAwarded, ...updated } = data as Book & { xpAwarded?: number };
+        setBooks((prev) => prev.map((b) => (b.id === id ? (updated as Book) : b)));
+        // Server awards XP on finish and revokes it on un-finish; follow its lead.
+        if (xpAwarded && xpAwarded > 0) addXP(xpAwarded, 'Finished a book');
         else refreshStatus();
+        bumpStats();
       })
       .catch((err) => {
+        setBooks((prev) => prev.map((b) => (b.id === id ? prevBook : b)));
         fetchBooks();
         refreshStatus();
         showToast(errorMessage(err, 'Failed to update book status'));
