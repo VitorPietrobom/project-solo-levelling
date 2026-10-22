@@ -25,8 +25,8 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 | Critical | 3 |
 | High | 17 |
 | Medium | 48 |
-| Low | 34 |
-| **Total** | **102** |
+| Low | 35 |
+| **Total** | **103** |
 
 ---
 
@@ -247,7 +247,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Add try/catch → 500 JSON to every listed handler (or an `asyncHandler` wrapper + global error middleware in `index.ts`). In `verifyState`, compare lengths first and move the call inside the try. Make the nutrition claim row + XP increment one `$transaction`.
 
 ### OE-023 — Recurring/one-time switch leaves stale completion state (XP farm)
-- **Status:** Todo
+- **Status:** Done (#96)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — quests
 - **Location:** `server/src/controllers/quests.ts:172-175`
@@ -267,7 +267,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-015, OE-033, OE-063
 
 ### OE-025 — Invalid dates return 500 instead of 400 across the API
-- **Status:** Todo
+- **Status:** Done (#95)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — weight / measurements / food entries / gym sessions / journal / lessons / knowledge
 - **Location:** `server/src/controllers/weight.ts:13-14, 45`; `measurements.ts:54`; `food-entries.ts:16-20, 51-54, 72`; `gym-sessions.ts` (session date); `journal.ts:9-13, 49`; `lessons.ts:59`; `knowledge.ts:379, 425`
@@ -294,7 +294,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Use `AbortSignal.timeout(5000)` covering `r.json()`. Coerce each nutriment with `Number()`, fall back to 0 when non-finite/negative, round sensibly; guard `product_name`.
 
 ### OE-028 — Any user can permanently poison a barcode's nutrition data for everyone
-- **Status:** Todo
+- **Status:** Done (#98)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — CustomFoodProduct
 - **Location:** `server/src/controllers/food-entries.ts:137-150, 162-232`
@@ -368,7 +368,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Treat `temp-` ids as pending; disable drag/buttons/checkboxes until the real id arrives (or queue and replay).
 
 ### OE-036 — "Overdue" uses the UTC date
-- **Status:** Todo
+- **Status:** Done (#97)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Status / QuestCard
 - **Location:** `client/src/components/QuestCard.tsx:36`
@@ -452,7 +452,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Validate/coerce each exercise (name, integer sets/reps ≥1, weight ≥0, known muscle groups, parseable date), show the specific inline error (not a generic "Invalid JSON" — today a TypeError from `.map` on a non-array `muscleGroups` lands in the parse catch), keep the textarea content.
 
 ### OE-045 — Body forms lose all input when the save fails
-- **Status:** Todo
+- **Status:** Done (#99)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Body
 - **Location:** `client/src/pages/BodyTab.tsx:72, 119, 133-134, 156`; `client/src/components/GymSessionForm.tsx:95-96`; `GymSessionImport.tsx:84`
@@ -479,7 +479,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** `revokeXP` on delete (including cascaded manual edges on `deleteNode`), or record awards by source key and skip repeats.
 
 ### OE-048 — Books accept currentPage above totalPages
-- **Status:** Todo
+- **Status:** Done (#103)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — Learning / books
 - **Location:** `server/src/controllers/books.ts:126-132`
@@ -545,7 +545,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** In `onImported`, call `fetchRecipes()` + grocery refresh and show a success toast with counts.
 
 ### OE-055 — "+ Manual plan" silently replaces the entire existing week
-- **Status:** Todo
+- **Status:** Done (#100)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Diet / meal prep
 - **Location:** `client/src/components/MealPrepForm.tsx:29, 54-73`; `client/src/pages/DietTab.tsx:158-167`
@@ -591,7 +591,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-012
 
 ### OE-060 — Knowledge graph scroll-zoom also scrolls the page
-- **Status:** Todo
+- **Status:** Done (#101)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Learning / KnowledgeGraph
 - **Location:** `client/src/components/KnowledgeGraph.tsx:130-133, 185`
@@ -609,7 +609,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Close the editor only on success; keep the draft on error.
 
 ### OE-062 — Training-program activation isn't atomic
-- **Status:** Todo
+- **Status:** Done (#102)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — training programs
 - **Location:** `server/src/controllers/training-programs.ts:125-144`
@@ -963,3 +963,12 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Impact:** A crash or DB error between the writes leaves the quest completed without XP (or reset with XP kept).
 - **Fix:** Wrap each flow's conditional update + XP writes in one `prisma.$transaction` (interactive), keeping the `count === 1` guard.
 - **Related:** OE-005, OE-006
+
+### OE-103 — Client doesn't explain the 409 when changing a completed quest's recurrence
+- **Status:** Todo
+- **Severity:** Low · **Confidence:** High
+- **Area:** Client — Status / quests
+- **Location:** quest edit flow in `client/src/pages/GamificationTab.tsx`
+- **Problem:** Since OE-023 (#96) the server returns 409 when the recurrence of a quest completed for the current period is changed. The client shows a generic failure toast and keeps the optimistic edit.
+- **Fix:** Roll back the optimistic edit and show the server's message ("reopen the quest first").
+- **Related:** OE-023
