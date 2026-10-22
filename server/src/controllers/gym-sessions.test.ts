@@ -142,7 +142,7 @@ describe('Gym session endpoints', () => {
         .send({ date: '2024-01-15', exercises: [{ name: 'Bench Press', sets: -3, reps: 10, weight: 80 }] });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('sets must be a positive integer');
+      expect(res.body.error).toBe('sets must be an integer between 1 and 1000');
     });
 
     it('returns 400 for a negative weight value', async () => {
@@ -152,6 +152,40 @@ describe('Gym session endpoints', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('weight must be a non-negative number');
+    });
+
+    it('returns 400 for sets/reps above the cap', async () => {
+      const res = await request(app)
+        .post('/api/gym-sessions')
+        .send({ date: '2024-01-15', exercises: [{ name: 'Bench Press', sets: 3, reps: 1001 }] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('reps must be an integer between 1 and 1000');
+      expect(prisma.gymSession.create).not.toHaveBeenCalled();
+    });
+
+    it.each([[['legs']], ['chest'], [[1]]])('returns 400 for invalid muscleGroups %j', async (muscleGroups) => {
+      const res = await request(app)
+        .post('/api/gym-sessions')
+        .send({ date: '2024-01-15', exercises: [{ name: 'Squat', sets: 3, reps: 5, muscleGroups }] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/^muscleGroups must be an array of/);
+      expect(prisma.gymSession.create).not.toHaveBeenCalled();
+    });
+
+    it('dedupes duplicate muscle groups', async () => {
+      vi.mocked(prisma.gymSession.create).mockResolvedValue({ id: 'gs1' } as any);
+      const res = await request(app)
+        .post('/api/gym-sessions')
+        .send({ date: '2024-01-15', exercises: [{ name: 'Bench', sets: 3, reps: 5, muscleGroups: ['chest', 'chest', 'triceps'] }] });
+
+      expect(res.status).toBe(201);
+      const arg = vi.mocked(prisma.gymSession.create).mock.calls[0][0] as any;
+      expect(arg.data.exercises.create[0].muscleGroups.create).toEqual([
+        { muscleGroup: 'chest' },
+        { muscleGroup: 'triceps' },
+      ]);
     });
 
     it('returns 400 when exercises array is empty', async () => {
