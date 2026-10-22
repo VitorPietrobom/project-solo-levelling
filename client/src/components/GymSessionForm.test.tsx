@@ -74,4 +74,26 @@ describe('GymSessionForm', () => {
       expect.objectContaining({ exercises: [expect.objectContaining({ weight: 0 })] }),
     );
   });
+
+  it.each([
+    ['sets', '', 'Squat: sets must be a whole number of at least 1'],
+    ['sets', '-3', 'Squat: sets must be a whole number of at least 1'],
+    ['reps', '', 'Squat: reps must be a whole number of at least 1'],
+    ['reps', '2.5', 'Squat: reps must be a whole number of at least 1'],
+    ['weight', '-5', 'Squat: weight must be 0 or more (0 for bodyweight)'],
+  ])('rejects invalid %s %j instead of defaulting (OE-046)', async (field, value, message) => {
+    const onCreated = vi.fn();
+    render(<GymSessionForm onCreated={onCreated} />);
+
+    await userEvent.type(screen.getByLabelText('Exercise 1 name'), 'Squat');
+    const label = field === 'weight' ? 'Exercise 1 weight in kg — 0 for bodyweight' : `Exercise 1 ${field}`;
+    const input = screen.getByLabelText(label);
+    await userEvent.clear(input);
+    if (value) await userEvent.type(input, value);
+    await userEvent.click(screen.getByText('Save Session'));
+
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Exercise 1 name')).toHaveValue('Squat');
+  });
 });

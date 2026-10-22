@@ -75,15 +75,33 @@ export default function GymSessionForm({ onCreated, initial }: GymSessionFormPro
       return;
     }
 
+    // OE-046: validate instead of silently coercing blank/invalid values to defaults.
+    for (const ex of validExercises) {
+      const label = ex.name.trim();
+      if (!/^\d+$/.test(ex.sets.trim()) || Number(ex.sets) < 1) {
+        setError(`${label}: sets must be a whole number of at least 1`);
+        return;
+      }
+      if (!/^\d+$/.test(ex.reps.trim()) || Number(ex.reps) < 1) {
+        setError(`${label}: reps must be a whole number of at least 1`);
+        return;
+      }
+      const w = ex.weight.trim() === '' ? 0 : Number(ex.weight); // blank = bodyweight
+      if (!Number.isFinite(w) || w < 0) {
+        setError(`${label}: weight must be 0 or more (0 for bodyweight)`);
+        return;
+      }
+    }
+
     const now = Date.now();
     const body = {
       date,
       notes: notes.trim(),
       exercises: validExercises.map((ex) => ({
         name: ex.name.trim(),
-        sets: parseInt(ex.sets) || 1,
-        reps: parseInt(ex.reps) || 1,
-        weight: parseFloat(ex.weight) || 0,
+        sets: Number(ex.sets),
+        reps: Number(ex.reps),
+        weight: ex.weight.trim() === '' ? 0 : Number(ex.weight),
         muscleGroups: ex.muscleGroups,
       })),
     };
