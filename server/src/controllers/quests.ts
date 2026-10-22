@@ -158,7 +158,8 @@ export async function createQuest(req: Request, res: Response): Promise<void> {
 }
 
 // PATCH /api/quests/:id — edit title/description/xpReward/priority/dueDate/
-// recurrence/linkedSkillId. Completion state is never touched here; use the
+// recurrence/linkedSkillId. Completion state is only reset on a recurrence
+// switch (allowed only while not completed); use the
 // step/reset/complete endpoints for that so XP stays consistent.
 export async function updateQuest(req: Request, res: Response): Promise<void> {
   try {
@@ -192,7 +193,23 @@ export async function updateQuest(req: Request, res: Response): Promise<void> {
     }
     if (recurrence !== undefined) {
       if (recurrence !== null && !RECURRENCES.has(recurrence)) { res.status(400).json({ error: 'recurrence must be daily or weekly' }); return; }
-      data.recurrence = recurrence;
+      const nextRecurrence = (recurrence ?? null) as Recurrence | null;
+      if (nextRecurrence !== existing.recurrence) {
+        // Switching modes while the quest is completed for the current period
+        // would let the other mode's stale field be completed again for a
+        // second award (OE-023). Require reopening first, and clear both
+        // completion fields so nothing carries over between modes.
+        const completedNow = existing.recurrence
+          ? isCompletedForPeriod(existing.recurrence, existing.lastCompletedAt)
+          : existing.completed;
+        if (completedNow) {
+          res.status(409).json({ error: 'Reopen the quest before changing its recurrence' });
+          return;
+        }
+        data.completed = false;
+        data.lastCompletedAt = null;
+      }
+      data.recurrence = nextRecurrence;
     }
     if (linkedSkillId !== undefined) {
       if (linkedSkillId) {
