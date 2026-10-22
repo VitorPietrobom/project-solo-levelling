@@ -46,6 +46,10 @@ export default function DietTab() {
   const [groceryList, setGroceryList] = useState<GroceryListData | null>(null);
   const [showMealPrepForm, setShowMealPrepForm] = useState(false);
   const [showMealPrepAi, setShowMealPrepAi] = useState(false);
+  // Serializes meal-prep mutations (cell removals / plan delete) and tracks
+  // the newest one so stale responses are dropped — see OE-040.
+  const mealPrepQueue = useRef<Promise<void>>(Promise.resolve());
+  const mealPrepSeq = useRef(0);
 
   // Guards against a slower response for an older date landing after a
   // faster response for a newer one and overwriting it with stale data —
@@ -181,31 +185,45 @@ export default function DietTab() {
       handleMealPrepDeleted();
       return;
     }
-    const prevPlan = mealPrepPlan;
     setMealPrepPlan({ ...mealPrepPlan, entries: remaining });
-    apiClient
-      .post('/api/meal-prep', {
-        body: {
-          weekStartDate: mealPrepPlan.weekStartDate,
-          entries: remaining.map((e) => ({ dayOfWeek: e.dayOfWeek, mealType: e.mealType, recipeId: e.recipeId })),
-        },
+    // Removals are chained so the server sees them in click order (each POST
+    // is a full delete+recreate, so overlapping ones could land out of
+    // order), and only the newest one's response is applied — an older
+    // response would resurrect a cell removed after it was sent.
+    const seq = ++mealPrepSeq.current;
+    const body = {
+      weekStartDate: mealPrepPlan.weekStartDate,
+      entries: remaining.map((e) => ({ dayOfWeek: e.dayOfWeek, mealType: e.mealType, recipeId: e.recipeId })),
+    };
+    mealPrepQueue.current = mealPrepQueue.current
+      .then(() => apiClient.post('/api/meal-prep', { body }))
+      .then((data) => {
+        if (seq === mealPrepSeq.current) setMealPrepPlan(data as MealPrepPlanData);
       })
-      .then((data) => setMealPrepPlan(data as MealPrepPlanData))
       .catch((err) => {
-        setMealPrepPlan(prevPlan);
+        // A local snapshot can't be trusted once removals overlap — resync.
+        if (seq === mealPrepSeq.current) fetchMealPrepPlan();
         showToast(errorMessage(err, 'Failed to remove meal'));
       });
   }
 
   function handleMealPrepDeleted() {
+    // Invalidate in-flight removal responses so they can't resurrect the plan.
+    const seq = ++mealPrepSeq.current;
     setMealPrepPlan(null);
     setSelectedMealPrepDay(null);
     setGroceryList(null);
     if (mealPrepPlan) {
-      apiClient.delete(`/api/meal-prep/${mealPrepPlan.id}`).catch((err) => {
-        fetchMealPrepPlan();
-        showToast(errorMessage(err, 'Failed to delete meal prep plan'));
-      });
+      const id = mealPrepPlan.id;
+      // Queued behind pending removals so a later-landing re-POST can't
+      // recreate the plan after it was deleted.
+      mealPrepQueue.current = mealPrepQueue.current
+        .then(() => apiClient.delete(`/api/meal-prep/${id}`))
+        .then(() => undefined)
+        .catch((err) => {
+          if (seq === mealPrepSeq.current) fetchMealPrepPlan();
+          showToast(errorMessage(err, 'Failed to delete meal prep plan'));
+        });
     }
   }
 
