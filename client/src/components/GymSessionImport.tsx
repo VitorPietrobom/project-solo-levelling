@@ -20,6 +20,74 @@ interface GymSessionImportProps {
   initial?: { date: string; notes: string; exercises: unknown[] };
 }
 
+export const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'abs', 'forearms'];
+
+type ImportBody = Parameters<GymSessionImportProps['onImport']>[1];
+
+function toNumber(v: unknown): number {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string' && v.trim() !== '') return Number(v);
+  return NaN;
+}
+
+/** Validate and coerce pasted Hevy JSON (OE-044). Returns a specific error message on failure. */
+export function validateHevyImport(
+  data: unknown,
+): { ok: true; body: ImportBody } | { ok: false; error: string } {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { ok: false, error: 'JSON must be an object with "date" and "exercises"' };
+  }
+  const d = data as Record<string, unknown>;
+  if (typeof d.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d.date) || Number.isNaN(Date.parse(d.date))) {
+    return { ok: false, error: '"date" must be a valid date in YYYY-MM-DD format' };
+  }
+  if (d.notes != null && typeof d.notes !== 'string') {
+    return { ok: false, error: '"notes" must be a string' };
+  }
+  if (!Array.isArray(d.exercises) || d.exercises.length === 0) {
+    return { ok: false, error: 'JSON must have a non-empty "exercises" array' };
+  }
+  const exercises: ImportBody['exercises'] = [];
+  for (let i = 0; i < d.exercises.length; i++) {
+    const raw = d.exercises[i];
+    const label = `Exercise ${i + 1}`;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { ok: false, error: `${label} must be an object` };
+    }
+    const ex = raw as Record<string, unknown>;
+    const name = typeof ex.name === 'string' ? ex.name.trim() : '';
+    if (!name) return { ok: false, error: `${label}: "name" is required` };
+    const who = `${label} (${name})`;
+    const sets = toNumber(ex.sets);
+    if (!Number.isInteger(sets) || sets < 1) {
+      return { ok: false, error: `${who}: "sets" must be a whole number of at least 1` };
+    }
+    const reps = toNumber(ex.reps);
+    if (!Number.isInteger(reps) || reps < 1) {
+      return { ok: false, error: `${who}: "reps" must be a whole number of at least 1` };
+    }
+    const weight = ex.weight == null ? 0 : toNumber(ex.weight);
+    if (!Number.isFinite(weight) || weight < 0) {
+      return { ok: false, error: `${who}: "weight" must be a number of 0 or more` };
+    }
+    let groups: unknown = ex.muscleGroups ?? [];
+    if (typeof groups === 'string') groups = [groups];
+    if (!Array.isArray(groups)) {
+      return { ok: false, error: `${who}: "muscleGroups" must be a list` };
+    }
+    const muscleGroups: string[] = [];
+    for (const g of groups) {
+      const mg = typeof g === 'string' ? g.trim().toLowerCase() : '';
+      if (!MUSCLE_GROUPS.includes(mg)) {
+        return { ok: false, error: `${who}: unknown muscle group "${String(g)}". Valid: ${MUSCLE_GROUPS.join(', ')}` };
+      }
+      if (!muscleGroups.includes(mg)) muscleGroups.push(mg);
+    }
+    exercises.push({ name, sets, reps, weight, muscleGroups });
+  }
+  return { ok: true, body: { date: d.date, notes: (d.notes as string | undefined) ?? '', exercises } };
+}
+
 const PROMPT_TEXT = `I need you to convert my Hevy workout screenshot into this exact JSON format. Look at the exercises, sets, reps, and weights in the image and map them to the correct muscle groups.
 
 Output ONLY valid JSON, no explanation:
@@ -55,38 +123,38 @@ export default function GymSessionImport({ onImport, initial }: GymSessionImport
 
   function handleImport() {
     setError(null);
+    let data: unknown;
     try {
-      const data = JSON.parse(json);
-
-      if (!data.date || !Array.isArray(data.exercises) || data.exercises.length === 0) {
-        setError('JSON must have "date" and non-empty "exercises" array');
-        return;
-      }
-
-      const optimistic: GymSession = {
-        id: `temp-${Date.now()}`,
-        date: data.date,
-        notes: data.notes || null,
-        exercises: data.exercises.map((ex: any, i: number) => ({
-          id: `temp-ex-${Date.now()}-${i}`,
-          name: ex.name,
-          sets: ex.sets,
-          reps: ex.reps,
-          weight: ex.weight,
-          muscleGroups: (ex.muscleGroups || []).map((mg: string) => ({ muscleGroup: mg })),
-        })),
-      };
-
-      onImport(optimistic, {
-        date: data.date,
-        notes: data.notes || '',
-        exercises: data.exercises,
-      });
-
-      setJson('');
+      data = JSON.parse(json);
     } catch {
       setError('Invalid JSON. Paste the output from the AI prompt.');
+      return;
     }
+
+    const result = validateHevyImport(data);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    const body = result.body;
+
+    const optimistic: GymSession = {
+      id: `temp-${Date.now()}`,
+      date: body.date,
+      notes: body.notes || null,
+      exercises: body.exercises.map((ex, i) => ({
+        id: `temp-ex-${Date.now()}-${i}`,
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        weight: ex.weight,
+        muscleGroups: ex.muscleGroups.map((mg) => ({ muscleGroup: mg })),
+      })),
+    };
+
+    // Keep the textarea content: the parent unmounts this form on submit and
+    // re-opens it pre-filled if the save fails (OE-045).
+    onImport(optimistic, body);
   }
 
   return (
