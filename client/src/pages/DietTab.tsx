@@ -160,7 +160,12 @@ export default function DietTab() {
     setShowMealPrepForm(false);
     apiClient
       .post('/api/meal-prep', { body })
-      .then((data) => setMealPrepPlan(data as MealPrepPlanData))
+      .then((data) => {
+        const plan = data as MealPrepPlanData;
+        // Only a plan for the current week belongs in "This Week".
+        if (plan.weekStartDate.slice(0, 10) === currentMonday()) setMealPrepPlan(plan);
+        else showToast(`Saved meal plan for week of ${plan.weekStartDate.slice(0, 10)}`);
+      })
       .catch((err) => showToast(errorMessage(err, 'Failed to create meal prep plan')));
   }
 
@@ -338,7 +343,7 @@ export default function DietTab() {
 
         {showMealPrepForm && (
           <div style={{ marginBottom: 16 }}>
-            <MealPrepForm recipes={recipes} onCreated={handleMealPrepCreated} />
+            <MealPrepForm recipes={recipes} existingPlan={mealPrepPlan} onCreated={handleMealPrepCreated} />
           </div>
         )}
 

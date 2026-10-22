@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MealPrepForm from './MealPrepForm';
 import type { Recipe } from './RecipeList';
+import type { MealPrepPlanData } from './MealPrepPlan';
+import { currentMonday } from '../lib/localDate';
 
 const sampleRecipes: Recipe[] = [
   { id: 'r1', name: 'Oatmeal', steps: 'Cook oats', caloriesPerServing: 300, ingredients: [] },
@@ -42,5 +44,29 @@ describe('MealPrepForm', () => {
   it('shows message when no recipes exist', () => {
     render(<MealPrepForm recipes={[]} onCreated={vi.fn()} />);
     expect(screen.getByText(/Create some recipes first/)).toBeInTheDocument();
+  });
+
+  it('pre-fills from the existing plan so adding a slot keeps the others', async () => {
+    const plan: MealPrepPlanData = {
+      id: 'p1',
+      weekStartDate: `${currentMonday()}T00:00:00.000Z`,
+      entries: [
+        { id: 'e1', dayOfWeek: 'tue', mealType: 'lunch', recipeId: 'r2', recipe: { id: 'r2', name: 'Chicken Salad', caloriesPerServing: 450, ingredients: [] } },
+      ],
+    };
+    const onCreated = vi.fn();
+    render(<MealPrepForm recipes={sampleRecipes} existingPlan={plan} onCreated={onCreated} />);
+    expect(screen.getByLabelText('Tue Lunch recipe')).toHaveValue('r2');
+
+    await userEvent.selectOptions(screen.getByLabelText('Mon Breakfast recipe'), 'r1');
+    await userEvent.click(screen.getByText('Create Plan'));
+    expect(onCreated.mock.calls[0][0].entries).toHaveLength(2);
+  });
+
+  it('snaps a picked date to that week\'s Monday', () => {
+    render(<MealPrepForm recipes={sampleRecipes} onCreated={vi.fn()} />);
+    const input = screen.getByLabelText('Week start date');
+    fireEvent.change(input, { target: { value: '2026-10-22' } });
+    expect(input).toHaveValue('2026-10-19');
   });
 });

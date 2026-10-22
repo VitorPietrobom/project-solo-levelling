@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Recipe } from './RecipeList';
-import { currentMonday } from '../lib/localDate';
+import type { MealPrepPlanData } from './MealPrepPlan';
+import { currentMonday, mondayOf } from '../lib/localDate';
 
 interface MealPrepFormProps {
   recipes: Recipe[];
@@ -8,6 +9,16 @@ interface MealPrepFormProps {
     weekStartDate: string;
     entries: { dayOfWeek: string; mealType: string; recipeId: string }[];
   }) => void;
+  /** The plan currently shown. The server replaces a week's entries wholesale,
+   *  so when editing that same week the form starts from its existing slots. */
+  existingPlan?: MealPrepPlanData | null;
+}
+
+function selectionsFromPlan(plan: MealPrepPlanData | null | undefined, week: string): Record<string, string> {
+  if (!plan || plan.weekStartDate.slice(0, 10) !== week) return {};
+  const out: Record<string, string> = {};
+  for (const e of plan.entries) out[`${e.dayOfWeek}-${e.mealType}`] = e.recipeId;
+  return out;
 }
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -19,9 +30,22 @@ const MEAL_LABELS: Record<string, string> = {
   breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack',
 };
 
-export default function MealPrepForm({ recipes, onCreated }: MealPrepFormProps) {
+export default function MealPrepForm({ recipes, onCreated, existingPlan }: MealPrepFormProps) {
   const [weekStartDate, setWeekStartDate] = useState(() => currentMonday());
-  const [selections, setSelections] = useState<Record<string, string>>({});
+  const [selections, setSelections] = useState<Record<string, string>>(
+    () => selectionsFromPlan(existingPlan, currentMonday()),
+  );
+
+  function handleWeekChange(value: string) {
+    if (!value) {
+      setWeekStartDate('');
+      return;
+    }
+    // Plans are keyed by Monday; snap any picked date to its week's Monday.
+    const monday = mondayOf(value);
+    setWeekStartDate(monday);
+    setSelections(selectionsFromPlan(existingPlan, monday));
+  }
   const [error, setError] = useState<string | null>(null);
 
   const sortedRecipes = useMemo(
@@ -86,7 +110,8 @@ export default function MealPrepForm({ recipes, onCreated }: MealPrepFormProps) 
           id="week-start"
           type="date"
           value={weekStartDate}
-          onChange={(e) => setWeekStartDate(e.target.value)}
+          onChange={(e) => handleWeekChange(e.target.value)}
+          step={7}
           style={inputStyle}
           aria-label="Week start date"
         />
