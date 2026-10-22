@@ -1,6 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { act } from 'react';
+
+// Controllable drag state so we can simulate a drag ending before a click.
+const dnd = vi.hoisted(() => ({ isDragging: false }));
+vi.mock('@dnd-kit/core', async (orig) => {
+  const actual = await orig<typeof import('@dnd-kit/core')>();
+  return {
+    ...actual,
+    useDraggable: (args: Parameters<typeof actual.useDraggable>[0]) => ({
+      ...actual.useDraggable(args),
+      isDragging: dnd.isDragging,
+    }),
+  };
+});
+
 import QuestCard, { isOverdue } from './QuestCard';
 import type { Quest } from './QuestList';
 
@@ -23,6 +38,34 @@ const baseQuest: Quest = {
 const noop = () => {};
 
 describe('QuestCard', () => {
+  it('does not toggle open on the click that ends a drag (OE-034)', async () => {
+    const props = { quest: baseQuest, onToggleStep: noop, onDelete: noop, onUpdate: noop, onSetCompleted: noop };
+    const { rerender } = render(<QuestCard {...props} />);
+    dnd.isDragging = true;
+    rerender(<QuestCard {...props} />);
+    dnd.isDragging = false;
+    rerender(<QuestCard {...props} />);
+    await userEvent.click(screen.getByLabelText('Expand quest "Learn Guitar"'));
+    expect(screen.queryByText('Buy a guitar')).not.toBeInTheDocument();
+    // The next genuine click still toggles.
+    await userEvent.click(screen.getByLabelText('Expand quest "Learn Guitar"'));
+    expect(screen.getByText('Buy a guitar')).toBeInTheDocument();
+  });
+
+  it('clears the drag guard if no click follows the drag', async () => {
+    vi.useFakeTimers();
+    const props = { quest: baseQuest, onToggleStep: noop, onDelete: noop, onUpdate: noop, onSetCompleted: noop };
+    const { rerender } = render(<QuestCard {...props} />);
+    dnd.isDragging = true;
+    rerender(<QuestCard {...props} />);
+    dnd.isDragging = false;
+    rerender(<QuestCard {...props} />);
+    act(() => { vi.advanceTimersByTime(200); });
+    vi.useRealTimers();
+    await userEvent.click(screen.getByLabelText('Expand quest "Learn Guitar"'));
+    expect(screen.getByText('Buy a guitar')).toBeInTheDocument();
+  });
+
   it('shows progress but not step text while collapsed', () => {
     render(<QuestCard quest={baseQuest} onToggleStep={noop} onDelete={noop} onUpdate={noop} onSetCompleted={noop} />);
     expect(screen.getByText('1/2')).toBeInTheDocument();

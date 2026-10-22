@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, Calendar, Flag, Trash2, Sparkles, Pencil, Check, RotateCcw } from 'lucide-react';
@@ -45,6 +45,20 @@ export default function QuestCard({ quest, skills = [], onToggleStep, onDelete, 
   const [titleDraft, setTitleDraft] = useState(quest.title);
   const [descDraft, setDescDraft] = useState(quest.description ?? '');
   const { listeners, setNodeRef, transform, isDragging } = useDraggable({ id: quest.id });
+  // dnd-kit's listeners sit on the card root, so the click that follows a
+  // mouse drag lands on the header toggle. Remember that a drag happened and
+  // swallow that one click; clear the flag shortly after the drag ends in
+  // case no click follows (e.g. touch drags), so the next real tap works.
+  const justDragged = useRef(false);
+  useEffect(() => {
+    if (isDragging) {
+      justDragged.current = true;
+      return;
+    }
+    if (!justDragged.current) return;
+    const t = setTimeout(() => { justDragged.current = false; }, 100);
+    return () => clearTimeout(t);
+  }, [isDragging]);
   const done = quest.steps.filter((s) => s.completed).length;
   const total = quest.steps.length || 1;
   const isDone = quest.completed;
@@ -82,7 +96,10 @@ export default function QuestCard({ quest, skills = [], onToggleStep, onDelete, 
         tabIndex={0}
         aria-expanded={expanded}
         aria-label={`${expanded ? 'Collapse' : 'Expand'} quest "${quest.title}"`}
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => {
+          if (justDragged.current) { justDragged.current = false; return; }
+          setExpanded((v) => !v);
+        }}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((v) => !v); } }}
         style={{ padding: 13, cursor: 'pointer' }}
       >
