@@ -26,12 +26,12 @@ interface BookListProps {
   onDelete: (id: string) => void;
 }
 
-function Stars({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+function Stars({ value, onChange, disabled = false }: { value: number; onChange: (n: number) => void; disabled?: boolean }) {
   return (
     <div style={{ display: 'flex', gap: 2 }} aria-label="Rating">
       {[1, 2, 3, 4, 5].map((n) => (
         <button
-          key={n} type="button" onClick={() => onChange(value === n ? 0 : n)} aria-label={`Rate ${n}`}
+          key={n} type="button" disabled={disabled} onClick={() => onChange(value === n ? 0 : n)} aria-label={`Rate ${n}`}
           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', lineHeight: 1 }}
         >
           <Star size={14} fill={n <= value ? 'var(--warn)' : 'none'} color={n <= value ? 'var(--warn)' : 'var(--line)'} />
@@ -59,7 +59,7 @@ const STATUS_COLOR: Record<Book['status'], string> = {
   finished: 'var(--good)',
 };
 
-function BookCover({ book, onRefreshCover }: { book: Book; onRefreshCover?: (id: string) => void }) {
+function BookCover({ book, onRefreshCover, disabled = false }: { book: Book; onRefreshCover?: (id: string) => void; disabled?: boolean }) {
   const [failed, setFailed] = useState(false);
   const [fetching, setFetching] = useState(false);
   const show = book.coverUrl && !failed;
@@ -69,7 +69,7 @@ function BookCover({ book, onRefreshCover }: { book: Book; onRefreshCover?: (id:
         <img src={book.coverUrl!} alt="" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       ) : onRefreshCover ? (
         <button
-          title="Find cover" aria-label="Find cover"
+          title="Find cover" aria-label="Find cover" disabled={disabled}
           onClick={() => { setFetching(true); setFailed(false); onRefreshCover(book.id); }}
           style={{ width: '100%', height: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
@@ -91,9 +91,12 @@ function BookCard({ book, onUpdateStatus, onUpdateProgress, onUpdateRating, onRe
   onDelete: (id: string) => void;
 }) {
   const [pageInput, setPageInput] = useState('');
+  // Optimistic card: the server id hasn't arrived yet, so any action would 404.
+  const pending = book.id.startsWith('temp-');
   const pct = book.totalPages > 0 ? Math.round(Math.min((book.currentPage / book.totalPages) * 100, 100)) : 0;
 
   function handleLogPages() {
+    if (pending) return;
     const page = parseInt(pageInput, 10);
     if (!isNaN(page) && page >= 0 && page <= book.totalPages) {
       onUpdateProgress(book.id, page);
@@ -102,13 +105,13 @@ function BookCard({ book, onUpdateStatus, onUpdateProgress, onUpdateRating, onRe
   }
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: 13 }}>
+    <div aria-busy={pending || undefined} style={{ background: 'var(--surface)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: 13, opacity: pending ? 0.6 : 1 }}>
       <div style={{ display: 'flex', gap: 11, marginBottom: 10 }}>
-        <BookCover book={book} onRefreshCover={onRefreshCover} />
+        <BookCover book={book} onRefreshCover={onRefreshCover} disabled={pending} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
             <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.25 }}>{book.title}</span>
-            <button onClick={() => onDelete(book.id)} aria-label={`Delete ${book.title}`}
+            <button onClick={() => onDelete(book.id)} disabled={pending} aria-label={`Delete ${book.title}`}
               style={{ background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', flexShrink: 0, display: 'flex', lineHeight: 1 }}><X size={13} /></button>
           </div>
           <p style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>{book.author}</p>
@@ -129,27 +132,27 @@ function BookCard({ book, onUpdateStatus, onUpdateProgress, onUpdateRating, onRe
 
       {book.status === 'finished' && (
         <div style={{ marginTop: 10 }}>
-          <Stars value={book.rating ?? 0} onChange={(n) => onUpdateRating(book.id, n === 0 ? null : n)} />
+          <Stars value={book.rating ?? 0} onChange={(n) => onUpdateRating(book.id, n === 0 ? null : n)} disabled={pending} />
         </div>
       )}
 
       {book.status === 'reading' && (
         <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
           <input
-            type="number" min={0} max={book.totalPages} value={pageInput}
+            type="number" min={0} max={book.totalPages} value={pageInput} disabled={pending}
             onChange={(e) => setPageInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleLogPages(); }}
             placeholder="Page #" aria-label={`Log page for ${book.title}`}
             style={{ width: 84, background: 'var(--surface-inset)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '5px 8px', fontSize: 12, outline: 'none' }}
           />
-          <button className="btn btn-ghost" style={{ padding: '5px 10px', fontSize: 12 }} onClick={handleLogPages}>Log</button>
+          <button className="btn btn-ghost" style={{ padding: '5px 10px', fontSize: 12 }} onClick={handleLogPages} disabled={pending}>Log</button>
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
         {(['want_to_read', 'reading', 'finished'] as const).filter((s) => s !== book.status).map((s) => (
-          <button key={s} onClick={() => onUpdateStatus(book.id, s)}
-            style={{ fontSize: 11, fontWeight: 600, background: 'var(--surface-inset)', color: 'var(--text-3)', border: '1px solid var(--line-soft)', borderRadius: 99, padding: '4px 10px', cursor: 'pointer', transition: 'all .15s' }}
+          <button key={s} onClick={() => onUpdateStatus(book.id, s)} disabled={pending}
+            style={{ fontSize: 11, fontWeight: 600, background: 'var(--surface-inset)', color: 'var(--text-3)', border: '1px solid var(--line-soft)', borderRadius: 99, padding: '4px 10px', cursor: pending ? 'default' : 'pointer', transition: 'all .15s' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = STATUS_COLOR[s]; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'var(--line-soft)'; }}
           >
