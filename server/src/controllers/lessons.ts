@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { parseCalendarDate } from '../lib/calendarDate';
 import { awardXP, revokeXP } from '../services/xp';
 
 export const LESSON_XP = 15;
@@ -47,6 +48,11 @@ export async function createLesson(req: Request, res: Response): Promise<void> {
       res.status(400).json({ error: 'Date is required' });
       return;
     }
+    const parsedDate = parseCalendarDate(date);
+    if (!parsedDate) {
+      res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+      return;
+    }
 
     const parsedTags = Array.isArray(tags) ? tags.filter((t: any) => typeof t === 'string') : [];
 
@@ -56,7 +62,7 @@ export async function createLesson(req: Request, res: Response): Promise<void> {
         content: content.trim(),
         tags: parsedTags,
         linkedSkillId: linkedSkillId || null,
-        date: new Date(date),
+        date: parsedDate,
       },
     });
 

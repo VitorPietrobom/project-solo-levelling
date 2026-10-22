@@ -37,6 +37,25 @@ describe('Journal endpoints', () => {
     vi.clearAllMocks();
   });
 
+  describe('date validation (OE-025)', () => {
+    it('returns 400 for an invalid body date', async () => {
+      const res = await request(app).post('/api/journal').send({ content: 'x', date: 'foo' });
+      expect(res.status).toBe(400);
+      expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for a full timestamp instead of a calendar date', async () => {
+      const res = await request(app).post('/api/journal').send({ content: 'x', date: '2024-06-01T22:00:00-05:00' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 for an invalid start query param', async () => {
+      const res = await request(app).get('/api/journal?start=nope');
+      expect(res.status).toBe(400);
+      expect(prisma.journalEntry.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('GET /api/journal', () => {
     it('returns all entries for the user', async () => {
       const entries = [

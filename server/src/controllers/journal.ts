@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { parseCalendarDate } from '../lib/calendarDate';
 import { awardXP, revokeXP } from '../services/xp';
 
 export const JOURNAL_XP = 10;
@@ -10,11 +11,21 @@ export async function listJournalEntries(req: Request, res: Response): Promise<v
     const { start, end } = req.query;
 
     const where: any = { userId };
-    if (start && typeof start === 'string') {
-      where.date = { ...where.date, gte: new Date(start) };
+    if (start !== undefined) {
+      const d = parseCalendarDate(start);
+      if (!d) {
+        res.status(400).json({ error: 'start must be in YYYY-MM-DD format' });
+        return;
+      }
+      where.date = { ...where.date, gte: d };
     }
-    if (end && typeof end === 'string') {
-      where.date = { ...where.date, lte: new Date(end) };
+    if (end !== undefined) {
+      const d = parseCalendarDate(end);
+      if (!d) {
+        res.status(400).json({ error: 'end must be in YYYY-MM-DD format' });
+        return;
+      }
+      where.date = { ...where.date, lte: d };
     }
 
     const entries = await prisma.journalEntry.findMany({
@@ -42,6 +53,11 @@ export async function createJournalEntry(req: Request, res: Response): Promise<v
       res.status(400).json({ error: 'Date is required' });
       return;
     }
+    const parsedDate = parseCalendarDate(date);
+    if (!parsedDate) {
+      res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+      return;
+    }
 
     const parsedTags = Array.isArray(tags) ? tags.filter((t: any) => typeof t === 'string') : [];
 
@@ -51,7 +67,7 @@ export async function createJournalEntry(req: Request, res: Response): Promise<v
         content: content.trim(),
         tags: parsedTags,
         linkedSkillId: linkedSkillId || null,
-        date: new Date(date),
+        date: parsedDate,
       },
     });
 

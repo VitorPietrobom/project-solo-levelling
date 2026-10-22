@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { parseCalendarDate } from '../lib/calendarDate';
 
 const VALID_TYPES = ['chest', 'waist', 'hips', 'arms', 'thighs'] as const;
 
@@ -49,9 +50,14 @@ export async function createMeasurement(req: Request, res: Response): Promise<vo
       res.status(400).json({ error: 'Date is required' });
       return;
     }
+    const parsedDate = parseCalendarDate(date);
+    if (!parsedDate) {
+      res.status(400).json({ error: 'Date must be in YYYY-MM-DD format' });
+      return;
+    }
 
     const measurement = await prisma.measurement.create({
-      data: { userId, type, value, date: new Date(date) },
+      data: { userId, type, value, date: parsedDate },
     });
 
     res.status(201).json(measurement);
