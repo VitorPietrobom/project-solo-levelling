@@ -238,7 +238,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-001
 
 ### OE-022 — Async handlers without try/catch hang requests (export, WHOOP, nutrition, learning)
-- **Status:** Todo
+- **Status:** In progress (claude/oe-022)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — error handling
 - **Location:** `server/src/controllers/export.ts:9-17`; `whoop.ts:54, 89, 269-273` (incl. `verifyState` → `timingSafeEqual` length mismatch throws); `nutrition.ts:221-283`; `learning.ts:5-40`
@@ -285,7 +285,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Require an array of `Object.values(MuscleGroup)`, dedupe with `new Set`, cap sets/reps (e.g. 1000), return 400 on violations.
 
 ### OE-027 — Open Food Facts lookup can hang and passes unvalidated nutriments through
-- **Status:** Todo
+- **Status:** In progress (claude/oe-027)
 - **Severity:** Medium · **Confidence:** Medium
 - **Area:** Server — barcode lookup
 - **Location:** `server/src/controllers/food-entries.ts:97-128`
@@ -350,7 +350,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Accept the `periodKey` from the list (current or immediately previous only). Do create/delete + XP in one `$transaction`; treat P2002/P2025 as idempotent success; return the actual stored state.
 
 ### OE-034 — Dragging a quest card also toggles it open/closed
-- **Status:** Todo
+- **Status:** In progress (claude/oe-034)
 - **Severity:** Medium · **Confidence:** Medium
 - **Area:** Client — Status / kanban
 - **Location:** `client/src/components/QuestCard.tsx:57, 83`
@@ -377,7 +377,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Compare against the shared local-date helper (OE-015).
 
 ### OE-037 — 401 handler can loop a logged-in user back to /login
-- **Status:** Todo
+- **Status:** In progress (claude/oe-037)
 - **Severity:** Medium · **Confidence:** Medium
 - **Area:** Client — auth
 - **Location:** `client/src/lib/apiClient.ts:25-28`; `client/src/pages/LoginPage.tsx:30`
@@ -404,7 +404,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Only `put` when `res.ok && res.type === 'basic'`. Prune assets not referenced by the current shell, or version the cache name at build time.
 
 ### OE-040 — Rapid meal-prep cell removals overwrite each other
-- **Status:** Todo
+- **Status:** In progress (claude/oe-040)
 - **Severity:** Medium · **Confidence:** Medium
 - **Area:** Client — Diet / meal prep
 - **Location:** `client/src/pages/DietTab.tsx:174-195`
@@ -461,7 +461,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Keep the submitted body in parent state and reopen the form pre-filled on failure (or keep it open until success).
 
 ### OE-046 — GymSessionForm silently turns blank/invalid sets & reps into 1
-- **Status:** Todo
+- **Status:** In progress (claude/oe-046)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Body / GymSessionForm
 - **Location:** `client/src/components/GymSessionForm.tsx:73-75`
@@ -498,7 +498,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-001
 
 ### OE-050 — Auth proxy drops non-JSON and empty-JSON request bodies
-- **Status:** Todo
+- **Status:** In progress (claude/oe-050)
 - **Severity:** Medium · **Confidence:** Medium
 - **Area:** Server — authProxy
 - **Location:** `server/src/controllers/authProxy.ts:30-37`; `server/src/index.ts:41`
@@ -563,7 +563,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Skip empty/non-finite/unchanged values; add a catch with a toast that resets the field.
 
 ### OE-057 — Recipe AI import sends float/string calories (400)
-- **Status:** Todo
+- **Status:** In progress (claude/oe-057)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Recipes / AI import
 - **Location:** `client/src/components/RecipeImport.tsx:64, 80`
@@ -581,7 +581,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Count `knowledgeNode` grouped by `kind` for the user, excluding book projections.
 
 ### OE-059 — Book status changes on the client don't roll back or sync XP/progress
-- **Status:** Todo
+- **Status:** In progress (claude/oe-059)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Learning / books
 - **Location:** `client/src/pages/LearningTab.tsx:57-65`
