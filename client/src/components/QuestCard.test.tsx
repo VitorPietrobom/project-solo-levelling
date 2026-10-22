@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import QuestCard from './QuestCard';
+import QuestCard, { isOverdue } from './QuestCard';
 import type { Quest } from './QuestList';
 
 const baseQuest: Quest = {
@@ -134,5 +134,20 @@ describe('QuestCard', () => {
     await userEvent.click(screen.getByText('Save'));
 
     expect(onUpdate).toHaveBeenCalledWith('q1', { title: 'Master Guitar', description: 'Practice weekly' });
+  });
+});
+
+describe('isOverdue (OE-036)', () => {
+  it('uses the local calendar day, not UTC', () => {
+    // 23:30 local on Oct 21: in UTC- zones toISOString() would already say Oct 22.
+    expect(isOverdue('2026-10-21', false, new Date(2026, 9, 21, 23, 30))).toBe(false);
+    // 00:30 local on Oct 22: in UTC+ zones toISOString() would still say Oct 21.
+    expect(isOverdue('2026-10-21', false, new Date(2026, 9, 22, 0, 30))).toBe(true);
+  });
+
+  it('is never overdue when completed or undated', () => {
+    const now = new Date(2026, 9, 25, 12);
+    expect(isOverdue('2026-10-21', true, now)).toBe(false);
+    expect(isOverdue(null, false, now)).toBe(false);
   });
 });

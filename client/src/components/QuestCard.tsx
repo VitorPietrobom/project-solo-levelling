@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, Calendar, Flag, Trash2, Sparkles, Pencil, Check, RotateCcw } from 'lucide-react';
 import type { Quest, QuestPriority } from './QuestList';
 import type { Skill } from './SkillList';
+import { localISODate } from '../lib/localDate';
 
 interface Props {
   quest: Quest;
@@ -31,9 +32,10 @@ function shortDate(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
-function isOverdue(dueDate: string | null, completed: boolean): boolean {
+// Due dates are calendar days, so compare against the viewer's local day.
+export function isOverdue(dueDate: string | null, completed: boolean, now: Date = new Date()): boolean {
   if (!dueDate || completed) return false;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localISODate(now);
   return dueDate.slice(0, 10) < today;
 }
 
