@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { handleAsync } from '../lib/asyncHandler';
 import { awardXP } from '../services/xp';
 
 const GOALS = new Set(['cut', 'maintain', 'bulk', 'recomp']);
@@ -221,14 +222,14 @@ async function computeNutrition(userId: string, dateStr: string): Promise<DayNut
 }
 
 // GET /api/nutrition/settings
-export async function getNutritionSettings(req: Request, res: Response): Promise<void> {
+async function getNutritionSettingsImpl(req: Request, res: Response): Promise<void> {
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
   if (!user) { res.status(404).json({ error: 'User not found' }); return; }
   res.json(settingsPayload(user));
 }
 
 // PUT /api/nutrition/settings
-export async function updateNutritionSettings(req: Request, res: Response): Promise<void> {
+async function updateNutritionSettingsImpl(req: Request, res: Response): Promise<void> {
   const { goal, adjust, calorieDelta, proteinPerKg, fallbackCalories } = req.body ?? {};
   const data: Record<string, unknown> = {};
   if (typeof goal === 'string' && GOALS.has(goal)) data.nutritionGoal = goal;
@@ -247,7 +248,7 @@ export async function updateNutritionSettings(req: Request, res: Response): Prom
 }
 
 // GET /api/nutrition/target?date=YYYY-MM-DD
-export async function getNutritionTarget(req: Request, res: Response): Promise<void> {
+async function getNutritionTargetImpl(req: Request, res: Response): Promise<void> {
   const userId = req.user!.id;
   const dateStr = typeof req.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)
     ? req.query.date
@@ -314,3 +315,7 @@ export async function claimNutritionXp(req: Request, res: Response): Promise<voi
     res.status(500).json({ error: 'Failed to claim nutrition XP' });
   }
 }
+
+export const getNutritionSettings = handleAsync('getNutritionSettings', getNutritionSettingsImpl);
+export const updateNutritionSettings = handleAsync('updateNutritionSettings', updateNutritionSettingsImpl);
+export const getNutritionTarget = handleAsync('getNutritionTarget', getNutritionTargetImpl);

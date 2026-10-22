@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { handleAsync } from '../lib/asyncHandler';
 
 // GET /api/learning/stats — knowledge overview for the Learning header.
-export async function getLearningStats(req: Request, res: Response): Promise<void> {
+async function getLearningStatsImpl(req: Request, res: Response): Promise<void> {
   const userId = req.user!.id;
   const now = new Date();
   const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
@@ -37,10 +38,13 @@ export async function getLearningStats(req: Request, res: Response): Promise<voi
 }
 
 // PUT /api/learning/goal — { readingGoal }
-export async function updateReadingGoal(req: Request, res: Response): Promise<void> {
+async function updateReadingGoalImpl(req: Request, res: Response): Promise<void> {
   const raw = req.body?.readingGoal;
   const goal = typeof raw === 'number' && Number.isFinite(raw) ? Math.max(1, Math.min(500, Math.round(raw))) : null;
   if (goal === null) { res.status(400).json({ error: 'readingGoal must be a positive number' }); return; }
   const user = await prisma.user.update({ where: { id: req.user!.id }, data: { readingGoal: goal } });
   res.json({ readingGoal: user.readingGoal });
 }
+
+export const getLearningStats = handleAsync('getLearningStats', getLearningStatsImpl);
+export const updateReadingGoal = handleAsync('updateReadingGoal', updateReadingGoalImpl);

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import prisma from '../lib/prisma';
+import { handleAsync } from '../lib/asyncHandler';
 
 const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
 const WHOOP_TOKEN_URL = 'https://api.prod.whoop.com/oauth/oauth2/token';
@@ -47,11 +48,14 @@ function signState(userId: string): string {
   const sig = crypto.createHmac('sha256', clientSecret()).update(payload).digest('base64url');
   return `${payload}.${sig}`;
 }
-function verifyState(state: string): string | null {
+export function verifyState(state: string): string | null {
   const [payload, sig] = (state || '').split('.');
   if (!payload || !sig) return null;
   const expected = crypto.createHmac('sha256', clientSecret()).update(payload).digest('base64url');
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expected);
+  // timingSafeEqual throws on a length mismatch; treat that as a bad signature.
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
   try {
     const { userId, ts } = JSON.parse(Buffer.from(payload, 'base64url').toString());
     if (Date.now() - ts > 10 * 60 * 1000) return null; // 10 min window
@@ -67,7 +71,7 @@ function appOrigin(): string {
 }
 
 // GET /api/whoop/authorize — returns the Whoop consent URL for the client to navigate to.
-export async function authorizeWhoop(req: Request, res: Response): Promise<void> {
+async function authorizeWhoopImpl(req: Request, res: Response): Promise<void> {
   if (!clientId() || !clientSecret() || !redirectUri()) {
     res.status(503).json({ error: 'Whoop integration is not configured' });
     return;
@@ -86,10 +90,10 @@ export async function whoopCallback(req: Request, res: Response): Promise<void> 
   const origin = appOrigin();
   if (error) { res.redirect(`${origin}/body?whoop=denied`); return; }
 
-  const userId = state ? verifyState(state) : null;
-  if (!userId || !code) { res.redirect(`${origin}/body?whoop=error`); return; }
-
   try {
+    const userId = state ? verifyState(state) : null;
+    if (!userId || !code) { res.redirect(`${origin}/body?whoop=error`); return; }
+
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
@@ -317,7 +321,7 @@ async function performWhoopSync(userId: string): Promise<{ syncedAt: Date | null
 }
 
 // POST /api/whoop/sync — pull latest recovery, sleep, strain, and workouts.
-export async function syncWhoop(req: Request, res: Response): Promise<void> {
+async function syncWhoopImpl(req: Request, res: Response): Promise<void> {
   const result = await performWhoopSync(req.user!.id);
   if (result === WHOOP_REAUTH) {
     res.status(409).json({ error: 'Whoop authorization expired — reconnect Whoop', code: 'WHOOP_REAUTH' });
@@ -332,7 +336,7 @@ export async function syncWhoop(req: Request, res: Response): Promise<void> {
 // Cron Jobs hit this as a plain GET and auto-attach `Authorization: Bearer
 // $CRON_SECRET` when an env var of that exact name is set — that's the only
 // thing gating this route, since it isn't tied to any one user's session.
-export async function cronSyncAllWhoop(req: Request, res: Response): Promise<void> {
+async function cronSyncAllWhoopImpl(req: Request, res: Response): Promise<void> {
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -389,14 +393,20 @@ export async function syncInChunks(
 }
 
 // GET /api/whoop/status — connection state + last synced snapshot.
-export async function whoopStatus(req: Request, res: Response): Promise<void> {
+async function whoopStatusImpl(req: Request, res: Response): Promise<void> {
   const conn = await prisma.whoopConnection.findUnique({ where: { userId: req.user!.id } });
   if (!conn) { res.json({ connected: false }); return; }
   res.json({ connected: true, needsReauth: conn.needsReauth, syncedAt: conn.syncedAt, latest: conn.latest ?? null });
 }
 
 // DELETE /api/whoop — disconnect.
-export async function disconnectWhoop(req: Request, res: Response): Promise<void> {
+async function disconnectWhoopImpl(req: Request, res: Response): Promise<void> {
   await prisma.whoopConnection.deleteMany({ where: { userId: req.user!.id } });
   res.status(204).end();
 }
+
+export const authorizeWhoop = handleAsync('authorizeWhoop', authorizeWhoopImpl);
+export const syncWhoop = handleAsync('syncWhoop', syncWhoopImpl);
+export const cronSyncAllWhoop = handleAsync('cronSyncAllWhoop', cronSyncAllWhoopImpl);
+export const whoopStatus = handleAsync('whoopStatus', whoopStatusImpl);
+export const disconnectWhoop = handleAsync('disconnectWhoop', disconnectWhoopImpl);
