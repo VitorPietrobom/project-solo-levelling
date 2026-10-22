@@ -336,7 +336,16 @@ export default function DietTab() {
           <div style={{ marginBottom: 16 }}>
             <MealPlanImport
               weekStartDate={currentMonday()}
-              onImported={(plan) => { setMealPrepPlan(plan as MealPrepPlanData); setShowMealPrepAi(false); fetchMealPrepPlan(); }}
+              onImported={(plan, counts) => {
+                setMealPrepPlan(plan as MealPrepPlanData);
+                setShowMealPrepAi(false);
+                fetchMealPrepPlan();
+                // The import may create recipes the "+ Manual plan" dropdowns need,
+                // and changes what the selected day's grocery list should contain.
+                fetchRecipes();
+                if (selectedMealPrepDay) fetchGroceryList(selectedMealPrepDay);
+                showToast(`Imported ${counts.recipesCreated} recipes and scheduled ${counts.mealsScheduled} meals.`, 'success');
+              }}
             />
           </div>
         )}
