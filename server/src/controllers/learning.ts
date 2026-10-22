@@ -7,16 +7,22 @@ export async function getLearningStats(req: Request, res: Response): Promise<voi
   const now = new Date();
   const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
 
-  const [user, booksFinishedTotal, booksFinishedThisYear, booksReading, notesCount, lessonsCount, journalCount, pagesAgg] = await Promise.all([
+  const [user, booksFinishedTotal, booksFinishedThisYear, booksReading, kindCounts, pagesAgg] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId } }),
     prisma.book.count({ where: { userId, status: 'finished' } }),
     prisma.book.count({ where: { userId, status: 'finished', finishedAt: { gte: yearStart } } }),
     prisma.book.count({ where: { userId, status: 'reading' } }),
-    prisma.note.count({ where: { userId } }),
-    prisma.lessonLearned.count({ where: { userId } }),
-    prisma.journalEntry.count({ where: { userId } }),
+    // The UI only creates knowledge nodes now; count those by kind. Book
+    // projections (legacyId `book:*`) mirror the bookshelf and aren't user notes.
+    prisma.knowledgeNode.groupBy({
+      by: ['kind'],
+      where: { userId, OR: [{ legacyId: null }, { NOT: { legacyId: { startsWith: 'book:' } } }] },
+      _count: { _all: true },
+    }),
     prisma.book.aggregate({ where: { userId, status: 'finished' }, _sum: { totalPages: true } }),
   ]);
+
+  const countOf = (kind: string) => kindCounts.find((k) => k.kind === kind)?._count._all ?? 0;
 
   res.json({
     readingGoal: user?.readingGoal ?? 12,
@@ -24,9 +30,9 @@ export async function getLearningStats(req: Request, res: Response): Promise<voi
     booksFinishedTotal,
     booksReading,
     pagesRead: pagesAgg._sum.totalPages ?? 0,
-    notesCount,
-    lessonsCount,
-    journalCount,
+    notesCount: countOf('note'),
+    lessonsCount: countOf('lesson'),
+    journalCount: countOf('journal'),
   });
 }
 
