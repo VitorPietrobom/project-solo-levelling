@@ -9,8 +9,8 @@ vi.mock('../lib/prisma', () => ({
       create: vi.fn(),
     },
     customFoodProduct: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
+      findFirst: vi.fn(),
+      upsert: vi.fn(),
     },
     user: {
       upsert: vi.fn().mockResolvedValue({}),
@@ -182,7 +182,8 @@ describe('Food entry endpoints', () => {
     beforeEach(() => {
       vi.stubGlobal('fetch', mockFetch);
       mockFetch.mockReset();
-      (prisma.customFoodProduct.findUnique as any).mockResolvedValue(null);
+      (prisma.customFoodProduct.findFirst as any).mockReset();
+      (prisma.customFoodProduct.findFirst as any).mockResolvedValue(null);
     });
 
     it('returns 400 for a non-numeric code', async () => {
@@ -222,7 +223,7 @@ describe('Food entry endpoints', () => {
         expect.objectContaining({ signal: expect.anything() }),
       );
       // OFF resolved it, so the custom fallback table was never consulted.
-      expect(prisma.customFoodProduct.findUnique).not.toHaveBeenCalled();
+      expect(prisma.customFoodProduct.findFirst).not.toHaveBeenCalled();
     });
 
     it('reports not found when neither Open Food Facts nor the custom table has it', async () => {
@@ -251,7 +252,7 @@ describe('Food entry endpoints', () => {
 
     it('falls back to the custom table when Open Food Facts has never heard of it', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: async () => ({ status: 0 }) });
-      (prisma.customFoodProduct.findUnique as any).mockResolvedValue({
+      (prisma.customFoodProduct.findFirst as any).mockResolvedValue({
         id: 'c1', barcode: '9999999999999', foodName: "Grandma's Cookies",
         caloriesPer100g: 480, proteinPer100g: 5, carbsPer100g: 60, fatPer100g: 22,
       });
@@ -271,9 +272,34 @@ describe('Food entry endpoints', () => {
       });
     });
 
+    it("prefers the requester's own custom entry over a shared one", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => ({ status: 0 }) });
+      (prisma.customFoodProduct.findFirst as any).mockImplementation(async ({ where }: any) =>
+        where.createdByUserId === 'test-user-id'
+          ? { id: 'mine', barcode: '9999999999999', foodName: 'My Fix', caloriesPer100g: 100, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 }
+          : { id: 'theirs', barcode: '9999999999999', foodName: 'Water', caloriesPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 });
+
+      const res = await request(app).get('/api/food-entries/barcode/9999999999999');
+
+      expect(res.body.foodName).toBe('My Fix');
+      expect(prisma.customFoodProduct.findFirst).toHaveBeenCalledTimes(1);
+    });
+
+    it("falls back to another user's shared entry when the requester has none", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => ({ status: 0 }) });
+      (prisma.customFoodProduct.findFirst as any)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'theirs', barcode: '9999999999999', foodName: 'Shared', caloriesPer100g: 50, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 });
+
+      const res = await request(app).get('/api/food-entries/barcode/9999999999999');
+
+      expect(res.body.foodName).toBe('Shared');
+      expect(prisma.customFoodProduct.findFirst).toHaveBeenLastCalledWith({ where: { barcode: '9999999999999' }, orderBy: { createdAt: 'asc' } });
+    });
+
     it('falls back to the custom table when the upstream OFF lookup throws', async () => {
       mockFetch.mockRejectedValue(new Error('network down'));
-      (prisma.customFoodProduct.findUnique as any).mockResolvedValue({
+      (prisma.customFoodProduct.findFirst as any).mockResolvedValue({
         id: 'c1', barcode: '0123456789012', foodName: 'Local Snack',
         caloriesPer100g: 300, proteinPer100g: 10, carbsPer100g: 40, fatPer100g: 8,
       });
@@ -289,8 +315,7 @@ describe('Food entry endpoints', () => {
 
   describe('POST /api/food-entries/barcode/:code', () => {
     beforeEach(() => {
-      (prisma.customFoodProduct.create as any).mockReset();
-      (prisma.customFoodProduct.findUnique as any).mockReset();
+      (prisma.customFoodProduct.upsert as any).mockReset();
     });
 
     it('returns 400 for a non-numeric code', async () => {
@@ -310,7 +335,7 @@ describe('Food entry endpoints', () => {
     });
 
     it('creates a custom product for the barcode, attributed to the user', async () => {
-      (prisma.customFoodProduct.create as any).mockResolvedValue({
+      (prisma.customFoodProduct.upsert as any).mockResolvedValue({
         id: 'c1', barcode: '0123456789012', foodName: 'Homemade Bread',
         caloriesPer100g: 265, proteinPer100g: 9, carbsPer100g: 49, fatPer100g: 3.2,
       });
@@ -330,26 +355,26 @@ describe('Food entry endpoints', () => {
         fatPer100g: 3.2,
         servingGrams: null,
       });
-      expect(prisma.customFoodProduct.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ barcode: '0123456789012', foodName: 'Homemade Bread', createdByUserId: 'test-user-id' }),
+      expect(prisma.customFoodProduct.upsert).toHaveBeenCalledWith({
+        where: { barcode_createdByUserId: { barcode: '0123456789012', createdByUserId: 'test-user-id' } },
+        create: expect.objectContaining({ barcode: '0123456789012', foodName: 'Homemade Bread', createdByUserId: 'test-user-id' }),
+        update: expect.objectContaining({ foodName: 'Homemade Bread', caloriesPer100g: 265 }),
       });
     });
 
-    it('hands back the existing product instead of erroring on a duplicate barcode', async () => {
-      const dupError: any = new Error('Unique constraint failed');
-      dupError.code = 'P2002';
-      (prisma.customFoodProduct.create as any).mockRejectedValue(dupError);
-      (prisma.customFoodProduct.findUnique as any).mockResolvedValue({
-        id: 'c1', barcode: '0123456789012', foodName: 'Already Added',
-        caloriesPer100g: 200, proteinPer100g: 1, carbsPer100g: 2, fatPer100g: 3,
+    it("saves the user's own entry even when another user already filled in the barcode", async () => {
+      (prisma.customFoodProduct.upsert as any).mockResolvedValue({
+        id: 'c2', barcode: '0123456789012', foodName: 'Correct Name',
+        caloriesPer100g: 400, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0,
       });
 
       const res = await request(app)
         .post('/api/food-entries/barcode/0123456789012')
-        .send({ foodName: 'Someone Else Typed This', caloriesPer100g: 999 });
+        .send({ foodName: 'Correct Name', caloriesPer100g: 400 });
 
-      expect(res.status).toBe(200);
-      expect(res.body.foodName).toBe('Already Added');
+      expect(res.status).toBe(201);
+      expect(res.body.foodName).toBe('Correct Name');
+      expect(res.body.caloriesPer100g).toBe(400);
     });
   });
 });

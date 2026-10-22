@@ -146,7 +146,12 @@ export async function lookupBarcode(req: Request, res: Response): Promise<void> 
   }
 
   try {
-    const custom = await prisma.customFoodProduct.findUnique({ where: { barcode: code } });
+    // Prefer the requester's own entry so a bogus shared entry can always be
+    // overridden; otherwise fall back to the oldest entry anyone saved.
+    const userId = req.user!.id;
+    const custom =
+      (await prisma.customFoodProduct.findFirst({ where: { barcode: code, createdByUserId: userId } })) ??
+      (await prisma.customFoodProduct.findFirst({ where: { barcode: code }, orderBy: { createdAt: 'asc' } }));
     if (custom) {
       res.json({
         found: true,
@@ -168,8 +173,9 @@ export async function lookupBarcode(req: Request, res: Response): Promise<void> 
 }
 
 // POST /api/food-entries/barcode/:code — saves a user-entered product for a
-// barcode Open Food Facts (and our own table) didn't have, so every future
-// scan of that barcode — by anyone — resolves correctly from here on.
+// barcode Open Food Facts didn't have (or one the user wants to correct).
+// Each user has their own row per barcode: saving again overwrites it, and it
+// takes precedence over other users' entries for that user's lookups.
 export async function createCustomFoodProduct(req: Request, res: Response): Promise<void> {
   const code = (req.params.code as string || '').trim();
   if (!BARCODE_RE.test(code)) {
@@ -196,16 +202,17 @@ export async function createCustomFoodProduct(req: Request, res: Response): Prom
       }
     }
 
-    const product = await prisma.customFoodProduct.create({
-      data: {
-        barcode: code,
-        foodName: foodName.trim(),
-        caloriesPer100g: Math.round(caloriesPer100g),
-        proteinPer100g: typeof proteinPer100g === 'number' ? proteinPer100g : 0,
-        carbsPer100g: typeof carbsPer100g === 'number' ? carbsPer100g : 0,
-        fatPer100g: typeof fatPer100g === 'number' ? fatPer100g : 0,
-        createdByUserId: userId,
-      },
+    const fields = {
+      foodName: foodName.trim(),
+      caloriesPer100g: Math.round(caloriesPer100g),
+      proteinPer100g: typeof proteinPer100g === 'number' ? proteinPer100g : 0,
+      carbsPer100g: typeof carbsPer100g === 'number' ? carbsPer100g : 0,
+      fatPer100g: typeof fatPer100g === 'number' ? fatPer100g : 0,
+    };
+    const product = await prisma.customFoodProduct.upsert({
+      where: { barcode_createdByUserId: { barcode: code, createdByUserId: userId } },
+      create: { barcode: code, ...fields, createdByUserId: userId },
+      update: fields,
     });
 
     res.status(201).json({
@@ -218,26 +225,7 @@ export async function createCustomFoodProduct(req: Request, res: Response): Prom
       fatPer100g: product.fatPer100g,
       servingGrams: null,
     });
-  } catch (err: any) {
-    // Someone else already filled in this barcode between our lookup and
-    // this submit — treat it as success and hand back the existing product
-    // rather than erroring on the unique constraint.
-    if (err?.code === 'P2002') {
-      const existing = await prisma.customFoodProduct.findUnique({ where: { barcode: code } });
-      if (existing) {
-        res.status(200).json({
-          found: true,
-          source: 'custom',
-          foodName: existing.foodName,
-          caloriesPer100g: existing.caloriesPer100g,
-          proteinPer100g: existing.proteinPer100g,
-          carbsPer100g: existing.carbsPer100g,
-          fatPer100g: existing.fatPer100g,
-          servingGrams: null,
-        });
-        return;
-      }
-    }
+  } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
