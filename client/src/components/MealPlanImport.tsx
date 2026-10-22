@@ -15,7 +15,8 @@ interface ImportResult { recipesCreated: number; mealsScheduled: number; plan: u
 
 interface Props {
   weekStartDate: string; // current Monday, YYYY-MM-DD
-  onImported: (plan: unknown) => void;
+  /** Called after a successful import; the parent owns success feedback (this panel is usually unmounted). */
+  onImported: (plan: unknown, counts: { recipesCreated: number; mealsScheduled: number }) => void;
 }
 
 const GOAL_WORD: Record<string, string> = {
@@ -144,7 +145,7 @@ export default function MealPlanImport({ weekStartDate, onImported }: Props) {
       })) as ImportResult;
       setOk(`Imported ${res.recipesCreated} recipes and scheduled ${res.mealsScheduled} meals.`);
       setJson('');
-      onImported(res.plan);
+      onImported(res.plan, { recipesCreated: res.recipesCreated, mealsScheduled: res.mealsScheduled });
     } catch (e: any) {
       setError(e?.body?.error ?? e?.message ?? 'Import failed. Check the JSON and try again.');
     } finally {
