@@ -28,7 +28,7 @@ import learningRoutes from './routes/learning';
 import knowledgeRoutes from './routes/knowledge';
 import inviteRoutes from './routes/invite';
 import feedbackRoutes from './routes/feedback';
-import { authProxy } from './controllers/authProxy';
+import { authProxy, authProxyRawBody } from './controllers/authProxy';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -37,6 +37,9 @@ app.use(cors());
 // Keep request bodies within serverless platform limits (Vercel caps at ~4.5MB).
 // The large 50MB limit was only needed for base64 document/PDF uploads, which
 // are disabled for now.
+// The auth proxy forwards request bodies byte-for-byte, so it needs the raw
+// buffer; mount its parser before express.json (which then skips these requests).
+app.use('/api/auth-proxy', authProxyRawBody);
 app.use(express.json({ limit: '4mb' }));
 
 app.get('/api/health', (_req, res) => {

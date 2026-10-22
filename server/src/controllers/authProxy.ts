@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 
 // Same-origin auth proxy. The browser talks to /api/auth-proxy/* on OUR domain;
 // we forward to the Neon Auth service. This makes the session cookie first-party,
@@ -11,6 +11,12 @@ const AUTH_BASE = (process.env.VITE_NEON_AUTH_URL ?? process.env.NEON_AUTH_BASE_
 function firstPartyCookie(cookie: string): string {
   return cookie.replace(/;\s*Domain=[^;]*/i, '');
 }
+
+// Raw body parser for /api/auth-proxy/*. Must be mounted BEFORE express.json so
+// the upstream receives the exact bytes the browser sent (form-encoded OAuth
+// callbacks, empty `{}` JSON bodies, etc.) instead of a re-serialized object.
+// express.json skips requests whose body was already read.
+export const authProxyRawBody = express.raw({ type: '*/*', limit: '4mb' });
 
 export async function authProxy(req: Request, res: Response): Promise<void> {
   if (!AUTH_BASE) { res.status(503).json({ error: 'Auth is not configured' }); return; }
@@ -28,7 +34,11 @@ export async function authProxy(req: Request, res: Response): Promise<void> {
 
   const init: RequestInit = { method: req.method, headers, redirect: 'manual' };
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    if (req.body != null && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+    if (Buffer.isBuffer(req.body)) {
+      // Forward the raw bytes unchanged (see authProxyRawBody).
+      if (req.body.length > 0) init.body = new Uint8Array(req.body);
+    } else if (req.body != null && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+      // Fallback if a platform pre-parsed the body before the raw parser ran.
       init.body = JSON.stringify(req.body);
       if (!headers['content-type']) headers['content-type'] = 'application/json';
     } else if (typeof req.body === 'string' && req.body.length) {
