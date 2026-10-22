@@ -77,15 +77,19 @@ export default function SpecialQuestPanel({ onXpChange, onSettled }: Props) {
 
   function handleToggle(quest: SpecialQuest, completed: boolean) {
     if (!board) return;
-    const prevBoard = board;
-    setBoard({ ...board, [quest.category]: board[quest.category].map((q) => (q.id === quest.id ? { ...q, completed } : q)) });
+    // Functional updates touching only this quest, so a failed request can't
+    // wipe other toggles made while it was in flight.
+    const setCompleted = (value: boolean) => setBoard((b) => (b
+      ? { ...b, [quest.category]: b[quest.category].map((q) => (q.id === quest.id ? { ...q, completed: value } : q)) }
+      : b));
+    setCompleted(completed);
 
     apiClient.patch(`/api/special-quests/${quest.id}`, { body: { completed } })
       .then(() => {
         if (completed && onXpChange) onXpChange(quest.xpReward, quest.title);
       })
       .catch((err) => {
-        setBoard(prevBoard);
+        setCompleted(!completed);
         showToast(errorMessage(err, 'Failed to update quest'));
       })
       .finally(() => onSettled?.());
