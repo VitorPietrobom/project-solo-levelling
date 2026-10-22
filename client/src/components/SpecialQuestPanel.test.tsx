@@ -83,4 +83,24 @@ describe('SpecialQuestPanel', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Mark "Drink enough water" complete')).toBeInTheDocument());
   });
+
+  it('a failed toggle reverts only that quest, keeping a concurrent successful toggle', async () => {
+    mockGet.mockResolvedValue(board);
+    let rejectA: (e: Error) => void = () => {};
+    mockPatch.mockImplementation((url: string) => (url.endsWith('d-water')
+      ? new Promise((_res, rej) => { rejectA = rej; })
+      : Promise.resolve({})));
+    const onXpChange = vi.fn();
+    render(<SpecialQuestPanel onXpChange={onXpChange} />);
+
+    await waitFor(() => expect(screen.getByText('Drink enough water')).toBeInTheDocument());
+    await userEvent.click(screen.getByLabelText('Mark "Drink enough water" complete'));
+    await userEvent.click(screen.getByLabelText('Mark "Hit the gym 3 times this week" complete'));
+    await waitFor(() => expect(onXpChange).toHaveBeenCalledWith(50, 'Hit the gym 3 times this week'));
+
+    rejectA(new Error('fail'));
+    await waitFor(() => expect(screen.getByLabelText('Mark "Drink enough water" complete')).toBeInTheDocument());
+    expect(screen.getByLabelText('Mark "Hit the gym 3 times this week" incomplete')).toBeInTheDocument();
+    expect(onXpChange).not.toHaveBeenCalledWith(10, 'Drink enough water');
+  });
 });
