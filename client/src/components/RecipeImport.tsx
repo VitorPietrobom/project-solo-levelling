@@ -56,33 +56,34 @@ export default function RecipeImport({ onImport }: RecipeImportProps) {
         return Number.isFinite(n) && n >= 1 ? Math.round(n) : 1;
       };
 
+      const toText = (v: any): string => (v == null ? '' : String(v));
+      const ingredients = (Array.isArray(data.ingredients) ? data.ingredients : [])
+        .filter((ing: any) => ing && typeof ing.name === 'string' && ing.name.trim())
+        .map((ing: any) => ({ name: ing.name.trim(), quantity: toText(ing.quantity), unit: toText(ing.unit) }));
+      const caloriesPerServing = toMacro(data.caloriesPerServing);
+
       const now = Date.now();
       const optimistic: Recipe = {
         id: `temp-${now}`,
         name: data.name,
         steps: data.steps,
-        caloriesPerServing: data.caloriesPerServing || 0,
+        caloriesPerServing,
         protein: toMacro(data.protein),
         carbs: toMacro(data.carbs),
         fat: toMacro(data.fat),
         servings: toServings(data.servings),
-        ingredients: (data.ingredients || []).map((ing: any, i: number) => ({
-          id: `temp-ing-${now}-${i}`,
-          name: ing.name,
-          quantity: ing.quantity || '',
-          unit: ing.unit || '',
-        })),
+        ingredients: ingredients.map((ing: any, i: number) => ({ id: `temp-ing-${now}-${i}`, ...ing })),
       };
 
       onImport(optimistic, {
         name: data.name,
         steps: data.steps,
-        caloriesPerServing: data.caloriesPerServing || 0,
+        caloriesPerServing,
         protein: toMacro(data.protein),
         carbs: toMacro(data.carbs),
         fat: toMacro(data.fat),
         servings: toServings(data.servings),
-        ingredients: data.ingredients || [],
+        ingredients,
       });
 
       setJson('');
