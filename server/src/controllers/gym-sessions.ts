@@ -1,7 +1,11 @@
 import { Request, Response } from 'express';
+import { MuscleGroup } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { parseCalendarDate } from '../lib/calendarDate';
 import { calculateSoreness } from '../services/soreness';
+
+const MAX_SETS_OR_REPS = 1000;
+const VALID_MUSCLE_GROUPS = new Set<string>(Object.values(MuscleGroup));
 
 export async function listGymSessions(req: Request, res: Response): Promise<void> {
   try {
@@ -52,17 +56,26 @@ export async function createGymSession(req: Request, res: Response): Promise<voi
         res.status(400).json({ error: 'Each exercise needs a name' });
         return;
       }
-      if (typeof ex.sets !== 'number' || !Number.isInteger(ex.sets) || ex.sets <= 0) {
-        res.status(400).json({ error: 'sets must be a positive integer' });
+      if (typeof ex.sets !== 'number' || !Number.isInteger(ex.sets) || ex.sets <= 0 || ex.sets > MAX_SETS_OR_REPS) {
+        res.status(400).json({ error: `sets must be an integer between 1 and ${MAX_SETS_OR_REPS}` });
         return;
       }
-      if (typeof ex.reps !== 'number' || !Number.isInteger(ex.reps) || ex.reps <= 0) {
-        res.status(400).json({ error: 'reps must be a positive integer' });
+      if (typeof ex.reps !== 'number' || !Number.isInteger(ex.reps) || ex.reps <= 0 || ex.reps > MAX_SETS_OR_REPS) {
+        res.status(400).json({ error: `reps must be an integer between 1 and ${MAX_SETS_OR_REPS}` });
         return;
       }
       if (ex.weight !== undefined && (typeof ex.weight !== 'number' || !Number.isFinite(ex.weight) || ex.weight < 0)) {
         res.status(400).json({ error: 'weight must be a non-negative number' });
         return;
+      }
+      if (ex.muscleGroups !== undefined && ex.muscleGroups !== null) {
+        if (
+          !Array.isArray(ex.muscleGroups) ||
+          !ex.muscleGroups.every((mg: unknown) => typeof mg === 'string' && VALID_MUSCLE_GROUPS.has(mg))
+        ) {
+          res.status(400).json({ error: `muscleGroups must be an array of: ${[...VALID_MUSCLE_GROUPS].join(', ')}` });
+          return;
+        }
       }
     }
 
@@ -78,7 +91,7 @@ export async function createGymSession(req: Request, res: Response): Promise<voi
             reps: ex.reps,
             weight: ex.weight ?? 0,
             muscleGroups: {
-              create: (ex.muscleGroups || []).map((mg: string) => ({
+              create: [...new Set<MuscleGroup>(ex.muscleGroups || [])].map((mg) => ({
                 muscleGroup: mg,
               })),
             },
