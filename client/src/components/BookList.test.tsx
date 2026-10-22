@@ -84,4 +84,24 @@ describe('BookList', () => {
     await userEvent.click(screen.getByText('Log'));
     expect(onUpdateProgress).toHaveBeenCalledWith('b2', 200);
   });
+
+  it('disables actions on optimistic temp- books until the real id arrives', async () => {
+    const onUpdateStatus = vi.fn();
+    const onDelete = vi.fn();
+    const onRefreshCover = vi.fn();
+    const temp: Book = { ...sampleBooks[0], id: 'temp-123', title: 'Pending Book' };
+    render(<BookList books={[temp]} onUpdateStatus={onUpdateStatus} onUpdateProgress={vi.fn()} onRefreshCover={onRefreshCover} onDelete={onDelete} />);
+    const reading = screen.getByRole('button', { name: 'Reading' });
+    const del = screen.getByRole('button', { name: 'Delete Pending Book' });
+    const cover = screen.getByRole('button', { name: 'Find cover' });
+    expect(reading).toBeDisabled();
+    expect(del).toBeDisabled();
+    expect(cover).toBeDisabled();
+    await userEvent.click(reading);
+    await userEvent.click(del);
+    await userEvent.click(cover);
+    expect(onUpdateStatus).not.toHaveBeenCalled();
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(onRefreshCover).not.toHaveBeenCalled();
+  });
 });
