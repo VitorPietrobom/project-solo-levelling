@@ -1,4 +1,4 @@
-import { getAuthToken } from './neonAuth';
+import { authClient, getAuthToken } from './neonAuth';
 
 // Only idempotent methods are safe to re-send after a network failure: the
 // server may have already processed the first attempt. POST and PATCH are not.
@@ -18,6 +18,30 @@ class ApiError extends Error {
   }
 }
 
+// Parallel requests can all 401 at once; only the first should sign out and
+// redirect. The page navigates away, so this never needs resetting in the app.
+let redirectingToLogin = false;
+
+/** Test-only: reset the one-shot 401 redirect guard. */
+export function resetUnauthorizedRedirectForTests(): void {
+  redirectingToLogin = false;
+}
+
+async function handleUnauthorized(): Promise<void> {
+  if (redirectingToLogin) return;
+  redirectingToLogin = true;
+  // Clear the Better Auth session first: otherwise a cookie session whose JWT
+  // the API rejects looks "logged in" and every sign-in bounces back here.
+  try {
+    await authClient.signOut();
+  } catch {
+    // Redirect anyway; a failed sign-out must not strand the user.
+  }
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+}
+
 async function handleResponse(response: Response): Promise<unknown> {
   if (response.ok) {
     const text = await response.text();
@@ -25,7 +49,7 @@ async function handleResponse(response: Response): Promise<unknown> {
   }
 
   if (response.status === 401) {
-    window.location.href = '/login';
+    await handleUnauthorized();
     throw new ApiError('Unauthorized', 401);
   }
 

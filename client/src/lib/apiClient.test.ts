@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockGetAuthToken = vi.fn();
+const mockSignOut = vi.fn();
 vi.mock('./neonAuth', () => ({
   getAuthToken: () => mockGetAuthToken(),
+  authClient: { signOut: () => mockSignOut() },
 }));
 
-import { apiClient, ApiError } from './apiClient';
+import { apiClient, ApiError, resetUnauthorizedRedirectForTests } from './apiClient';
 
 function mockResponse(status: number, body?: unknown, ok?: boolean): Response {
   return {
@@ -21,7 +23,9 @@ describe('apiClient', () => {
     vi.stubGlobal('fetch', vi.fn());
     vi.clearAllMocks();
     delete (window as any).location;
-    (window as any).location = { href: '' };
+    (window as any).location = { href: '', pathname: '/' };
+    resetUnauthorizedRedirectForTests();
+    mockSignOut.mockResolvedValue(undefined);
     mockGetAuthToken.mockResolvedValue('neon-token');
   });
 
@@ -52,6 +56,43 @@ describe('apiClient', () => {
 
     await expect(apiClient.get('/api/protected')).rejects.toThrow('Unauthorized');
     expect(window.location.href).toBe('/login');
+  });
+
+  it('signs out of Better Auth before redirecting on 401', async () => {
+    vi.mocked(fetch).mockResolvedValue(mockResponse(401, null, false));
+
+    await expect(apiClient.get('/api/protected')).rejects.toThrow('Unauthorized');
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('still redirects on 401 when signOut fails', async () => {
+    mockSignOut.mockRejectedValue(new Error('offline'));
+    vi.mocked(fetch).mockResolvedValue(mockResponse(401, null, false));
+
+    await expect(apiClient.get('/api/protected')).rejects.toThrow('Unauthorized');
+    expect(window.location.href).toBe('/login');
+  });
+
+  it('only signs out and redirects once for parallel 401s', async () => {
+    vi.mocked(fetch).mockResolvedValue(mockResponse(401, null, false));
+    const hrefSet = vi.fn();
+    Object.defineProperty(window.location, 'href', { set: hrefSet, get: () => '' });
+
+    await Promise.allSettled([
+      apiClient.get('/api/a'),
+      apiClient.get('/api/b'),
+      apiClient.get('/api/c'),
+    ]);
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(hrefSet).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not redirect on 401 when already on /login', async () => {
+    (window as any).location = { href: '', pathname: '/login' };
+    vi.mocked(fetch).mockResolvedValue(mockResponse(401, null, false));
+
+    await expect(apiClient.get('/api/protected')).rejects.toThrow('Unauthorized');
+    expect(window.location.href).toBe('');
   });
 
   it('throws ApiError with server message on 4xx', async () => {
