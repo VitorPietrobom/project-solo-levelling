@@ -290,7 +290,9 @@ export default function DietTab() {
                   <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{entry.calories}<span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 3 }}>kcal</span></span>
                   <button
                     onClick={() => handleFoodEntryDeleted(entry.id)}
-                    style={{ color: 'var(--bad)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+                    // Optimistic rows have no server id yet; deleting them would 404.
+                    disabled={entry.id.startsWith('temp-')}
+                    style={{ color: 'var(--bad)', background: 'none', border: 'none', cursor: entry.id.startsWith('temp-') ? 'default' : 'pointer', opacity: entry.id.startsWith('temp-') ? 0.4 : 1, fontSize: 14, lineHeight: 1 }}
                     aria-label={`Delete ${entry.foodName}`}
                   >
                     ✕
