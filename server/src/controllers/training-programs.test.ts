@@ -12,6 +12,7 @@ vi.mock('../lib/prisma', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    $transaction: vi.fn((ops: unknown[]) => Promise.all(ops)),
     user: {
       upsert: vi.fn().mockResolvedValue({}),
     },
@@ -189,9 +190,10 @@ describe('Training program endpoints', () => {
       expect(res.status).toBe(200);
       expect(res.body.active).toBe(true);
       expect(prisma.trainingProgram.updateMany).toHaveBeenCalledWith({
-        where: { userId: 'test-user-id' },
+        where: { userId: 'test-user-id', id: { not: 'tp1' } },
         data: { active: false },
       });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(prisma.trainingProgram.update).toHaveBeenCalledWith({
         where: { id: 'tp1' },
         data: { active: true },
@@ -203,6 +205,7 @@ describe('Training program endpoints', () => {
       (prisma.trainingProgram.findFirst as any).mockResolvedValue(null);
 
       const res = await request(app).patch('/api/training-programs/nonexistent/activate');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('Training program not found');

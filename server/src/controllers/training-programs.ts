@@ -121,27 +121,28 @@ export async function activateTrainingProgram(req: Request, res: Response): Prom
       return;
     }
 
-    // Deactivate all user programs first
-    await prisma.trainingProgram.updateMany({
-      where: { userId },
-      data: { active: false },
-    });
-
-    // Activate the specified program
-    const updated = await prisma.trainingProgram.update({
-      where: { id: programId },
-      data: { active: true },
-      include: {
-        days: {
-          orderBy: { dayOfWeek: 'asc' as const },
-          include: {
-            exercises: {
-              orderBy: { sortOrder: 'asc' as const },
+    // Deactivate all other programs and activate this one atomically so
+    // concurrent activations can't leave zero or multiple active programs.
+    const [, updated] = await prisma.$transaction([
+      prisma.trainingProgram.updateMany({
+        where: { userId, id: { not: programId } },
+        data: { active: false },
+      }),
+      prisma.trainingProgram.update({
+        where: { id: programId },
+        data: { active: true },
+        include: {
+          days: {
+            orderBy: { dayOfWeek: 'asc' as const },
+            include: {
+              exercises: {
+                orderBy: { sortOrder: 'asc' as const },
+              },
             },
           },
         },
-      },
-    });
+      }),
+    ]);
 
     res.json(updated);
   } catch (err) {
