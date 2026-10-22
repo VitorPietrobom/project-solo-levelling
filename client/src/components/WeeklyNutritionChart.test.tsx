@@ -12,6 +12,12 @@ vi.mock('../lib/apiClient', () => ({
     post: (...args: any[]) => mockPost(...args),
     put: (...args: any[]) => mockPut(...args),
   },
+  errorMessage: (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback),
+}));
+
+const mockShowToast = vi.fn();
+vi.mock('../contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 // A Wednesday, so the week runs Mon 2026-08-17 .. Sun 2026-08-23.
@@ -157,5 +163,49 @@ describe('WeeklyNutritionChart', () => {
     await userEvent.click(await screen.findByText('Bulk'));
 
     await waitFor(() => expect(mockPut).toHaveBeenCalledWith('/api/nutrition/settings', { body: { goal: 'bulk', calorieDelta: 300 } }));
+  });
+
+  async function openSettings() {
+    render(<WeeklyNutritionChart selectedDate={WED} onSelectDate={vi.fn()} />);
+    await userEvent.click(await screen.findByText('Adjust'));
+    return (await screen.findByLabelText(/Protein g\/kg/)) as HTMLInputElement;
+  }
+
+  it('does not save 0 when a numeric setting is cleared, and restores the saved value', async () => {
+    mockWeek({});
+    const input = await openSettings();
+    await userEvent.clear(input);
+    await userEvent.tab();
+    expect(mockPut).not.toHaveBeenCalled();
+    expect(input.value).toBe('1.8');
+  });
+
+  it('does not save an unchanged numeric setting on blur', async () => {
+    mockWeek({});
+    const input = await openSettings();
+    await userEvent.click(input);
+    await userEvent.tab();
+    expect(mockPut).not.toHaveBeenCalled();
+  });
+
+  it('saves a changed numeric setting', async () => {
+    mockWeek({});
+    mockPut.mockResolvedValue({ goal: 'cut', adjust: 'steady', calorieDelta: -500, proteinPerKg: 2, fallbackCalories: 2200 });
+    const input = await openSettings();
+    await userEvent.clear(input);
+    await userEvent.type(input, '2');
+    await userEvent.tab();
+    await waitFor(() => expect(mockPut).toHaveBeenCalledWith('/api/nutrition/settings', { body: { proteinPerKg: 2 } }));
+  });
+
+  it('toasts and resets the field when saving a setting fails', async () => {
+    mockWeek({});
+    mockPut.mockRejectedValue(new Error('boom'));
+    const input = await openSettings();
+    await userEvent.clear(input);
+    await userEvent.type(input, '2.5');
+    await userEvent.tab();
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+    await waitFor(() => expect(input.value).toBe('1.8'));
   });
 });

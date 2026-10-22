@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Flame, Activity, Settings2, TrendingDown, Brain, Zap, Check } from 'lucide-react';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, errorMessage } from '../lib/apiClient';
+import { useToast } from '../contexts/ToastContext';
 import { useAriseAddXP } from './Dashboard';
 import { mondayOf } from '../lib/localDate';
 
@@ -63,6 +64,7 @@ interface Props {
 
 export default function WeeklyNutritionChart({ selectedDate, onSelectDate, refreshKey = 0 }: Props) {
   const addXP = useAriseAddXP();
+  const { showToast } = useToast();
   const [data, setData] = useState<TargetResponse | null>(null);
   const [byDay, setByDay] = useState<Record<string, Macro>>({});
   const [view, setView] = useState<'consumed' | 'remaining'>('consumed');
@@ -108,13 +110,31 @@ export default function WeeklyNutritionChart({ selectedDate, onSelectDate, refre
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
   useEffect(() => { fetchWeekEntries(monday); }, [monday, fetchWeekEntries, refreshKey]);
 
-  async function saveSettings(patch: Partial<SettingsResponse>) {
+  /** Returns false when the save failed (a toast has already been shown). */
+  async function saveSettings(patch: Partial<SettingsResponse>): Promise<boolean> {
     setSaving(true);
     try {
       const next = (await apiClient.put('/api/nutrition/settings', { body: patch })) as SettingsResponse;
       setSettings(next);
       await fetchTarget();
+      return true;
+    } catch (err) {
+      showToast(errorMessage(err, 'Failed to save nutrition settings'));
+      return false;
     } finally { setSaving(false); }
+  }
+
+  /** Blur handler for the numeric inputs: ignore empty/non-numeric/unchanged values (an empty field
+   *  used to save 0) and restore the last saved value if the input is invalid or the save fails. */
+  async function saveNumberField(key: 'calorieDelta' | 'proteinPerKg' | 'fallbackCalories', input: HTMLInputElement) {
+    if (!settings) return;
+    const current = settings[key];
+    const raw = input.value.trim();
+    const value = Number(raw);
+    if (raw === '' || !Number.isFinite(value)) { input.value = String(current); return; }
+    if (value === current) return;
+    const ok = await saveSettings({ [key]: value });
+    if (!ok) input.value = String(current);
   }
 
   async function claimXp() {
@@ -175,7 +195,7 @@ export default function WeeklyNutritionChart({ selectedDate, onSelectDate, refre
               Goal kcal adjustment
               <input
                 type="number" step={50} defaultValue={settings.calorieDelta}
-                onBlur={(e) => saveSettings({ calorieDelta: Number(e.target.value) })}
+                onBlur={(e) => saveNumberField('calorieDelta', e.currentTarget)}
                 style={{ display: 'block', marginTop: 5, width: 110, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '6px 10px', fontSize: 13 }}
               />
             </label>
@@ -183,7 +203,7 @@ export default function WeeklyNutritionChart({ selectedDate, onSelectDate, refre
               Protein g/kg bodyweight
               <input
                 type="number" step={0.1} defaultValue={settings.proteinPerKg}
-                onBlur={(e) => saveSettings({ proteinPerKg: Number(e.target.value) })}
+                onBlur={(e) => saveNumberField('proteinPerKg', e.currentTarget)}
                 style={{ display: 'block', marginTop: 5, width: 110, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '6px 10px', fontSize: 13 }}
               />
             </label>
@@ -191,7 +211,7 @@ export default function WeeklyNutritionChart({ selectedDate, onSelectDate, refre
               Base calories (until adaptive)
               <input
                 type="number" step={50} defaultValue={settings.fallbackCalories}
-                onBlur={(e) => saveSettings({ fallbackCalories: Number(e.target.value) })}
+                onBlur={(e) => saveNumberField('fallbackCalories', e.currentTarget)}
                 style={{ display: 'block', marginTop: 5, width: 110, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line-soft)', borderRadius: 'var(--r-sm)', padding: '6px 10px', fontSize: 13 }}
               />
             </label>
