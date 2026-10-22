@@ -79,6 +79,8 @@ describe('BodyTab weight card', () => {
     await userEvent.click(screen.getByText('Log Entry'));
 
     await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('Weight entry already exists for this date'));
+    // OE-045: the form reopens with the submitted value instead of losing it.
+    await waitFor(() => expect(screen.getByLabelText('Weight in kg')).toHaveValue(80));
   });
 
   it('replaces the existing row when the server updates it instead of duplicating it', async () => {
@@ -193,5 +195,33 @@ describe('BodyTab gym sessions card', () => {
         exercises: [expect.objectContaining({ name: 'Bench Press', muscleGroups: ['chest'] })],
       }),
     }));
+  });
+
+  it('reopens the manual session form pre-filled when the save fails (OE-045)', async () => {
+    mockPost.mockRejectedValue(new Error('offline'));
+    render(<BodyTab />);
+    await waitFor(() => expect(screen.getByText('Log Session')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('Log Session'));
+    await userEvent.type(screen.getByLabelText('Exercise 1 name'), 'Bench Press');
+    await userEvent.click(screen.getByText('chest'));
+    await userEvent.click(screen.getByText('Save Session'));
+
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('Failed to import gym session'));
+    await waitFor(() => expect(screen.getByLabelText('Exercise 1 name')).toHaveValue('Bench Press'));
+  });
+
+  it('reopens the training program form pre-filled when the save fails (OE-045)', async () => {
+    mockPost.mockRejectedValue(new Error('offline'));
+    render(<BodyTab />);
+    await waitFor(() => expect(screen.getByText('New Program')).toBeInTheDocument());
+    await userEvent.click(screen.getByText('New Program'));
+    await userEvent.type(screen.getByLabelText('Program name'), 'Push Pull');
+    await userEvent.type(screen.getByLabelText('Exercise 1 name'), 'Squat');
+    await userEvent.click(screen.getByRole('button', { name: /create program/i }));
+
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('Failed to create training program'));
+    await waitFor(() => expect(screen.getByLabelText('Program name')).toHaveValue('Push Pull'));
+    expect(screen.getByLabelText('Exercise 1 name')).toHaveValue('Squat');
   });
 });

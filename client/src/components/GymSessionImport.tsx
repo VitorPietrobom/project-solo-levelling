@@ -16,6 +16,8 @@ interface GymSessionImportProps {
       }[];
     },
   ) => void;
+  /** Pre-fill from a previous submission whose save failed (OE-045). */
+  initial?: { date: string; notes: string; exercises: unknown[] };
 }
 
 const PROMPT_TEXT = `I need you to convert my Hevy workout screenshot into this exact JSON format. Look at the exercises, sets, reps, and weights in the image and map them to the correct muscle groups.
@@ -46,8 +48,8 @@ Rules:
 - Map each exercise to its PRIMARY muscle groups (1-3 groups per exercise)
 - Common mappings: Bench Press → chest, triceps, shoulders | Squat → quads, glutes | Deadlift → back, hamstrings, glutes | Pull-up → back, biceps | OHP → shoulders, triceps | Push-up → chest, triceps | Dip → chest, triceps | Plank → abs | Crunch → abs | Leg Raise → abs`;
 
-export default function GymSessionImport({ onImport }: GymSessionImportProps) {
-  const [json, setJson] = useState('');
+export default function GymSessionImport({ onImport, initial }: GymSessionImportProps) {
+  const [json, setJson] = useState(() => (initial ? JSON.stringify(initial, null, 2) : ''));
   const [error, setError] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
 

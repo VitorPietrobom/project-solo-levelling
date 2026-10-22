@@ -7,14 +7,16 @@ interface MeasurementFormProps {
     optimistic: Measurement,
     body: { type: string; value: number; date: string },
   ) => void;
+  /** Pre-fill from a previous submission whose save failed (OE-045). */
+  initial?: { type: string; value: number; date: string };
 }
 
 const TYPES: Measurement['type'][] = ['chest', 'waist', 'hips', 'arms', 'thighs'];
 
-export default function MeasurementForm({ onCreated }: MeasurementFormProps) {
-  const [type, setType] = useState<Measurement['type']>('chest');
-  const [value, setValue] = useState('');
-  const [date, setDate] = useState(() => localISODate());
+export default function MeasurementForm({ onCreated, initial }: MeasurementFormProps) {
+  const [type, setType] = useState<Measurement['type']>(() => (initial?.type as Measurement['type']) ?? 'chest');
+  const [value, setValue] = useState(() => (initial ? String(initial.value) : ''));
+  const [date, setDate] = useState(() => initial?.date ?? localISODate());
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
