@@ -226,6 +226,61 @@ describe('Food entry endpoints', () => {
       expect(prisma.customFoodProduct.findFirst).not.toHaveBeenCalled();
     });
 
+    it('coerces string/null/negative nutriments and trims the name', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: 1,
+          product: {
+            product_name: '  Oats ',
+            nutriments: { 'energy-kcal_100g': '379', proteins_100g: '13.15', carbohydrates_100g: null, fat_100g: -4 },
+            serving_quantity: 'abc',
+          },
+        }),
+      });
+
+      const res = await request(app).get('/api/food-entries/barcode/0123456789012');
+
+      expect(res.body).toEqual({
+        found: true,
+        source: 'openfoodfacts',
+        foodName: 'Oats',
+        caloriesPer100g: 379,
+        proteinPer100g: 13.2,
+        carbsPer100g: 0,
+        fatPer100g: 0,
+        servingGrams: null,
+      });
+    });
+
+    it('falls back to the custom table when product_name is not a string', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 1, product: { product_name: 42, nutriments: {} } }),
+      });
+
+      const res = await request(app).get('/api/food-entries/barcode/0123456789012');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ found: false });
+      expect(prisma.customFoodProduct.findFirst).toHaveBeenCalled();
+    });
+
+    it('falls back when reading the Open Food Facts body rejects (e.g. timeout)', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => { throw new DOMException('timed out', 'TimeoutError'); },
+      });
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const res = await request(app).get('/api/food-entries/barcode/0123456789012');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ found: false });
+      expect(prisma.customFoodProduct.findFirst).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
     it('reports not found when neither Open Food Facts nor the custom table has it', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: async () => ({ status: 0 }) });
 

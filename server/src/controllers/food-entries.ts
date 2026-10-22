@@ -93,6 +93,18 @@ export async function createFoodEntry(req: Request, res: Response): Promise<void
 
 const BARCODE_RE = /^\d{6,14}$/;
 
+// Open Food Facts nutriments are loosely typed: numbers, numeric strings
+// ("7.2"), null or junk. Coerce to a finite, non-negative number (else 0).
+function toNutriment(v: unknown): number {
+  if (v === null || v === undefined || v === '' || typeof v === 'boolean') return 0;
+  const num = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(num) && num >= 0 ? num : 0;
+}
+
+function round1(v: number): number {
+  return Math.round(v * 10) / 10;
+}
+
 // GET /api/food-entries/barcode/:code — looks up a product by UPC/EAN, first
 // via Open Food Facts (free, no API key), falling back to our own
 // CustomFoodProduct table for anything OFF doesn't have. Returns per-100g
@@ -105,37 +117,42 @@ export async function lookupBarcode(req: Request, res: Response): Promise<void> 
   }
 
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 5000);
-    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json`, { signal: ctrl.signal });
-    clearTimeout(timer);
+    // AbortSignal.timeout covers the whole exchange, including reading the
+    // body via r.json(), so a stalled response can't hang the function.
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json`, {
+      signal: AbortSignal.timeout(5000),
+    });
 
     if (r.ok) {
       const data = await r.json() as {
         status?: number;
         product?: {
-          product_name?: string;
-          nutriments?: Record<string, number>;
-          serving_size?: string;
-          serving_quantity?: number;
+          product_name?: unknown;
+          nutriments?: Record<string, unknown> | null;
+          serving_size?: unknown;
+          serving_quantity?: unknown;
         };
       };
 
-      if (data.status === 1 && data.product?.product_name) {
-        const n = data.product.nutriments ?? {};
+      const name = typeof data.product?.product_name === 'string' ? data.product.product_name.trim() : '';
+      if (data.status === 1 && data.product && name) {
+        const raw = data.product.nutriments;
+        const n: Record<string, unknown> = raw && typeof raw === 'object' ? raw : {};
         // Open Food Facts keys energy in kcal directly under "energy-kcal_100g"
         // (falling back to kJ/4.184 if only the kJ field is present).
-        const caloriesPer100g = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : 0);
+        const kcal = toNutriment(n['energy-kcal_100g']);
+        const caloriesPer100g = kcal > 0 ? kcal : toNutriment(n['energy_100g']) / 4.184;
+        const serving = toNutriment(data.product.serving_quantity);
 
         res.json({
           found: true,
           source: 'openfoodfacts',
-          foodName: data.product.product_name.trim(),
-          caloriesPer100g: Math.round(caloriesPer100g) || 0,
-          proteinPer100g: n['proteins_100g'] ?? 0,
-          carbsPer100g: n['carbohydrates_100g'] ?? 0,
-          fatPer100g: n['fat_100g'] ?? 0,
-          servingGrams: data.product.serving_quantity ?? null,
+          foodName: name,
+          caloriesPer100g: Math.round(caloriesPer100g),
+          proteinPer100g: round1(toNutriment(n['proteins_100g'])),
+          carbsPer100g: round1(toNutriment(n['carbohydrates_100g'])),
+          fatPer100g: round1(toNutriment(n['fat_100g'])),
+          servingGrams: serving > 0 ? round1(serving) : null,
         });
         return;
       }
