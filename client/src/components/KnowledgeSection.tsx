@@ -82,27 +82,31 @@ export default function KnowledgeSection({ query, activeTags, refreshKey = 0, on
   function select(id: string) { setSelectedId(id); setEditing(null); }
 
   async function handleSave(draft: NodeDraft) {
+    // Keep the editor (and its draft) open until the request succeeds.
     if (editing === 'existing' && selectedId) {
-      setEditing(null);
       try {
         await apiClient.patch(`/api/knowledge/${selectedId}`, { body: draft });
       } catch (err) {
         showToast(errorMessage(err, 'Failed to save node'));
+        return;
       }
+      setEditing(null);
       await Promise.all([fetchGraph(), fetchNode(selectedId)]);
       onChanged?.();
       return;
     }
-    setEditing(null);
+    let created: GraphNode;
     try {
-      const created = (await apiClient.post('/api/knowledge', { body: draft })) as GraphNode;
-      addXP(NODE_XP, 'Knowledge node');
-      await fetchGraph();
-      setSelectedId(created.id);
-      onChanged?.();
+      created = (await apiClient.post('/api/knowledge', { body: draft })) as GraphNode;
     } catch (err) {
       showToast(errorMessage(err, 'Failed to create node'));
+      return;
     }
+    setEditing(null);
+    addXP(NODE_XP, 'Knowledge node');
+    await fetchGraph();
+    setSelectedId(created.id);
+    onChanged?.();
   }
 
   async function handleDelete() {
