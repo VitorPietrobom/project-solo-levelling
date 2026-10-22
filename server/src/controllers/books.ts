@@ -133,6 +133,10 @@ export async function updateBook(req: Request, res: Response): Promise<void> {
         res.status(400).json({ error: 'Current page must be a non-negative integer' });
         return;
       }
+      if (existing.totalPages > 0 && currentPage > existing.totalPages) {
+        res.status(400).json({ error: `Current page cannot exceed total pages (${existing.totalPages})` });
+        return;
+      }
       data.currentPage = currentPage;
     }
 
