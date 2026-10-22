@@ -1,12 +1,13 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { handleAsync } from '../lib/asyncHandler';
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
 // GET /api/export — full personal data dump for offline analysis.
-export async function exportData(req: Request, res: Response): Promise<void> {
+async function exportDataImpl(req: Request, res: Response): Promise<void> {
   const userId = req.user!.id;
 
   const [user, foodEntries, whoopDaily, weightEntries, measurements] = await Promise.all([
@@ -79,3 +80,5 @@ export async function exportData(req: Request, res: Response): Promise<void> {
     },
   });
 }
+
+export const exportData = handleAsync('exportData', exportDataImpl);
