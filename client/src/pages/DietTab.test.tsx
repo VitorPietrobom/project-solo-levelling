@@ -16,8 +16,10 @@ vi.mock('../lib/apiClient', () => ({
   errorMessage: (_err: any, fallback: string) => fallback,
 }));
 
+// Stable across renders: DietTab's fetch callbacks depend on showToast.
+const toast = { showToast: vi.fn() };
 vi.mock('../contexts/ToastContext', () => ({
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => toast,
 }));
 
 const today = localISODate();

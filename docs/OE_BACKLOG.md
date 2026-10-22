@@ -276,7 +276,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Add a shared `parseCalendarDate(str)` that requires `/^\d{4}-\d{2}-\d{2}$/` and returns `new Date(\`${d}T00:00:00Z\`)`; return 400 otherwise. Apply to bodies and `start`/`end` query params everywhere listed.
 
 ### OE-026 — Gym session payloads aren't validated (bad muscle groups → 500, session lost)
-- **Status:** Todo
+- **Status:** Done (#105)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server — gym sessions
 - **Location:** `server/src/controllers/gym-sessions.ts:75-79`
@@ -322,7 +322,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Use the shared local-date helper from OE-015.
 
 ### OE-031 — Special Quest toggles don't refresh the Status hero card and roll back badly
-- **Status:** Todo
+- **Status:** Done (#106)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Status / SpecialQuestPanel
 - **Location:** `client/src/pages/GamificationTab.tsx:137, 341`; `client/src/components/SpecialQuestPanel.tsx:203-214`
@@ -414,7 +414,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-009
 
 ### OE-041 — Optimistic temp-id food entries can be deleted before they exist
-- **Status:** Todo
+- **Status:** Done (#113)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Diet / food log
 - **Location:** `client/src/pages/DietTab.tsx:147-155, 288-294`
@@ -424,7 +424,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Related:** OE-013
 
 ### OE-042 — Optimistic temp-id books are fully interactive
-- **Status:** Todo
+- **Status:** Done (#107)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Learning / books
 - **Location:** `client/src/pages/LearningTab.tsx:48-56`; `client/src/components/BookForm.tsx:36`
@@ -443,7 +443,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Targeted functional rollbacks (re-insert only the removed item / restore only the edited value), or refetch on error.
 
 ### OE-044 — Hevy JSON import isn't validated per exercise
-- **Status:** Todo
+- **Status:** Done (#108)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Body / GymSessionImport
 - **Location:** `client/src/components/GymSessionImport.tsx:59-84`
@@ -536,7 +536,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Divide numeric quantities by `recipe.servings`; merge by (lowercased name, unit), summing numeric quantities; keep non-numeric as separate lines.
 
 ### OE-054 — AI meal-plan import doesn't refresh recipes and hides its success message
-- **Status:** Todo
+- **Status:** Done (#109)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Diet / meal-prep AI import
 - **Location:** `client/src/pages/DietTab.tsx:336`; `client/src/components/MealPlanImport.tsx:144-146`
@@ -554,7 +554,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Pre-fill from the current plan (or merge before posting), restrict to Mondays, and only set state when the response is the current week.
 
 ### OE-056 — Nutrition settings inputs save 0 on blur and swallow errors
-- **Status:** Todo
+- **Status:** Done (#110)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Diet / WeeklyNutritionChart
 - **Location:** `client/src/components/WeeklyNutritionChart.tsx:119-126, 186, 194, 202`
@@ -572,7 +572,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Use `toMacro(data.caloriesPerServing)`; keep only ingredients with a string `name`; `String()` quantity/unit.
 
 ### OE-058 — Learning stats count legacy tables instead of knowledge nodes
-- **Status:** Todo
+- **Status:** Done (#111)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Server + Client — Learning / stats
 - **Location:** `server/src/controllers/learning.ts:15-17`; `client/src/components/LearningStats.tsx:94-96`
@@ -600,7 +600,7 @@ the Prisma schema, and every client page/component). Duplicate findings were mer
 - **Fix:** Attach `wheel` in a `useEffect` with `{passive:false}` and remove it on cleanup.
 
 ### OE-061 — Knowledge node editor loses the draft on save failure
-- **Status:** Todo
+- **Status:** Done (#112)
 - **Severity:** Medium · **Confidence:** High
 - **Area:** Client — Learning / KnowledgeSection
 - **Location:** `client/src/components/KnowledgeSection.tsx:85-106`
